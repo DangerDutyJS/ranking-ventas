@@ -51,6 +51,13 @@ const RANK_COLORS = [
 ];
 
 
+function diasLaboralesRestantes(diasLaborados: number): number {
+  const hoy = new Date();
+  const diasTotales = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+  const proporcion = Math.max(0, diasTotales - hoy.getDate()) / diasTotales;
+  return Math.max(1, Math.round(diasLaborados * proporcion));
+}
+
 function barColor(p: number) {
   if (p >= 100) return 'bg-green-500';
   if (p >= 75)  return 'bg-blue-500';
@@ -191,17 +198,24 @@ export default function Home() {
           <div className="space-y-3">
             {ranking.map((asesor, index) => {
               const vm = ventasMap[asesor.id];
-              const totalVentas = vm?.totalVentas ?? 0;
-              const totalUnidades = vm?.totalUnidades ?? 0;
+              // IMPORTE acumulado del mes
+              const totalVentas       = vm?.totalVentas       ?? 0;
+              const totalUnidades     = vm?.totalUnidades     ?? 0;
               const totalTransacciones = vm?.totalTransacciones ?? 0;
+              // UPT = unidades / transacciones
               const upt = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
+              // ABT = importe / transacciones
               const abt = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
+
               const mc = metasMap[asesor.id];
               const metaMensual = mc?.metaMensual ?? 0;
               const diasLab = mc?.diasLaborados ?? 0;
-              const metaDiaria = diasLab > 0 ? metaMensual / diasLab : 0;
-              const progreso = metaMensual > 0 ? Math.min(100, (totalVentas / metaMensual) * 100) : 0;
-              const faltaMes = Math.max(0, metaMensual - totalVentas);
+              const progreso  = metaMensual > 0 ? Math.min(100, (totalVentas / metaMensual) * 100) : 0;
+              const faltaMes  = Math.max(0, metaMensual - totalVentas);
+              // Promedio diario requerido (dinámico): faltaMes / días laborales que quedan estimados
+              const diasRestLab = diasLaboralesRestantes(diasLab);
+              const promedioDiario = faltaMes > 0 && diasLab > 0 ? faltaMes / diasRestLab : null;
+
               const isTop3 = index < 3;
               const { text: mot, color: motColor } = motivacion(progreso);
 
@@ -248,10 +262,10 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Stats: vendido / falta mes / meta diaria / falta hoy */}
+                  {/* Fila 1: Importe + Falta para meta */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-white/70 rounded-xl px-3 py-2">
-                      <p className="text-xs text-gray-400">Vendido</p>
+                      <p className="text-xs text-gray-400">Importe</p>
                       <p className="text-sm font-bold text-gray-900">{formatCurrency(totalVentas)}</p>
                     </div>
                     <div className={`rounded-xl px-3 py-2 ${faltaMes === 0 ? 'bg-green-100' : 'bg-white/70'}`}>
@@ -260,56 +274,48 @@ export default function Home() {
                         {faltaMes === 0 ? '¡Cumplida!' : formatCurrency(faltaMes)}
                       </p>
                     </div>
-                    {meta && (
-                      <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">Meta por día</p>
-                        {metaDiaria > 0
-                          ? <p className="text-sm font-bold text-gray-700">{formatCurrency(metaDiaria)}</p>
-                          : <p className="text-xs text-orange-500 font-medium mt-0.5">Días sin configurar</p>
-                        }
-                      </div>
-                    )}
                   </div>
 
-                  {/* Meta ajustada — proceso de redistribución */}
-                  {mc && (
-                    <div className="mt-3 pt-3 border-t border-black/5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Meta ajustada</p>
-                          <p className="text-base font-bold text-gray-900 mt-0.5">{formatCurrency(mc.metaMensual)}</p>
-                        </div>
-                        <div className="text-right">
-                          {mc.esProporcional ? (
-                            <p className="text-xs text-gray-400 leading-relaxed">
-                              {formatCurrency(mc.presupuestoBase)} × ({mc.diasLaborados}/{mc.diasMes} días)<br />
-                              <span className="text-orange-500 font-medium">Proporcional al ingreso</span>
-                            </p>
-                          ) : mc.redistribucion > 0 ? (
-                            <p className="text-xs text-gray-400 leading-relaxed">
-                              {formatCurrency(mc.presupuestoBase)} + {formatCurrency(mc.redistribucion)}<br />
-                              <span className="text-blue-500 font-medium">Incluye redistribución</span>
-                            </p>
-                          ) : (
-                            <p className="text-xs text-gray-400">Base directa</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* UPT + ABT */}
+                  {/* Fila 2: UPT + ABT (solo si hay transacciones) */}
                   {upt !== null && (
-                    <div className="mt-2 pt-2 border-t border-black/5 grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2 mt-2">
                       <div className="bg-white/70 rounded-xl px-3 py-2">
                         <p className="text-xs text-gray-400">UPT</p>
                         <p className="text-sm font-bold text-gray-900">{upt.toFixed(2)}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{totalUnidades} uds / {totalTransacciones} txn</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{totalUnidades} uds ÷ {totalTransacciones} txn</p>
                       </div>
                       <div className="bg-white/70 rounded-xl px-3 py-2">
                         <p className="text-xs text-gray-400">ABT</p>
                         <p className="text-sm font-bold text-gray-900">{formatCurrency(abt!)}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(totalVentas)} / {totalTransacciones} txn</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(totalVentas)} ÷ {totalTransacciones} txn</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Fila 3: Promedio diario requerido (dinámico) + Meta ajustada */}
+                  {mc && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <div className="bg-white/70 rounded-xl px-3 py-2">
+                        <p className="text-xs text-gray-400">Promedio diario requerido</p>
+                        {promedioDiario !== null
+                          ? <>
+                              <p className="text-sm font-bold text-orange-600">{formatCurrency(promedioDiario)}</p>
+                              <p className="text-xs text-gray-400 mt-0.5">por día · {diasRestLab}d restantes</p>
+                            </>
+                          : <p className="text-sm font-bold text-green-600">¡Meta cumplida!</p>
+                        }
+                      </div>
+                      <div className="bg-white/70 rounded-xl px-3 py-2">
+                        <p className="text-xs text-gray-400">Meta ajustada</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(mc.metaMensual)}</p>
+                        <p className="text-xs mt-0.5">
+                          {mc.esProporcional
+                            ? <span className="text-orange-500">{mc.diasLaborados}/{mc.diasMes} días</span>
+                            : mc.redistribucion > 0
+                              ? <span className="text-blue-500">+{formatCurrency(mc.redistribucion)} redistrib.</span>
+                              : <span className="text-gray-400">Base directa</span>
+                          }
+                        </p>
                       </div>
                     </div>
                   )}
