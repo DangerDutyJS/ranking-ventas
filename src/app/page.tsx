@@ -11,6 +11,7 @@ import LeaderModal from '@/components/LeaderModal';
 import PinModal from '@/components/PinModal';
 import VentasModal from '@/components/VentasModal';
 import TutorialModal from '@/components/TutorialModal';
+import { calcularMetas } from '@/lib/calcularMetas';
 
 interface Asesor {
   id: string;
@@ -24,6 +25,8 @@ interface Asesor {
 interface VentaMes {
   asesorId: string;
   totalVentas: number;
+  totalUnidades: number;
+  totalTransacciones: number;
 }
 
 interface Meta {
@@ -47,11 +50,6 @@ const RANK_COLORS = [
   'border-orange-200 bg-orange-50',
 ];
 
-function diasRestantesMes() {
-  const hoy = new Date();
-  const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-  return fin.getDate() - hoy.getDate();
-}
 
 function barColor(p: number) {
   if (p >= 100) return 'bg-green-500';
@@ -74,7 +72,7 @@ export default function Home() {
   const router = useRouter();
 
   const [asesores, setAsesores] = useState<Asesor[]>([]);
-  const [ventasMap, setVentasMap] = useState<Record<string, number>>({});
+  const [ventasMap, setVentasMap] = useState<Record<string, VentaMes>>({});
   const [meta, setMeta] = useState<Meta | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
@@ -115,11 +113,11 @@ export default function Home() {
     return onSnapshot(
       collection(db, 'tiendas', user.uid, 'ventasMes'),
       (snap) => {
-        const map: Record<string, number> = {};
+        const map: Record<string, VentaMes> = {};
         snap.docs.forEach((d) => {
-          const data = d.data();
+          const data = d.data() as VentaMes & { mes: string };
           if (data.mes === mes) {
-            map[data.asesorId] = data.totalVentas;
+            map[data.asesorId] = data;
           }
         });
         setVentasMap(map);
@@ -130,9 +128,11 @@ export default function Home() {
 
   if (authLoading || !user) return null;
 
-  const metaPorAsesor = meta && asesores.length > 0 ? meta.montoTotal / asesores.length : 0;
+  const metasMap = meta && asesores.length > 0
+    ? calcularMetas(meta.montoTotal, asesores.map((a) => a.id), meta.asesores)
+    : {};
 
-  const ranking = [...asesores].sort((a, b) => (ventasMap[b.id] ?? 0) - (ventasMap[a.id] ?? 0));
+  const ranking = [...asesores].sort((a, b) => (ventasMap[b.id]?.totalVentas ?? 0) - (ventasMap[a.id]?.totalVentas ?? 0));
 
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
@@ -190,13 +190,18 @@ export default function Home() {
         ) : (
           <div className="space-y-3">
             {ranking.map((asesor, index) => {
-              const totalVentas = ventasMap[asesor.id] ?? 0;
-              const diasLab = meta?.asesores[asesor.id]?.diasLaborados ?? 0;
-              const metaDiaria = diasLab > 0 ? metaPorAsesor / diasLab : 0;
-              const progreso = metaPorAsesor > 0 ? Math.min(100, (totalVentas / metaPorAsesor) * 100) : 0;
-              const faltaMes = Math.max(0, metaPorAsesor - totalVentas);
-              const diasRestantes = diasRestantesMes();
-              const faltaDiario = diasRestantes > 0 && faltaMes > 0 ? faltaMes / diasRestantes : 0;
+              const vm = ventasMap[asesor.id];
+              const totalVentas = vm?.totalVentas ?? 0;
+              const totalUnidades = vm?.totalUnidades ?? 0;
+              const totalTransacciones = vm?.totalTransacciones ?? 0;
+              const upt = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
+              const abt = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
+              const mc = metasMap[asesor.id];
+              const metaMensual = mc?.metaMensual ?? 0;
+              const diasLab = mc?.diasLaborados ?? 0;
+              const metaDiaria = diasLab > 0 ? metaMensual / diasLab : 0;
+              const progreso = metaMensual > 0 ? Math.min(100, (totalVentas / metaMensual) * 100) : 0;
+              const faltaMes = Math.max(0, metaMensual - totalVentas);
               const isTop3 = index < 3;
               const { text: mot, color: motColor } = motivacion(progreso);
 
@@ -264,13 +269,50 @@ export default function Home() {
                         }
                       </div>
                     )}
-                    {faltaDiario > 0 && (
-                      <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">Necesita/día ({diasRestantes}d restantes)</p>
-                        <p className="text-sm font-bold text-orange-600">{formatCurrency(faltaDiario)}</p>
-                      </div>
-                    )}
                   </div>
+
+                  {/* Meta ajustada — proceso de redistribución */}
+                  {mc && (
+                    <div className="mt-3 pt-3 border-t border-black/5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Meta ajustada</p>
+                          <p className="text-base font-bold text-gray-900 mt-0.5">{formatCurrency(mc.metaMensual)}</p>
+                        </div>
+                        <div className="text-right">
+                          {mc.esProporcional ? (
+                            <p className="text-xs text-gray-400 leading-relaxed">
+                              {formatCurrency(mc.presupuestoBase)} × ({mc.diasLaborados}/{mc.diasMes} días)<br />
+                              <span className="text-orange-500 font-medium">Proporcional al ingreso</span>
+                            </p>
+                          ) : mc.redistribucion > 0 ? (
+                            <p className="text-xs text-gray-400 leading-relaxed">
+                              {formatCurrency(mc.presupuestoBase)} + {formatCurrency(mc.redistribucion)}<br />
+                              <span className="text-blue-500 font-medium">Incluye redistribución</span>
+                            </p>
+                          ) : (
+                            <p className="text-xs text-gray-400">Base directa</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* UPT + ABT */}
+                  {upt !== null && (
+                    <div className="mt-2 pt-2 border-t border-black/5 grid grid-cols-2 gap-2">
+                      <div className="bg-white/70 rounded-xl px-3 py-2">
+                        <p className="text-xs text-gray-400">UPT</p>
+                        <p className="text-sm font-bold text-gray-900">{upt.toFixed(2)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{totalUnidades} uds / {totalTransacciones} txn</p>
+                      </div>
+                      <div className="bg-white/70 rounded-xl px-3 py-2">
+                        <p className="text-xs text-gray-400">ABT</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(abt!)}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(totalVentas)} / {totalTransacciones} txn</p>
+                      </div>
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -296,11 +338,12 @@ export default function Home() {
       {ventasAsesor && (
         <VentasModal
           asesor={ventasAsesor}
-          metaMensual={metaPorAsesor}
-          metaDiaria={meta?.asesores[ventasAsesor.id]?.diasLaborados
-            ? metaPorAsesor / meta.asesores[ventasAsesor.id].diasLaborados
-            : 0}
-          totalVentas={ventasMap[ventasAsesor.id] ?? 0}
+          metaMensual={metasMap[ventasAsesor.id]?.metaMensual ?? 0}
+          metaDiaria={(() => {
+            const mc = metasMap[ventasAsesor.id];
+            return mc && mc.diasLaborados > 0 ? mc.metaMensual / mc.diasLaborados : 0;
+          })()}
+          totalVentas={ventasMap[ventasAsesor.id]?.totalVentas ?? 0}
           onClose={() => setVentasAsesor(null)}
         />
       )}

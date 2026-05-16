@@ -37,6 +37,8 @@ function fechaHoy() {
 export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVentas, onClose }: Props) {
   const storeId = useStoreId();
   const [monto, setMonto] = useState('');
+  const [unidades, setUnidades] = useState('');
+  const [transacciones, setTransacciones] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [guardado, setGuardado] = useState(false);
@@ -47,18 +49,24 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const valor = Number(monto.replace(/\D/g, ''));
+    const uds = Number(unidades);
+    const txn = Number(transacciones);
     if (!valor || valor <= 0) return setError('Ingresa un monto válido.');
+    if (!uds || uds <= 0) return setError('Ingresa las unidades vendidas.');
+    if (!txn || txn <= 0) return setError('Ingresa el número de transacciones.');
     setLoading(true);
     setError('');
     const mes = mesActual();
     const docId = `${mes}_${asesor.id}`;
     const ref = doc(db, 'tiendas', storeId, 'ventasMes', docId);
-    const registro = { monto: valor, fecha: fechaHoy(), creadoEn: new Date().toISOString() };
+    const registro = { monto: valor, unidades: uds, transacciones: txn, fecha: fechaHoy(), creadoEn: new Date().toISOString() };
     try {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         await updateDoc(ref, {
           totalVentas: increment(valor),
+          totalUnidades: increment(uds),
+          totalTransacciones: increment(txn),
           registros: arrayUnion(registro),
         });
       } else {
@@ -66,6 +74,8 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
           mes,
           asesorId: asesor.id,
           totalVentas: valor,
+          totalUnidades: uds,
+          totalTransacciones: txn,
           registros: [registro],
         });
       }
@@ -135,9 +145,9 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
         </div>
 
         {/* Formulario */}
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <form onSubmit={handleSubmit} className="space-y-3" autoComplete="off">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Venta de hoy</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Monto vendido hoy</label>
             <input
               type="number"
               value={monto}
@@ -149,9 +159,34 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Unidades vendidas</label>
+              <input
+                type="number"
+                value={unidades}
+                onChange={(e) => setUnidades(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                placeholder="Ej. 12"
+                min={1}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Transacciones</label>
+              <input
+                type="number"
+                value={transacciones}
+                onChange={(e) => setTransacciones(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                placeholder="Ej. 4"
+                min={1}
+              />
+            </div>
+          </div>
+
           {error && <p className="text-xs text-red-500">{error}</p>}
 
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
               className="flex-1 px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
               Cancelar

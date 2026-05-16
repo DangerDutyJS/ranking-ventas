@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
+import { calcularMetas } from '@/lib/calcularMetas';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 
@@ -106,7 +107,9 @@ export default function MetaMes() {
     return <p className="text-sm text-gray-400 py-12 text-center">Registra asesores primero para configurar la meta.</p>;
   }
 
-  const metaPorAsesor = metaGuardada ? metaGuardada.montoTotal / asesores.length : 0;
+  const metasMap = metaGuardada && asesores.length > 0
+    ? calcularMetas(metaGuardada.montoTotal, asesores.map((a) => a.id), metaGuardada.asesores)
+    : {};
 
   // Vista resumen (meta ya configurada)
   if (metaGuardada && !editando) {
@@ -125,8 +128,9 @@ export default function MetaMes() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {asesores.map((a) => {
-            const diasLab = metaGuardada.asesores[a.id]?.diasLaborados ?? 0;
-            const metaDiaria = diasLab > 0 ? metaPorAsesor / diasLab : 0;
+            const mc = metasMap[a.id];
+            const diasLab = mc?.diasLaborados ?? 0;
+            const metaDiaria = diasLab > 0 && mc ? mc.metaMensual / diasLab : 0;
             return (
               <div key={a.id} className="bg-white border border-gray-100 rounded-2xl p-5">
                 <p className="text-sm font-semibold text-gray-900">{a.nombre} {a.apellido}</p>
@@ -134,15 +138,31 @@ export default function MetaMes() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Días laborados</span>
-                    <span className="font-medium text-gray-900">{diasLab} días</span>
+                    <span className="font-medium text-gray-900">{diasLab} / {mc?.diasMes ?? 0} días</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Meta mensual</span>
-                    <span className="font-medium text-gray-900">{formatCurrency(metaPorAsesor)}</span>
+                    <span className="text-gray-500">Presupuesto base</span>
+                    <span className="font-medium text-gray-500">{mc ? formatCurrency(mc.presupuestoBase) : '—'}</span>
                   </div>
+                  {mc?.esProporcional && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-orange-500">Ajuste proporcional</span>
+                      <span className="font-medium text-orange-500">{mc ? formatCurrency(mc.redistribucion) : '—'}</span>
+                    </div>
+                  )}
+                  {!mc?.esProporcional && mc && mc.redistribucion > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-blue-500">+ Redistribución</span>
+                      <span className="font-medium text-blue-500">+{formatCurrency(mc.redistribucion)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-xs border-t border-gray-100 pt-2 mt-2">
+                    <span className="text-gray-700 font-semibold">UTP (meta mensual)</span>
+                    <span className="font-bold text-gray-900">{mc ? formatCurrency(mc.metaMensual) : '—'}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Meta diaria</span>
-                    <span className="font-semibold text-gray-900">{formatCurrency(metaDiaria)}</span>
+                    <span className="font-semibold text-gray-900">{metaDiaria > 0 ? formatCurrency(metaDiaria) : '—'}</span>
                   </div>
                 </div>
               </div>
@@ -213,9 +233,28 @@ export default function MetaMes() {
 
       {/* Preview en tiempo real */}
       {montoTotal && Number(montoTotal) > 0 && asesores.length > 0 && (
-        <div className="bg-gray-50 rounded-xl p-4">
-          <p className="text-xs font-medium text-gray-500 mb-2">Vista previa</p>
-          <p className="text-xs text-gray-600">Meta por asesor: <span className="font-semibold text-gray-900">{formatCurrency(Number(montoTotal) / asesores.length)}</span></p>
+        <div className="bg-gray-50 rounded-xl p-4 space-y-1.5">
+          <p className="text-xs font-medium text-gray-500 mb-2">Vista previa UTP</p>
+          {(() => {
+            const monto = Number(montoTotal);
+            const diasInput: Record<string, { diasLaborados: number }> = {};
+            asesores.forEach((a) => { diasInput[a.id] = { diasLaborados: Number(dias[a.id] ?? 0) }; });
+            const preview = calcularMetas(monto, asesores.map((a) => a.id), diasInput);
+            return asesores.map((a) => {
+              const mc = preview[a.id];
+              if (!mc) return null;
+              return (
+                <div key={a.id} className="flex justify-between text-xs">
+                  <span className="text-gray-500 truncate max-w-[140px]">{a.nombre}</span>
+                  <span className={`font-semibold ${mc.esProporcional ? 'text-orange-600' : mc.redistribucion > 0 ? 'text-blue-600' : 'text-gray-900'}`}>
+                    {formatCurrency(mc.metaMensual)}
+                    {mc.esProporcional && ' ↓'}
+                    {!mc.esProporcional && mc.redistribucion > 0 && ' ↑'}
+                  </span>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
 
