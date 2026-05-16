@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { leaderPasswordExists, createLeaderPassword, verifyLeaderPassword, sendLeaderResetLink } from '@/lib/leaderAuth';
+import { leaderPasswordExists, createLeaderPassword, verifyLeaderPassword, reauthWithGoogle } from '@/lib/leaderAuth';
 import { useStoreId } from '@/context/StoreContext';
 import { useAuth } from '@/context/AuthContext';
 
@@ -10,7 +10,7 @@ interface LeaderModalProps {
   onClose: () => void;
 }
 
-type Mode = 'loading' | 'create' | 'verify' | 'forgot' | 'forgot-sent';
+type Mode = 'loading' | 'create' | 'verify' | 'forgot' | 'newpassword';
 
 export default function LeaderModal({ onClose }: LeaderModalProps) {
   const router = useRouter();
@@ -19,7 +19,8 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
   const [mode, setMode] = useState<Mode>('loading');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [newConfirm, setNewConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,10 +28,6 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
     if (!storeId) return;
     leaderPasswordExists(storeId).then((exists) => setMode(exists ? 'verify' : 'create'));
   }, [storeId]);
-
-  useEffect(() => {
-    if (mode === 'forgot' && user?.email) setResetEmail(user.email);
-  }, [mode, user]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,18 +59,33 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
     }
   };
 
-  const handleSendReset = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleReauth = async () => {
     setError('');
-    if (!resetEmail.trim()) return setError('Ingresa tu correo.');
     setLoading(true);
     try {
-      await sendLeaderResetLink(resetEmail.trim());
-      setMode('forgot-sent');
+      await reauthWithGoogle();
+      setMode('newpassword');
     } catch {
-      setError('No se pudo enviar el enlace. Verifica el correo e intenta de nuevo.');
+      setError('No se pudo verificar tu identidad. Intenta de nuevo.');
     }
     setLoading(false);
+  };
+
+  const handleNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (newPassword.length < 4) return setError('Mínimo 4 caracteres.');
+    if (newPassword !== newConfirm) return setError('Las contraseñas no coinciden.');
+    if (!user) return;
+    setLoading(true);
+    try {
+      await createLeaderPassword(storeId, newPassword);
+      sessionStorage.setItem('leader-access', '1');
+      router.push('/lider');
+    } catch {
+      setError('Error al guardar. Intenta de nuevo.');
+      setLoading(false);
+    }
   };
 
   return (
@@ -150,51 +162,65 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
           <>
             <div className="mb-6">
               <h2 className="text-base font-semibold text-gray-900">Recuperar contraseña</h2>
-              <p className="mt-1 text-sm text-gray-500">Te enviaremos un enlace a tu correo para crear una nueva contraseña.</p>
+              <p className="mt-1 text-sm text-gray-500">Confirma tu identidad con Google para crear una nueva contraseña.</p>
             </div>
-            <form onSubmit={handleSendReset} className="space-y-4" autoComplete="off">
+            {error && <p className="text-xs text-red-500 mb-4">{error}</p>}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={handleReauth}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                </svg>
+                {loading ? 'Verificando...' : 'Confirmar con Google'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setError(''); setMode('verify'); }}
+                className="w-full px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Volver
+              </button>
+            </div>
+          </>
+        )}
+
+        {mode === 'newpassword' && (
+          <>
+            <div className="mb-6">
+              <h2 className="text-base font-semibold text-gray-900">Nueva contraseña</h2>
+              <p className="mt-1 text-sm text-gray-500">Elige una nueva contraseña para el acceso de líder.</p>
+            </div>
+            <form onSubmit={handleNewPassword} className="space-y-4" autoComplete="off">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Correo electrónico</label>
-                <input
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
+                <input type="password" autoComplete="new-password" value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-                  placeholder="tu@correo.com"
-                  autoFocus
-                />
+                  placeholder="Mínimo 4 caracteres" autoFocus />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
+                <input type="password" autoComplete="new-password" value={newConfirm}
+                  onChange={(e) => setNewConfirm(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
-              <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => { setError(''); setMode('verify'); }}
-                  className="flex-1 px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                  Volver
-                </button>
-                <button type="submit" disabled={loading}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
-                  {loading ? 'Enviando...' : 'Enviar enlace'}
-                </button>
-              </div>
+              <button type="submit" disabled={loading}
+                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
+                {loading ? 'Guardando...' : 'Guardar y entrar'}
+              </button>
             </form>
           </>
         )}
 
-        {mode === 'forgot-sent' && (
-          <div className="text-center">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-              <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <p className="text-sm font-semibold text-gray-900 mb-1">Enlace enviado</p>
-            <p className="text-xs text-gray-400 mb-2">Revisa tu correo <span className="font-medium text-gray-700">{resetEmail}</span> y haz clic en el enlace para crear una nueva contraseña.</p>
-            <p className="text-xs text-gray-400 mb-6">El enlace expira en 1 hora.</p>
-            <button onClick={onClose}
-              className="w-full px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-              Cerrar
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
