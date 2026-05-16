@@ -204,8 +204,8 @@ export default function Home() {
               const totalTransacciones = vm?.totalTransacciones ?? 0;
               // UPT = unidades / transacciones
               const upt = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
-              // ABT = importe / transacciones
-              const abt = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
+              // AVT = importe / transacciones
+              const avt = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
 
               const mc = metasMap[asesor.id];
               const metaMensual = mc?.metaMensual ?? 0;
@@ -276,7 +276,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Fila 2: UPT + ABT (solo si hay transacciones) */}
+                  {/* Fila 2: UPT + AVT (solo si hay transacciones) */}
                   {upt !== null && (
                     <div className="grid grid-cols-2 gap-2 mt-2">
                       <div className="bg-white/70 rounded-xl px-3 py-2">
@@ -285,8 +285,8 @@ export default function Home() {
                         <p className="text-xs text-gray-400 mt-0.5">{totalUnidades} uds ÷ {totalTransacciones} txn</p>
                       </div>
                       <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">ABT</p>
-                        <p className="text-sm font-bold text-gray-900">{formatCurrency(abt!)}</p>
+                        <p className="text-xs text-gray-400">AVT</p>
+                        <p className="text-sm font-bold text-gray-900">{formatCurrency(avt!)}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(totalVentas)} ÷ {totalTransacciones} txn</p>
                       </div>
                     </div>
