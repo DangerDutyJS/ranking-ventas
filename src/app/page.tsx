@@ -1,32 +1,145 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { StoreProvider } from '@/context/StoreContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { collection, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import LeaderModal from '@/components/LeaderModal';
+import PinModal from '@/components/PinModal';
+import VentasModal from '@/components/VentasModal';
+import TutorialModal from '@/components/TutorialModal';
+
+interface Asesor {
+  id: string;
+  nombre: string;
+  apellido: string;
+  cargo: string;
+  fotoBase64: string;
+  pinHash?: string;
+}
+
+interface VentaMes {
+  asesorId: string;
+  totalVentas: number;
+}
+
+interface Meta {
+  montoTotal: number;
+  asesores: Record<string, { diasLaborados: number }>;
+}
+
+function mesActual() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+const RANK_COLORS = [
+  'border-amber-200 bg-amber-50',
+  'border-gray-200 bg-gray-50',
+  'border-orange-200 bg-orange-50',
+];
+
+function diasRestantesMes() {
+  const hoy = new Date();
+  const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+  return fin.getDate() - hoy.getDate();
+}
+
+function barColor(p: number) {
+  if (p >= 100) return 'bg-green-500';
+  if (p >= 75)  return 'bg-blue-500';
+  if (p >= 50)  return 'bg-amber-500';
+  if (p >= 25)  return 'bg-orange-500';
+  return 'bg-red-500';
+}
+
+function motivacion(p: number) {
+  if (p >= 100) return { text: '¡Meta cumplida!', color: 'text-green-600 bg-green-50' };
+  if (p >= 75)  return { text: '¡Casi lo logras!', color: 'text-blue-600 bg-blue-50' };
+  if (p >= 50)  return { text: '¡Buen ritmo!', color: 'text-amber-600 bg-amber-50' };
+  if (p >= 25)  return { text: '¡Sigue adelante!', color: 'text-orange-600 bg-orange-50' };
+  return { text: '¡Empieza hoy!', color: 'text-red-600 bg-red-50' };
+}
 
 export default function Home() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
+
+  const [asesores, setAsesores] = useState<Asesor[]>([]);
+  const [ventasMap, setVentasMap] = useState<Record<string, number>>({});
+  const [meta, setMeta] = useState<Meta | null>(null);
+  const [dataLoading, setDataLoading] = useState(true);
+
   const [showLeaderModal, setShowLeaderModal] = useState(false);
+  const [pinAsesor, setPinAsesor] = useState<Asesor | null>(null);
+  const [ventasAsesor, setVentasAsesor] = useState<Asesor | null>(null);
+  const [showTutorial, setShowTutorial] = useState<boolean | null>(null);
+
+  const mes = mesActual();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [user, loading, router]);
+    if (!authLoading && !user) router.push('/login');
+  }, [user, authLoading, router]);
 
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-      </div>
+  useEffect(() => {
+    if (!user) return;
+    setShowTutorial(!localStorage.getItem('tutorial-visto'));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'tiendas', user.uid, 'asesores'), orderBy('creadoEn', 'asc'));
+    return onSnapshot(q, (snap) => {
+      setAsesores(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asesor)));
+    });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    getDoc(doc(db, 'tiendas', user.uid, 'metas', mes)).then((snap) => {
+      if (snap.exists()) setMeta(snap.data() as Meta);
+      setDataLoading(false);
+    });
+  }, [user, mes]);
+
+  useEffect(() => {
+    if (!user) return;
+    return onSnapshot(
+      collection(db, 'tiendas', user.uid, 'ventasMes'),
+      (snap) => {
+        const map: Record<string, number> = {};
+        snap.docs.forEach((d) => {
+          const data = d.data();
+          if (data.mes === mes) {
+            map[data.asesorId] = data.totalVentas;
+          }
+        });
+        setVentasMap(map);
+      },
+      (err) => console.error('ventasMes:', err)
     );
-  }
+  }, [user, mes]);
+
+  if (authLoading || !user) return null;
+
+  const metaPorAsesor = meta && asesores.length > 0 ? meta.montoTotal / asesores.length : 0;
+
+  const ranking = [...asesores].sort((a, b) => (ventasMap[b.id] ?? 0) - (ventasMap[a.id] ?? 0));
+
+  const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   return (
+    <StoreProvider storeId={user.uid}>
     <main className="min-h-screen bg-gray-50">
+      {/* Header */}
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
@@ -37,42 +150,161 @@ export default function Home() {
           </div>
           <span className="font-semibold text-gray-900 text-sm tracking-tight">Ranking Ventas</span>
         </div>
-
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             {user.photoURL && (
               <Image src={user.photoURL} alt={user.displayName ?? ''} width={28} height={28} className="rounded-full" />
             )}
-            <span className="text-sm text-gray-600">{user.displayName}</span>
+            <span className="text-sm text-gray-600 hidden sm:block">{user.displayName}</span>
           </div>
-          <button
-            onClick={logout}
-            className="text-sm text-gray-400 hover:text-gray-700 transition-colors"
-          >
-            Salir
-          </button>
-        </div>
-      </header>
-
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-500">Bienvenido, {user.displayName?.split(' ')[0]}.</p>
-
-        <div className="mt-8">
-          <button
-            onClick={() => setShowLeaderModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <button onClick={() => setShowLeaderModal(true)}
+            className="inline-flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
-            Acceso Líder
+            Líder
           </button>
+          <button onClick={logout} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">Salir</button>
         </div>
+      </header>
+
+      <div className="max-w-4xl mx-auto px-6 py-10">
+        {/* Título */}
+        <div className="mb-8">
+          <h1 className="text-xl font-semibold text-gray-900 tracking-tight capitalize">{mesNombre}</h1>
+          {meta ? (
+            <p className="text-sm text-gray-400 mt-0.5">Meta total: {formatCurrency(meta.montoTotal)} · {asesores.length} asesores</p>
+          ) : (
+            <p className="text-sm text-gray-400 mt-0.5">No hay meta configurada para este mes.</p>
+          )}
+        </div>
+
+        {/* Ranking */}
+        {dataLoading ? (
+          <div className="flex justify-center py-16">
+            <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+          </div>
+        ) : asesores.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-16">No hay asesores registrados aún.</p>
+        ) : (
+          <div className="space-y-3">
+            {ranking.map((asesor, index) => {
+              const totalVentas = ventasMap[asesor.id] ?? 0;
+              const diasLab = meta?.asesores[asesor.id]?.diasLaborados ?? 0;
+              const metaDiaria = diasLab > 0 ? metaPorAsesor / diasLab : 0;
+              const progreso = metaPorAsesor > 0 ? Math.min(100, (totalVentas / metaPorAsesor) * 100) : 0;
+              const faltaMes = Math.max(0, metaPorAsesor - totalVentas);
+              const diasRestantes = diasRestantesMes();
+              const faltaDiario = diasRestantes > 0 && faltaMes > 0 ? faltaMes / diasRestantes : 0;
+              const isTop3 = index < 3;
+              const { text: mot, color: motColor } = motivacion(progreso);
+
+              return (
+                <button
+                  key={asesor.id}
+                  onClick={() => setPinAsesor(asesor)}
+                  className={`w-full text-left border rounded-2xl p-5 transition-all hover:shadow-md active:scale-[0.99] ${
+                    isTop3 ? RANK_COLORS[index] : 'border-gray-100 bg-white'
+                  }`}
+                >
+                  {/* Fila superior: posición + avatar + nombre + badge */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="flex-shrink-0 w-8 text-center">
+                      {isTop3
+                        ? <span className="text-2xl">{MEDALS[index]}</span>
+                        : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
+                    </div>
+                    <div className="w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                      {asesor.fotoBase64
+                        ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
+                        : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{asesor.nombre} {asesor.apellido}</p>
+                      <p className="text-xs text-gray-400 truncate">{asesor.cargo}</p>
+                    </div>
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${motColor}`}>
+                      {mot}
+                    </span>
+                  </div>
+
+                  {/* Barra de progreso */}
+                  <div className="mb-3">
+                    <div className="flex justify-between text-xs mb-1.5">
+                      <span className="text-gray-500">Progreso mensual</span>
+                      <span className="font-semibold text-gray-900">{progreso.toFixed(1)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                      <div
+                        className={`h-2.5 rounded-full transition-all duration-500 ${barColor(progreso)}`}
+                        style={{ width: `${progreso}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Stats: vendido / falta mes / meta diaria / falta hoy */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white/70 rounded-xl px-3 py-2">
+                      <p className="text-xs text-gray-400">Vendido</p>
+                      <p className="text-sm font-bold text-gray-900">{formatCurrency(totalVentas)}</p>
+                    </div>
+                    <div className={`rounded-xl px-3 py-2 ${faltaMes === 0 ? 'bg-green-100' : 'bg-white/70'}`}>
+                      <p className="text-xs text-gray-400">Falta para meta</p>
+                      <p className={`text-sm font-bold ${faltaMes === 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {faltaMes === 0 ? '¡Cumplida!' : formatCurrency(faltaMes)}
+                      </p>
+                    </div>
+                    {meta && (
+                      <div className="bg-white/70 rounded-xl px-3 py-2">
+                        <p className="text-xs text-gray-400">Meta por día</p>
+                        {metaDiaria > 0
+                          ? <p className="text-sm font-bold text-gray-700">{formatCurrency(metaDiaria)}</p>
+                          : <p className="text-xs text-orange-500 font-medium mt-0.5">Días sin configurar</p>
+                        }
+                      </div>
+                    )}
+                    {faltaDiario > 0 && (
+                      <div className="bg-white/70 rounded-xl px-3 py-2">
+                        <p className="text-xs text-gray-400">Necesita/día ({diasRestantes}d restantes)</p>
+                        <p className="text-sm font-bold text-orange-600">{formatCurrency(faltaDiario)}</p>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* Modales */}
+      {showTutorial === true && <TutorialModal onClose={() => setShowTutorial(false)} />}
       {showLeaderModal && <LeaderModal onClose={() => setShowLeaderModal(false)} />}
+
+      {pinAsesor && (
+        <PinModal
+          asesor={pinAsesor}
+          onSuccess={() => {
+            setVentasAsesor(pinAsesor);
+            setPinAsesor(null);
+          }}
+          onClose={() => setPinAsesor(null)}
+        />
+      )}
+
+      {ventasAsesor && (
+        <VentasModal
+          asesor={ventasAsesor}
+          metaMensual={metaPorAsesor}
+          metaDiaria={meta?.asesores[ventasAsesor.id]?.diasLaborados
+            ? metaPorAsesor / meta.asesores[ventasAsesor.id].diasLaborados
+            : 0}
+          totalVentas={ventasMap[ventasAsesor.id] ?? 0}
+          onClose={() => setVentasAsesor(null)}
+        />
+      )}
     </main>
+    </StoreProvider>
   );
 }

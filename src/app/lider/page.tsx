@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { StoreProvider } from '@/context/StoreContext';
 import AsesorForm from '@/components/AsesorForm';
+import AsesorList from '@/components/AsesorList';
+import MetaMes from '@/components/MetaMes';
+
+type Tab = 'asesores' | 'meta';
 
 export default function LiderPage() {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>('asesores');
   const [showForm, setShowForm] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -30,6 +36,7 @@ export default function LiderPage() {
   };
 
   return (
+    <StoreProvider storeId={user.uid}>
     <main className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -44,38 +51,69 @@ export default function LiderPage() {
         <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">Solo líder</span>
       </header>
 
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Asesores</h1>
-            <p className="mt-1 text-sm text-gray-500">Registra y gestiona el equipo de ventas.</p>
-          </div>
-          {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Nuevo asesor
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-100 px-6">
+        <div className="flex gap-6">
+          {(['asesores', 'meta'] as Tab[]).map((t) => (
+            <button key={t} onClick={() => { setTab(t); setShowForm(false); }}
+              className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+                tab === t
+                  ? 'border-gray-900 text-gray-900'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}>
+              {t === 'asesores' ? 'Asesores' : 'Meta del mes'}
             </button>
-          )}
+          ))}
         </div>
+      </div>
 
-        {successMsg && (
-          <div className="mb-6 px-4 py-3 bg-green-50 border border-green-100 text-green-700 text-sm rounded-xl">
-            {successMsg}
-          </div>
+      <div className="max-w-4xl mx-auto px-6 py-10">
+
+        {/* Tab Asesores */}
+        {tab === 'asesores' && (
+          <>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Asesores</h1>
+                <p className="mt-0.5 text-sm text-gray-500">Equipo de ventas registrado.</p>
+              </div>
+              {!showForm && (
+                <button onClick={() => setShowForm(true)}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Nuevo asesor
+                </button>
+              )}
+            </div>
+
+            {successMsg && (
+              <div className="mb-6 px-4 py-3 bg-green-50 border border-green-100 text-green-700 text-sm rounded-xl">
+                {successMsg}
+              </div>
+            )}
+
+            {showForm ? (
+              <AsesorForm onSuccess={handleSuccess} onCancel={() => setShowForm(false)} />
+            ) : (
+              <AsesorList />
+            )}
+          </>
         )}
 
-        {showForm && (
-          <AsesorForm
-            onSuccess={handleSuccess}
-            onCancel={() => setShowForm(false)}
-          />
+        {/* Tab Meta */}
+        {tab === 'meta' && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Meta del mes</h1>
+              <p className="mt-0.5 text-sm text-gray-500">Configura el monto y los días laborados por asesor.</p>
+            </div>
+            <MetaMes />
+          </>
         )}
       </div>
     </main>
+    </StoreProvider>
   );
 }

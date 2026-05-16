@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useStoreId } from '@/context/StoreContext';
 
 interface AsesorFormProps {
   onSuccess: () => void;
@@ -30,6 +31,7 @@ function comprimirImagen(file: File, maxSize = 150): Promise<string> {
 }
 
 export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
+  const storeId = useStoreId();
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [cargo, setCargo] = useState('');
@@ -53,7 +55,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
     }
     setLoading(true);
     try {
-      await addDoc(collection(db, 'asesores'), {
+      await addDoc(collection(db, 'tiendas', storeId, 'asesores'), {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         cargo: cargo.trim(),
@@ -71,7 +73,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
     <div className="bg-white rounded-2xl border border-gray-100 p-8 max-w-md w-full">
       <h2 className="text-base font-semibold text-gray-900 mb-6">Registrar asesor</h2>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
 
         {/* Foto */}
         <div className="flex flex-col items-center gap-2">
@@ -99,7 +101,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
             placeholder="Ej. Carlos"
           />
         </div>
@@ -111,7 +113,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
             placeholder="Ej. Rodríguez"
           />
         </div>
@@ -123,7 +125,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={cargo}
             onChange={(e) => setCargo(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
             placeholder="Ej. Asesor Senior"
           />
         </div>
