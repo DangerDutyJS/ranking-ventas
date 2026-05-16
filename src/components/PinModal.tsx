@@ -4,8 +4,40 @@ import { useState } from 'react';
 import Image from 'next/image';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { hashPin } from '@/lib/hash';
+import { verifyWithSalt, legacyHash } from '@/lib/hash';
 import { useStoreId } from '@/context/StoreContext';
+
+const MAX_INTENTOS = 5;
+const BLOQUEO_MS = 60_000;
+const STORAGE_KEY = 'pin-intentos';
+
+interface AttemptRecord {
+  count: number;
+  lockedUntil: number;
+}
+
+function getAttempts(asesorId: string): AttemptRecord {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    return map[asesorId] ?? { count: 0, lockedUntil: 0 };
+  } catch {
+    return { count: 0, lockedUntil: 0 };
+  }
+}
+
+function saveAttempts(asesorId: string, record: AttemptRecord) {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const map = raw ? JSON.parse(raw) : {};
+    map[asesorId] = record;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
+  } catch { /* noop */ }
+}
+
+function resetAttempts(asesorId: string) {
+  saveAttempts(asesorId, { count: 0, lockedUntil: 0 });
+}
 
 interface Asesor {
   id: string;
@@ -27,23 +59,43 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const attempts = getAttempts(asesor.id);
+  const bloqueado = Date.now() < attempts.lockedUntil;
+  const intentosRestantes = MAX_INTENTOS - attempts.count;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (bloqueado) return;
     setError('');
     setLoading(true);
     try {
       const snap = await getDoc(doc(db, 'tiendas', storeId, 'asesores', asesor.id));
-      const pinHash = snap.data()?.pinHash;
-      if (!pinHash) {
+      const data = snap.data() as { pinHash?: string; pinSalt?: string } | undefined;
+      if (!data?.pinHash) {
         setError('Este asesor no tiene PIN asignado. Contacta al líder.');
         setLoading(false);
         return;
       }
-      const inputHash = await hashPin(pin);
-      if (inputHash === pinHash) {
+
+      let ok = false;
+      if (data.pinSalt) {
+        ok = await verifyWithSalt(pin, data.pinHash, data.pinSalt);
+      } else {
+        ok = (await legacyHash(pin)) === data.pinHash;
+      }
+
+      if (ok) {
+        resetAttempts(asesor.id);
         onSuccess();
       } else {
-        setError('PIN incorrecto.');
+        const newCount = attempts.count + 1;
+        const lockedUntil = newCount >= MAX_INTENTOS ? Date.now() + BLOQUEO_MS : 0;
+        saveAttempts(asesor.id, { count: newCount, lockedUntil });
+        if (newCount >= MAX_INTENTOS) {
+          setError(`Demasiados intentos. Bloqueado por 1 minuto.`);
+        } else {
+          setError(`PIN incorrecto. ${MAX_INTENTOS - newCount} intento${MAX_INTENTOS - newCount === 1 ? '' : 's'} restante${MAX_INTENTOS - newCount === 1 ? '' : 's'}.`);
+        }
         setPin('');
         setLoading(false);
       }
@@ -70,32 +122,45 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
           <p className="text-xs text-gray-400 mt-0.5">Ingresa tu PIN</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-          <input
-            type="password"
-            autoComplete="off"
-            inputMode="numeric"
-            maxLength={4}
-            value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-            className="w-full px-3 py-3 text-center text-lg tracking-[0.5em] border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-            placeholder="••••"
-            autoFocus
-          />
-
-          {error && <p className="text-xs text-red-500 text-center">{error}</p>}
-
-          <div className="flex gap-2">
-            <button type="button" onClick={onClose}
-              className="flex-1 px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-              Cancelar
-            </button>
-            <button type="submit" disabled={loading || pin.length < 4}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
-              {loading ? '...' : 'Entrar'}
+        {bloqueado ? (
+          <div className="text-center space-y-4">
+            <p className="text-xs text-red-500">Demasiados intentos fallidos. Espera 1 minuto antes de intentar de nuevo.</p>
+            <button onClick={onClose}
+              className="w-full px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+              Cerrar
             </button>
           </div>
-        </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+            <input
+              type="password"
+              autoComplete="off"
+              inputMode="numeric"
+              maxLength={4}
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              className="w-full px-3 py-3 text-center text-lg tracking-[0.5em] border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              placeholder="••••"
+              autoFocus
+            />
+
+            {error && <p className="text-xs text-red-500 text-center">{error}</p>}
+            {!error && intentosRestantes < MAX_INTENTOS && (
+              <p className="text-xs text-orange-500 text-center">{intentosRestantes} intento{intentosRestantes === 1 ? '' : 's'} restante{intentosRestantes === 1 ? '' : 's'}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose}
+                className="flex-1 px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" disabled={loading || pin.length < 4}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
+                {loading ? '...' : 'Entrar'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { hashPin } from '@/lib/hash';
+import { hashWithSalt } from '@/lib/hash';
 import { useStoreId } from '@/context/StoreContext';
 
 interface Props {
@@ -27,8 +27,11 @@ export default function AsignarPinModal({ asesorId, nombre, tienePin, onClose }:
     if (pin !== confirm) return setError('Los PINs no coinciden.');
     setLoading(true);
     try {
-      const pinHash = await hashPin(pin);
-      await updateDoc(doc(db, 'tiendas', storeId, 'asesores', asesorId), { pinHash });
+      const { hash, salt } = await hashWithSalt(pin);
+      await updateDoc(doc(db, 'tiendas', storeId, 'asesores', asesorId), {
+        pinHash: hash,
+        pinSalt: salt,
+      });
       onClose();
     } catch {
       setError('Error al guardar. Intenta de nuevo.');

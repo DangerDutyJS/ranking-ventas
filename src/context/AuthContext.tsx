@@ -18,18 +18,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
-
-      if (firebaseUser) {
-        const token = await firebaseUser.getIdToken();
-        document.cookie = `auth-session=${token}; path=/; max-age=3600; SameSite=Strict`;
-      } else {
-        document.cookie = 'auth-session=; path=/; max-age=0';
-      }
     });
-
     return unsubscribe;
   }, []);
 
@@ -39,7 +31,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await signOut(auth);
-    document.cookie = 'auth-session=; path=/; max-age=0';
   };
 
   return (
