@@ -38,7 +38,6 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
   const storeId = useStoreId();
   const [monto, setMonto] = useState('');
   const [unidades, setUnidades] = useState('');
-  const [transacciones, setTransacciones] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [guardado, setGuardado] = useState(false);
@@ -50,23 +49,21 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
     e.preventDefault();
     const valor = Number(monto.replace(/\D/g, ''));
     const uds = Number(unidades);
-    const txn = Number(transacciones);
     if (!valor || valor <= 0) return setError('Ingresa un monto válido.');
-    if (!uds || uds <= 0) return setError('Ingresa las unidades vendidas.');
-    if (!txn || txn <= 0) return setError('Ingresa el número de transacciones.');
+    if (!uds || uds <= 0 || !Number.isInteger(uds)) return setError('Ingresa las unidades vendidas (entero).');
     setLoading(true);
     setError('');
     const mes = mesActual();
     const docId = `${mes}_${asesor.id}`;
     const ref = doc(db, 'tiendas', storeId, 'ventasMes', docId);
-    const registro = { monto: valor, unidades: uds, transacciones: txn, fecha: fechaHoy(), creadoEn: new Date().toISOString() };
+    const registro = { monto: valor, unidades: uds, fecha: fechaHoy(), creadoEn: new Date().toISOString() };
     try {
       const snap = await getDoc(ref);
       if (snap.exists()) {
         await updateDoc(ref, {
           totalVentas: increment(valor),
           totalUnidades: increment(uds),
-          totalTransacciones: increment(txn),
+          totalTransacciones: increment(1),
           registros: arrayUnion(registro),
         });
       } else {
@@ -75,7 +72,7 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
           asesorId: asesor.id,
           totalVentas: valor,
           totalUnidades: uds,
-          totalTransacciones: txn,
+          totalTransacciones: 1,
           registros: [registro],
         });
       }
@@ -110,7 +107,6 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
       <div className="w-full max-w-sm mx-4 bg-white rounded-2xl shadow-lg border border-gray-100 p-7">
 
-        {/* Header asesor */}
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
             {asesor.fotoBase64 ? (
@@ -125,7 +121,6 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
           </div>
         </div>
 
-        {/* Progreso */}
         <div className="mb-6 space-y-3">
           <div className="flex justify-between text-xs text-gray-500">
             <span>Progreso mensual</span>
@@ -144,7 +139,6 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
           </div>
         </div>
 
-        {/* Formulario */}
         <form onSubmit={handleSubmit} className="space-y-3" autoComplete="off">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Monto vendido hoy</label>
@@ -159,29 +153,17 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Unidades vendidas</label>
-              <input
-                type="number"
-                value={unidades}
-                onChange={(e) => setUnidades(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-                placeholder="Ej. 12"
-                min={1}
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Transacciones</label>
-              <input
-                type="number"
-                value={transacciones}
-                onChange={(e) => setTransacciones(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-                placeholder="Ej. 4"
-                min={1}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Unidades vendidas</label>
+            <input
+              type="number"
+              value={unidades}
+              onChange={(e) => setUnidades(e.target.value)}
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              placeholder="Ej. 12"
+              min={1}
+              step={1}
+            />
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}

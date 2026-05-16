@@ -32,6 +32,10 @@ interface VentaMes {
 interface Meta {
   montoTotal: number;
   asesores: Record<string, { diasLaborados: number }>;
+  metaAVT?: number;
+  metaUPT?: number;
+  metaTransacciones?: number;
+  metaUnidades?: number;
 }
 
 function mesActual() {
@@ -49,7 +53,6 @@ const RANK_COLORS = [
   'border-gray-200 bg-gray-50',
   'border-orange-200 bg-orange-50',
 ];
-
 
 function diasLaboralesRestantes(diasLaborados: number): number {
   const hoy = new Date();
@@ -73,6 +76,14 @@ function motivacion(p: number) {
   if (p >= 25)  return { text: '¡Sigue adelante!', color: 'text-orange-600 bg-orange-50' };
   return { text: '¡Empieza hoy!', color: 'text-red-600 bg-red-50' };
 }
+
+function pctColor(pct: number): string {
+  if (pct >= 100) return 'text-green-600';
+  if (pct >= 80)  return 'text-amber-600';
+  return 'text-red-500';
+}
+
+const IVA = 1.19;
 
 export default function Home() {
   const { user, loading: authLoading, logout } = useAuth();
@@ -123,9 +134,7 @@ export default function Home() {
         const map: Record<string, VentaMes> = {};
         snap.docs.forEach((d) => {
           const data = d.data() as VentaMes & { mes: string };
-          if (data.mes === mes) {
-            map[data.asesorId] = data;
-          }
+          if (data.mes === mes) map[data.asesorId] = data;
         });
         setVentasMap(map);
       },
@@ -146,7 +155,6 @@ export default function Home() {
   return (
     <StoreProvider storeId={user.uid}>
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
@@ -177,7 +185,6 @@ export default function Home() {
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
-        {/* Título */}
         <div className="mb-8">
           <h1 className="text-xl font-semibold text-gray-900 tracking-tight capitalize">{mesNombre}</h1>
           {meta ? (
@@ -187,7 +194,6 @@ export default function Home() {
           )}
         </div>
 
-        {/* Ranking */}
         {dataLoading ? (
           <div className="flex justify-center py-16">
             <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
@@ -198,23 +204,41 @@ export default function Home() {
           <div className="space-y-3">
             {ranking.map((asesor, index) => {
               const vm = ventasMap[asesor.id];
-              // IMPORTE acumulado del mes
-              const totalVentas       = vm?.totalVentas       ?? 0;
-              const totalUnidades     = vm?.totalUnidades     ?? 0;
+              const totalVentas        = vm?.totalVentas        ?? 0;
+              const totalUnidades      = vm?.totalUnidades      ?? 0;
               const totalTransacciones = vm?.totalTransacciones ?? 0;
-              // UPT = unidades / transacciones
-              const upt = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
-              // AVT = importe / transacciones
-              const avt = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
 
-              const mc = metasMap[asesor.id];
-              const metaMensual = mc?.metaMensual ?? 0;
-              const diasLab = mc?.diasLaborados ?? 0;
-              const progreso  = metaMensual > 0 ? Math.min(100, (totalVentas / metaMensual) * 100) : 0;
-              const faltaMes  = Math.max(0, metaMensual - totalVentas);
-              // Promedio diario requerido (dinámico): faltaMes / días laborales que quedan estimados
-              const diasRestLab = diasLaboralesRestantes(diasLab);
+              const mc           = metasMap[asesor.id];
+              const metaMensual  = mc?.metaMensual ?? 0;
+              const diasLab      = mc?.diasLaborados ?? 0;
+              const progreso     = metaMensual > 0 ? Math.min(100, (totalVentas / metaMensual) * 100) : 0;
+              const faltaMes     = Math.max(0, metaMensual - totalVentas);
+              const diasRestLab  = diasLaboralesRestantes(diasLab);
               const promedioDiario = faltaMes > 0 && diasLab > 0 ? faltaMes / diasRestLab : null;
+
+              // 1. PPTO sin IVA
+              const pptoSinIva = metaMensual > 0 ? metaMensual / IVA : null;
+              const realSinIva = totalVentas / IVA;
+              const pctPpto    = pptoSinIva !== null && pptoSinIva > 0 ? (realSinIva / pptoSinIva) * 100 : null;
+
+              // 2. AVT
+              const avt       = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
+              const avtSinIva = avt !== null ? avt / IVA : null;
+              const pctAVT    = avt !== null && meta?.metaAVT ? (avt / meta.metaAVT) * 100 : null;
+
+              // 3. UPT
+              const upt    = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
+              const pctUPT = upt !== null && meta?.metaUPT ? (upt / meta.metaUPT) * 100 : null;
+
+              // 4. Transacciones
+              const pctTxn       = meta?.metaTransacciones ? (totalTransacciones / meta.metaTransacciones) * 100 : null;
+              const metaDiariaTxn = meta?.metaTransacciones && diasLab > 0 ? meta.metaTransacciones / diasLab : null;
+
+              // 5. Unidades
+              const pctUds        = meta?.metaUnidades ? (totalUnidades / meta.metaUnidades) * 100 : null;
+              const metaDiariaUds = meta?.metaUnidades && diasLab > 0 ? meta.metaUnidades / diasLab : null;
+
+              const showIndicators = pctPpto !== null || avt !== null || pctTxn !== null || meta?.metaUnidades;
 
               const isTop3 = index < 3;
               const { text: mot, color: motColor } = motivacion(progreso);
@@ -227,7 +251,7 @@ export default function Home() {
                     isTop3 ? RANK_COLORS[index] : 'border-gray-100 bg-white'
                   }`}
                 >
-                  {/* Fila superior: posición + avatar + nombre + badge */}
+                  {/* Header: posición, avatar, nombre, badge */}
                   <div className="flex items-center gap-3 mb-4">
                     <div className="flex-shrink-0 w-8 text-center">
                       {isTop3
@@ -262,7 +286,7 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Fila 1: Importe + Falta para meta */}
+                  {/* Importe y falta */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-white/70 rounded-xl px-3 py-2">
                       <p className="text-xs text-gray-400">Importe</p>
@@ -276,25 +300,105 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Fila 2: UPT + AVT (solo si hay transacciones) */}
-                  {upt !== null && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">UPT</p>
-                        <p className="text-sm font-bold text-gray-900">{upt.toFixed(2)}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{totalUnidades} uds ÷ {totalTransacciones} txn</p>
-                      </div>
-                      <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">AVT</p>
-                        <p className="text-sm font-bold text-gray-900">{formatCurrency(avt!)}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{formatCurrency(totalVentas)} ÷ {totalTransacciones} txn</p>
-                      </div>
+                  {/* Indicadores de gestión */}
+                  {showIndicators && (
+                    <div className="mt-3 rounded-xl overflow-hidden border border-gray-100 divide-y divide-gray-50">
+
+                      {/* PPTO sin IVA */}
+                      {pctPpto !== null && (
+                        <div className={`flex items-center px-3 py-2 gap-3 ${
+                          pctPpto >= 100 ? 'bg-green-50' : pctPpto < 80 ? 'bg-red-50' : 'bg-white/70'
+                        }`}>
+                          <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">PPTO s/IVA</span>
+                          <span className="text-xs text-gray-600 flex-1 min-w-0 truncate">
+                            {formatCurrency(realSinIva)}{' '}
+                            <span className="text-gray-400">/ {formatCurrency(pptoSinIva!)}</span>
+                          </span>
+                          <span className={`text-xs font-semibold tabular-nums shrink-0 ${
+                            pctPpto >= 100 ? 'text-green-700' : pctPpto < 80 ? 'text-red-600' : 'text-amber-600'
+                          }`}>
+                            {pctPpto.toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+
+                      {/* AVT */}
+                      {avt !== null && (
+                        <div className="flex items-center px-3 py-2 gap-3 bg-white/70">
+                          <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">AVT</span>
+                          <span className="text-xs text-gray-600 flex-1 min-w-0 truncate">
+                            {formatCurrency(avt)}{' '}
+                            <span className="text-gray-400">s/IVA {formatCurrency(avtSinIva!)}</span>
+                          </span>
+                          {pctAVT !== null && (
+                            <span className={`text-xs font-semibold tabular-nums shrink-0 ${pctColor(pctAVT)}`}>
+                              {pctAVT.toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* UPT */}
+                      {upt !== null && (
+                        <div className="flex items-center px-3 py-2 gap-3 bg-white/70">
+                          <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">UPT</span>
+                          <span className="text-xs text-gray-700 flex-1 min-w-0 font-medium">
+                            {upt.toFixed(2)}
+                            {meta?.metaUPT && (
+                              <span className="text-gray-400 font-normal"> / {meta.metaUPT.toFixed(2)}</span>
+                            )}
+                          </span>
+                          {pctUPT !== null && (
+                            <span className={`text-xs font-semibold tabular-nums shrink-0 ${pctColor(pctUPT)}`}>
+                              {pctUPT.toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Transacciones */}
+                      {pctTxn !== null && (
+                        <div className="flex items-center px-3 py-2 gap-3 bg-white/70">
+                          <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">Transacc.</span>
+                          <span className="text-xs text-gray-600 flex-1 min-w-0">
+                            {totalTransacciones}
+                            <span className="text-gray-400">
+                              {' '}/ {meta!.metaTransacciones}
+                              {metaDiariaTxn !== null ? ` · ${metaDiariaTxn.toFixed(1)}/día` : ''}
+                            </span>
+                          </span>
+                          <span className={`text-xs font-semibold tabular-nums shrink-0 ${pctColor(pctTxn)}`}>
+                            {pctTxn.toFixed(0)}%
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Unidades */}
+                      {(totalUnidades > 0 || meta?.metaUnidades) && (
+                        <div className="flex items-center px-3 py-2 gap-3 bg-white/70">
+                          <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">Unidades</span>
+                          <span className="text-xs text-gray-600 flex-1 min-w-0">
+                            {totalUnidades}
+                            {meta?.metaUnidades && (
+                              <span className="text-gray-400">
+                                {' '}/ {meta.metaUnidades}
+                                {metaDiariaUds !== null ? ` · ${metaDiariaUds.toFixed(1)}/día` : ''}
+                              </span>
+                            )}
+                          </span>
+                          {pctUds !== null && (
+                            <span className={`text-xs font-semibold tabular-nums shrink-0 ${pctColor(pctUds)}`}>
+                              {pctUds.toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Fila 3: Promedio diario requerido (dinámico) + Meta ajustada */}
+                  {/* Promedio diario y meta ajustada */}
                   {mc && (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
+                    <div className="grid grid-cols-2 gap-2 mt-3">
                       <div className="bg-white/70 rounded-xl px-3 py-2">
                         <p className="text-xs text-gray-400">Promedio diario requerido</p>
                         {promedioDiario !== null
@@ -326,7 +430,6 @@ export default function Home() {
         )}
       </div>
 
-      {/* Modales */}
       {showTutorial === true && <TutorialModal onClose={() => setShowTutorial(false)} />}
       {showLeaderModal && <LeaderModal onClose={() => setShowLeaderModal(false)} />}
 
