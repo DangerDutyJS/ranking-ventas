@@ -16,7 +16,6 @@ interface Asesor {
 interface Props {
   asesor: Asesor;
   metaMensual: number;
-  metaDiaria: number;
   totalVentas: number;
   onClose: () => void;
 }
@@ -34,7 +33,7 @@ function fechaHoy() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVentas, onClose }: Props) {
+export default function VentasModal({ asesor, metaMensual, totalVentas, onClose }: Props) {
   const storeId = useStoreId();
   const [monto, setMonto] = useState('');
   const [unidades, setUnidades] = useState('');
@@ -135,10 +134,6 @@ export default function VentasModal({ asesor, metaMensual, metaDiaria, totalVent
           <div className="flex justify-between text-xs">
             <span className="text-gray-400">Vendido: <span className="font-medium text-gray-700">{formatCurrency(totalVentas)}</span></span>
             <span className="text-gray-400">Falta: <span className="font-medium text-gray-700">{formatCurrency(falta)}</span></span>
-          </div>
-          <div className="bg-gray-50 rounded-xl px-3 py-2 flex justify-between text-xs">
-            <span className="text-gray-500">Meta diaria</span>
-            <span className="font-semibold text-gray-900">{formatCurrency(metaDiaria)}</span>
           </div>
         </div>
 

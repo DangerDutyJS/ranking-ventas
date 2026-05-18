@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
-import { calcularMetas } from '@/lib/calcularMetas';
+import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 
@@ -94,7 +94,7 @@ export default function MetaMes() {
     for (const a of asesores) {
       asesorData[a.id] = { diasLaborados: Number(dias[a.id]) };
     }
-    const metaObj: Meta = {
+    const metaObj: Partial<Meta> = {
       montoTotal: monto,
       asesores: asesorData,
       ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
@@ -103,8 +103,12 @@ export default function MetaMes() {
       ...(Number(metaUnidades) > 0 && { metaUnidades: Number(metaUnidades) }),
     };
     try {
-      await setDoc(doc(db, 'tiendas', storeId, 'metas', mes), { ...metaObj, actualizadoEn: serverTimestamp() });
-      setMetaGuardada(metaObj);
+      await setDoc(
+        doc(db, 'tiendas', storeId, 'metas', mes),
+        { ...metaObj, actualizadoEn: serverTimestamp() },
+        { merge: true }
+      );
+      setMetaGuardada(metaObj as Meta);
       setEditando(false);
     } catch {
       setError('Error al guardar. Intenta de nuevo.');
@@ -124,10 +128,18 @@ export default function MetaMes() {
     return <p className="text-sm text-gray-400 py-12 text-center">Registra asesores primero para configurar la meta.</p>;
   }
 
-  const metasMap = metaGuardada && asesores.length > 0
-    ? calcularMetas(metaGuardada.montoTotal, asesores.map((a) => a.id), metaGuardada.asesores)
+  const asesorIds = asesores.map((a) => a.id);
+  const metasMap = metaGuardada
+    ? calcularMetas(metaGuardada.montoTotal, asesorIds, metaGuardada.asesores)
+    : {};
+  const txnPorAsesor = metaGuardada?.metaTransacciones
+    ? distribuirIndicador(metaGuardada.metaTransacciones, asesorIds, metaGuardada.asesores)
+    : {};
+  const udsPorAsesor = metaGuardada?.metaUnidades
+    ? distribuirIndicador(metaGuardada.metaUnidades, asesorIds, metaGuardada.asesores)
     : {};
 
+  // ── VISTA ────────────────────────────────────────────────────────────────
   if (metaGuardada && !editando) {
     return (
       <div className="space-y-6">
@@ -146,8 +158,8 @@ export default function MetaMes() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {asesores.map((a) => {
             const mc = metasMap[a.id];
-            const diasLab = mc?.diasLaborados ?? 0;
-            const metaDiaria = diasLab > 0 && mc ? mc.metaMensual / diasLab : 0;
+            const txn = txnPorAsesor[a.id];
+            const uds = udsPorAsesor[a.id];
             return (
               <div key={a.id} className="bg-white border border-gray-100 rounded-2xl p-5">
                 <p className="text-sm font-semibold text-gray-900">{a.nombre} {a.apellido}</p>
@@ -155,7 +167,7 @@ export default function MetaMes() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Días laborados</span>
-                    <span className="font-medium text-gray-900">{diasLab} / {mc?.diasMes ?? 0} días</span>
+                    <span className="font-medium text-gray-900">{mc?.diasLaborados ?? 0} / {mc?.diasMes ?? 0} días</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Presupuesto base</span>
@@ -177,58 +189,46 @@ export default function MetaMes() {
                     <span className="text-gray-700 font-semibold">Meta mensual</span>
                     <span className="font-bold text-gray-900">{mc ? formatCurrency(mc.metaMensual) : '—'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Meta diaria</span>
-                    <span className="font-semibold text-gray-900">{metaDiaria > 0 ? formatCurrency(metaDiaria) : '—'}</span>
-                  </div>
+                  {txn !== undefined && (
+                    <div className="flex justify-between text-xs border-t border-gray-50 pt-1 mt-1">
+                      <span className="text-gray-500">Txn / mes</span>
+                      <span className="font-medium text-gray-900">{Math.round(txn)}</span>
+                    </div>
+                  )}
+                  {uds !== undefined && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Unidades / mes</span>
+                      <span className="font-medium text-gray-900">{Math.round(uds)}</span>
+                    </div>
+                  )}
+                  {metaGuardada.metaUPT && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">Meta UPT</span>
+                      <span className="font-medium text-gray-900">{metaGuardada.metaUPT.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Indicadores de gestión */}
-        {(metaGuardada.metaAVT || metaGuardada.metaUPT || metaGuardada.metaTransacciones || metaGuardada.metaUnidades) && (
+        {/* AVT global */}
+        {metaGuardada.metaAVT && (
           <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Indicadores de gestión</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {metaGuardada.metaAVT && (
-                <div>
-                  <p className="text-xs text-gray-400">Meta AVT (c/IVA)</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-0.5">{formatCurrency(metaGuardada.metaAVT)}</p>
-                  <p className="text-xs text-gray-400">s/IVA: {formatCurrency(metaGuardada.metaAVT / 1.19)}</p>
-                </div>
-              )}
-              {metaGuardada.metaUPT && (
-                <div>
-                  <p className="text-xs text-gray-400">Meta UPT</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-0.5">{metaGuardada.metaUPT.toFixed(2)}</p>
-                  <p className="text-xs text-gray-400">uds / transacción</p>
-                </div>
-              )}
-              {metaGuardada.metaTransacciones && (
-                <div>
-                  <p className="text-xs text-gray-400">Meta Transacciones</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-0.5">{metaGuardada.metaTransacciones}</p>
-                  <p className="text-xs text-gray-400">por mes</p>
-                </div>
-              )}
-              {metaGuardada.metaUnidades && (
-                <div>
-                  <p className="text-xs text-gray-400">Meta Unidades</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-0.5">{metaGuardada.metaUnidades}</p>
-                  <p className="text-xs text-gray-400">por mes</p>
-                </div>
-              )}
-            </div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">AVT</p>
+            <p className="text-sm font-semibold text-gray-900">{formatCurrency(metaGuardada.metaAVT)}</p>
+            <p className="text-xs text-gray-400">s/IVA: {formatCurrency(metaGuardada.metaAVT / 1.19)}</p>
           </div>
         )}
       </div>
     );
   }
 
+  // ── FORMULARIO ────────────────────────────────────────────────────────────
   return (
     <form onSubmit={handleGuardar} className="space-y-6 max-w-lg" autoComplete="off">
+      {/* Monto total */}
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Monto total del mes</label>
         <input
@@ -241,6 +241,7 @@ export default function MetaMes() {
         />
       </div>
 
+      {/* Días laborados */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <p className="text-xs font-medium text-gray-600">Días laborados por asesor</p>
@@ -284,7 +285,7 @@ export default function MetaMes() {
         ))}
       </div>
 
-      {/* Vista previa distribución */}
+      {/* Vista previa presupuesto */}
       {montoTotal && Number(montoTotal) > 0 && asesores.length > 0 && (
         <div className="bg-gray-50 rounded-xl p-4 space-y-1.5">
           <p className="text-xs font-medium text-gray-500 mb-2">Vista previa presupuesto</p>
@@ -311,25 +312,30 @@ export default function MetaMes() {
         </div>
       )}
 
-      {/* Indicadores de gestión */}
+      {/* AVT */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Meta AVT <span className="text-gray-400 font-normal">($ con IVA · opcional)</span>
+        </label>
+        <input
+          type="number"
+          value={metaAVT}
+          onChange={(e) => setMetaAVT(e.target.value)}
+          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+          placeholder="Ej. 150000"
+          min={0}
+        />
+      </div>
+
+      {/* Metas mensuales UPT / Txn / Unidades */}
       <div className="space-y-3">
         <p className="text-xs font-medium text-gray-600">
-          Indicadores de gestión <span className="text-gray-400 font-normal">(opcional)</span>
+          Metas mensuales totales{' '}
+          <span className="text-gray-400 font-normal">(referencia · se distribuyen por asesor)</span>
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Meta AVT ($ con IVA)</label>
-            <input
-              type="number"
-              value={metaAVT}
-              onChange={(e) => setMetaAVT(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-              placeholder="Ej. 150000"
-              min={0}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Meta UPT</label>
+            <label className="block text-xs text-gray-500 mb-1">UPT</label>
             <input
               type="number"
               step="0.1"
@@ -341,7 +347,7 @@ export default function MetaMes() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Meta transacciones / mes</label>
+            <label className="block text-xs text-gray-500 mb-1">Transacciones</label>
             <input
               type="number"
               value={metaTransacciones}
@@ -352,7 +358,7 @@ export default function MetaMes() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Meta unidades / mes</label>
+            <label className="block text-xs text-gray-500 mb-1">Unidades</label>
             <input
               type="number"
               value={metaUnidades}

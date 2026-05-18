@@ -7,8 +7,15 @@ import { StoreProvider } from '@/context/StoreContext';
 import AsesorForm from '@/components/AsesorForm';
 import AsesorList from '@/components/AsesorList';
 import MetaMes from '@/components/MetaMes';
+import MetasDiarias from '@/components/MetasDiarias';
 
-type Tab = 'asesores' | 'meta';
+type Tab = 'asesores' | 'meta' | 'diarias';
+
+const TAB_LABELS: Record<Tab, string> = {
+  asesores: 'Asesores',
+  meta:     'Meta del mes',
+  diarias:  'Metas diarias',
+};
 
 export default function LiderPage() {
   const { user, loading } = useAuth();
@@ -52,16 +59,19 @@ export default function LiderPage() {
       </header>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-gray-100 px-6">
-        <div className="flex gap-6">
-          {(['asesores', 'meta'] as Tab[]).map((t) => (
-            <button key={t} onClick={() => { setTab(t); setShowForm(false); }}
-              className={`py-3 text-sm font-medium border-b-2 transition-colors ${
+      <div className="bg-white border-b border-gray-100 px-6 overflow-x-auto">
+        <div className="flex gap-6 min-w-max">
+          {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => { setTab(t); setShowForm(false); }}
+              className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t
                   ? 'border-gray-900 text-gray-900'
                   : 'border-transparent text-gray-400 hover:text-gray-600'
-              }`}>
-              {t === 'asesores' ? 'Asesores' : 'Meta del mes'}
+              }`}
+            >
+              {TAB_LABELS[t]}
             </button>
           ))}
         </div>
@@ -102,14 +112,29 @@ export default function LiderPage() {
           </>
         )}
 
-        {/* Tab Meta */}
+        {/* Tab Meta del mes */}
         {tab === 'meta' && (
           <>
             <div className="mb-6">
               <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Meta del mes</h1>
-              <p className="mt-0.5 text-sm text-gray-500">Configura el monto y los días laborados por asesor.</p>
+              <p className="mt-0.5 text-sm text-gray-500">
+                Monto total, días laborados e indicadores de referencia por asesor.
+              </p>
             </div>
             <MetaMes />
+          </>
+        )}
+
+        {/* Tab Metas diarias */}
+        {tab === 'diarias' && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Metas diarias</h1>
+              <p className="mt-0.5 text-sm text-gray-500">
+                Objetivo por día de semana — UPT, transacciones y unidades según el tráfico esperado.
+              </p>
+            </div>
+            <MetasDiarias />
           </>
         )}
       </div>

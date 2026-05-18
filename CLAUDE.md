@@ -90,15 +90,23 @@ service cloud.firestore {
 ### Dashboard principal (`/`)
 - Ranking en tiempo real ordenado por `totalVentas` descendente
 - Medallas 🥇🥈🥉 para los primeros 3
-- Tarjetas con: progreso mensual (barra de color), vendido, falta para meta, meta diaria, necesita/día
-- Colores de barra según progreso: rojo → naranja → ámbar → azul → verde
-- Badge motivacional: "¡Empieza hoy!" → "¡Buen ritmo!" → "¡Meta cumplida!"
+- Tarjetas con: progreso mensual (barra de color con marcadores), vendido, falta para meta, meta diaria, necesita/día
+- Barra de progreso con rango 0–120%, marcadores en 100%, 110%, 120% (puntos de color sobre la barra + etiquetas)
+- Colores de barra y marcadores: rojo → naranja → ámbar → teal → **verde (100%)** → **azul (110%)** → **celeste (120%)**
+- Premios por nivel: 📌 Pin al 100% · 🎁 Bono corral al 110% · 🏖️ Día libre al 120%
+- Badge motivacional: "¡Empieza hoy!" → "¡Buen ritmo!" → "¡Meta cumplida!" → "¡Por encima!" → "¡Top absoluto!"
+- 5 indicadores de gestión: PPTO s/IVA, AVT, UPT, Transacciones, Unidades
+- Txn y Unidades: targets per-asesor (distribuidos proporcionalmente desde el total del mes)
+- UPT y targets diarios: usa `metasPorDia[hoy.getDay()]` si el líder configuró la tabla por día de semana; sino usa el promedio mensual/días
+- **Sin metas diarias auto-calculadas**: se eliminaron "Promedio diario requerido" y "Meta ajustada". Los valores mensuales son solo referencia; los targets diarios son manuales (tabla por día de semana)
+- Tarjeta dividida en dos secciones: **Meta mensual** (barra 0-120%, PPTO/AVT/UPT/Txn/Unidades, beneficios) y **Hoy** (grid 4 celdas: Txn/UPT/Uds/Importe del día actual vs target del día; verde si cumplido). La sección Hoy usa `registros[].fecha === hoy` para calcular los totales del día; aparece si hay metas del día configuradas o si ya hay ventas hoy
 - Clic en tarjeta → PinModal → VentasModal (registra venta con `increment()` + `arrayUnion()`)
+- **Ranking de hoy** (sección debajo del ranking mensual): aparece solo si hay `metasPorDia` configurada para el día actual; tarjetas ordenadas por `progresoHoy()` (% Txn vs meta del día); muestra barra de progreso de Txn + grid 4 celdas (Txn/UPT/Uds/Importe); badge de % en color (verde ≥100%, azul ≥75%, ámbar ≥50%, naranja <50%). Las tarjetas de ranking de hoy no son clickeables (no registran venta). La función `progresoHoy()` prioriza Txn; si txn=0 usa Uds. El mapa `ventaHoyMap` se calcula una vez fuera del render para ambas secciones.
 
-### Panel líder (`/lider`)
-- Tab "Asesores": registrar asesores (foto, nombre, cargo) y asignar PINs
-- Tab "Meta del mes": monto total + días laborados por asesor → calcula meta diaria automático
-- "Mismo para todos": asigna los mismos días laborados a todos los asesores a la vez
+### Panel líder (`/lider`) — 3 tabs
+- **Asesores**: registrar asesores (foto, nombre, cargo) y asignar PINs
+- **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + UPT/Txn/Unidades mensuales de referencia distribuidos por asesor; "Mismo para todos" para días laborados
+- **Metas diarias** (`MetasDiarias.tsx`): tabla Lun–Dom × UPT/Txn/Unidades + calendario visual del mes con targets proyectados por tipo de día; guarda en `metas/{mes}.metasPorDia` con `{ merge: true }` para no pisar campos de Meta del mes
 
 ### Tutorial de onboarding (`TutorialModal`)
 - Aparece automáticamente en el primer ingreso del líder
@@ -133,3 +141,13 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 ```
+
+## Instrucción permanente — Registro de cambios
+
+**IMPORTANTE:** Al finalizar cualquier sesión de trabajo, actualizar este `CLAUDE.md` con los cambios realizados:
+- Nuevas funcionalidades → añadir en la sección correspondiente de "Funcionalidades implementadas"
+- Cambios de lógica o comportamiento existente → actualizar la descripción afectada
+- Nuevos componentes o archivos → añadir en "Estructura de archivos clave"
+- Nuevas convenciones → añadir en "Convenciones de código"
+
+El objetivo es que `CLAUDE.md` siempre refleje el estado actual real del proyecto, para que cualquier conversación nueva arranque con contexto completo sin tener que re-explorar el código.

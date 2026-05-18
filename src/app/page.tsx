@@ -11,7 +11,7 @@ import LeaderModal from '@/components/LeaderModal';
 import PinModal from '@/components/PinModal';
 import VentasModal from '@/components/VentasModal';
 import TutorialModal from '@/components/TutorialModal';
-import { calcularMetas } from '@/lib/calcularMetas';
+import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 
 interface Asesor {
   id: string;
@@ -22,11 +22,25 @@ interface Asesor {
   pinHash?: string;
 }
 
+interface RegistroDia {
+  monto: number;
+  unidades: number;
+  transacciones: number;
+  fecha: string;
+}
+
 interface VentaMes {
   asesorId: string;
   totalVentas: number;
   totalUnidades: number;
   totalTransacciones: number;
+  registros?: RegistroDia[];
+}
+
+interface MetaDia {
+  upt: number;
+  txn: number;
+  uds: number;
 }
 
 interface Meta {
@@ -36,11 +50,16 @@ interface Meta {
   metaUPT?: number;
   metaTransacciones?: number;
   metaUnidades?: number;
+  metasPorDia?: Record<string, MetaDia>;
 }
 
 function mesActual() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function fechaHoy() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function formatCurrency(n: number) {
@@ -54,24 +73,22 @@ const RANK_COLORS = [
   'border-orange-200 bg-orange-50',
 ];
 
-function diasLaboralesRestantes(diasLaborados: number): number {
-  const hoy = new Date();
-  const diasTotales = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
-  const proporcion = Math.max(0, diasTotales - hoy.getDate()) / diasTotales;
-  return Math.max(1, Math.round(diasLaborados * proporcion));
-}
 
 function barColor(p: number) {
+  if (p >= 120) return 'bg-sky-400';
+  if (p >= 110) return 'bg-blue-600';
   if (p >= 100) return 'bg-green-500';
-  if (p >= 75)  return 'bg-blue-500';
+  if (p >= 75)  return 'bg-teal-400';
   if (p >= 50)  return 'bg-amber-500';
   if (p >= 25)  return 'bg-orange-500';
   return 'bg-red-500';
 }
 
 function motivacion(p: number) {
+  if (p >= 120) return { text: '¡Top absoluto!', color: 'text-sky-600 bg-sky-50' };
+  if (p >= 110) return { text: '¡Por encima!',   color: 'text-blue-700 bg-blue-50' };
   if (p >= 100) return { text: '¡Meta cumplida!', color: 'text-green-600 bg-green-50' };
-  if (p >= 75)  return { text: '¡Casi lo logras!', color: 'text-blue-600 bg-blue-50' };
+  if (p >= 75)  return { text: '¡Casi lo logras!', color: 'text-teal-600 bg-teal-50' };
   if (p >= 50)  return { text: '¡Buen ritmo!', color: 'text-amber-600 bg-amber-50' };
   if (p >= 25)  return { text: '¡Sigue adelante!', color: 'text-orange-600 bg-orange-50' };
   return { text: '¡Empieza hoy!', color: 'text-red-600 bg-red-50' };
@@ -81,6 +98,13 @@ function pctColor(pct: number): string {
   if (pct >= 100) return 'text-green-600';
   if (pct >= 80)  return 'text-amber-600';
   return 'text-red-500';
+}
+
+function progresoHoy(vh: { transacciones: number; unidades: number }, mh: MetaDia | undefined): number {
+  if (!mh) return 0;
+  if (mh.txn > 0) return (vh.transacciones / mh.txn) * 100;
+  if (mh.uds > 0) return (vh.unidades / mh.uds) * 100;
+  return 0;
 }
 
 const IVA = 1.19;
@@ -144,9 +168,35 @@ export default function Home() {
 
   if (authLoading || !user) return null;
 
+  const asesorIds = asesores.map((a) => a.id);
+
   const metasMap = meta && asesores.length > 0
-    ? calcularMetas(meta.montoTotal, asesores.map((a) => a.id), meta.asesores)
+    ? calcularMetas(meta.montoTotal, asesorIds, meta.asesores)
     : {};
+
+  const txnPorAsesor = meta?.metaTransacciones && meta.asesores
+    ? distribuirIndicador(meta.metaTransacciones, asesorIds, meta.asesores)
+    : {};
+  const udsPorAsesor = meta?.metaUnidades && meta.asesores
+    ? distribuirIndicador(meta.metaUnidades, asesorIds, meta.asesores)
+    : {};
+
+  const todayDow = String(new Date().getDay());
+  const metaHoy = meta?.metasPorDia?.[todayDow];
+
+  const hoy = fechaHoy();
+  const ventaHoyMap: Record<string, { monto: number; unidades: number; transacciones: number }> = {};
+  asesores.forEach((a) => {
+    const vm = ventasMap[a.id];
+    const reg = vm?.registros?.filter((r) => r.fecha === hoy) ?? [];
+    ventaHoyMap[a.id] = reg.reduce(
+      (acc, r) => ({ monto: acc.monto + r.monto, unidades: acc.unidades + r.unidades, transacciones: acc.transacciones + r.transacciones }),
+      { monto: 0, unidades: 0, transacciones: 0 }
+    );
+  });
+  const dailyRanking = metaHoy
+    ? [...asesores].sort((a, b) => progresoHoy(ventaHoyMap[b.id], metaHoy) - progresoHoy(ventaHoyMap[a.id], metaHoy))
+    : [];
 
   const ranking = [...asesores].sort((a, b) => (ventasMap[b.id]?.totalVentas ?? 0) - (ventasMap[a.id]?.totalVentas ?? 0));
 
@@ -201,6 +251,7 @@ export default function Home() {
         ) : asesores.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-16">No hay asesores registrados aún.</p>
         ) : (
+          <>
           <div className="space-y-3">
             {ranking.map((asesor, index) => {
               const vm = ventasMap[asesor.id];
@@ -211,10 +262,8 @@ export default function Home() {
               const mc           = metasMap[asesor.id];
               const metaMensual  = mc?.metaMensual ?? 0;
               const diasLab      = mc?.diasLaborados ?? 0;
-              const progreso     = metaMensual > 0 ? Math.min(100, (totalVentas / metaMensual) * 100) : 0;
+              const progreso     = metaMensual > 0 ? (totalVentas / metaMensual) * 100 : 0;
               const faltaMes     = Math.max(0, metaMensual - totalVentas);
-              const diasRestLab  = diasLaboralesRestantes(diasLab);
-              const promedioDiario = faltaMes > 0 && diasLab > 0 ? faltaMes / diasRestLab : null;
 
               // 1. PPTO sin IVA
               const pptoSinIva = metaMensual > 0 ? metaMensual / IVA : null;
@@ -226,19 +275,30 @@ export default function Home() {
               const avtSinIva = avt !== null ? avt / IVA : null;
               const pctAVT    = avt !== null && meta?.metaAVT ? (avt / meta.metaAVT) * 100 : null;
 
-              // 3. UPT
-              const upt    = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
-              const pctUPT = upt !== null && meta?.metaUPT ? (upt / meta.metaUPT) * 100 : null;
+              // 3. UPT — usa meta del día actual si existe
+              const upt       = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
+              const metaUPTHoy = metaHoy?.upt ?? meta?.metaUPT ?? null;
+              const pctUPT    = upt !== null && metaUPTHoy ? (upt / metaUPTHoy) * 100 : null;
 
-              // 4. Transacciones
-              const pctTxn       = meta?.metaTransacciones ? (totalTransacciones / meta.metaTransacciones) * 100 : null;
-              const metaDiariaTxn = meta?.metaTransacciones && diasLab > 0 ? meta.metaTransacciones / diasLab : null;
+              // 4. Transacciones — meta distribuida por asesor
+              const metaTxnAsesor = txnPorAsesor[asesor.id] ?? null;
+              const pctTxn        = metaTxnAsesor !== null && metaTxnAsesor > 0 ? (totalTransacciones / metaTxnAsesor) * 100 : null;
+              const metaDiariaTxn = metaHoy?.txn
+                ? metaHoy.txn
+                : metaTxnAsesor !== null && diasLab > 0 ? metaTxnAsesor / diasLab : null;
 
-              // 5. Unidades
-              const pctUds        = meta?.metaUnidades ? (totalUnidades / meta.metaUnidades) * 100 : null;
-              const metaDiariaUds = meta?.metaUnidades && diasLab > 0 ? meta.metaUnidades / diasLab : null;
+              // 5. Unidades — meta distribuida por asesor
+              const metaUdsAsesor = udsPorAsesor[asesor.id] ?? null;
+              const pctUds        = metaUdsAsesor !== null && metaUdsAsesor > 0 ? (totalUnidades / metaUdsAsesor) * 100 : null;
+              const metaDiariaUds = metaHoy?.uds
+                ? metaHoy.uds
+                : metaUdsAsesor !== null && diasLab > 0 ? metaUdsAsesor / diasLab : null;
 
               const showIndicators = pctPpto !== null || avt !== null || pctTxn !== null || meta?.metaUnidades;
+
+              const ventaHoy = ventaHoyMap[asesor.id] ?? { monto: 0, unidades: 0, transacciones: 0 };
+              const uptHoy = ventaHoy.transacciones > 0 ? ventaHoy.unidades / ventaHoy.transacciones : null;
+              const hasHoyData = !!metaHoy || ventaHoy.monto > 0;
 
               const isTop3 = index < 3;
               const { text: mot, color: motColor } = motivacion(progreso);
@@ -272,18 +332,77 @@ export default function Home() {
                     </span>
                   </div>
 
+                  {/* ── META MENSUAL ── */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Meta mensual</p>
+                    <div className="flex-1 h-px bg-gray-100" />
+                  </div>
+
                   {/* Barra de progreso */}
                   <div className="mb-3">
                     <div className="flex justify-between text-xs mb-1.5">
                       <span className="text-gray-500">Progreso mensual</span>
-                      <span className="font-semibold text-gray-900">{progreso.toFixed(1)}%</span>
+                      <span className={`font-semibold ${
+                        progreso >= 120 ? 'text-sky-600' :
+                        progreso >= 110 ? 'text-blue-700' :
+                        progreso >= 100 ? 'text-green-600' : 'text-gray-900'
+                      }`}>{progreso.toFixed(1)}%</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    {/* Barra con marcadores en 100%, 110%, 120% */}
+                    <div className="relative w-full bg-gray-200 rounded-full h-2.5">
                       <div
                         className={`h-2.5 rounded-full transition-all duration-500 ${barColor(progreso)}`}
-                        style={{ width: `${progreso}%` }}
+                        style={{ width: `${Math.min(120, progreso) / 120 * 100}%` }}
                       />
+                      {([
+                        { pct: 100, achieved: progreso >= 100, dot: 'bg-green-500' },
+                        { pct: 110, achieved: progreso >= 110, dot: 'bg-blue-600'  },
+                        { pct: 120, achieved: progreso >= 120, dot: 'bg-sky-400'   },
+                      ] as const).map(({ pct, achieved, dot }) => (
+                        <span
+                          key={pct}
+                          className={`absolute top-1/2 w-3 h-3 rounded-full border-2 border-white transition-all duration-300 ${achieved ? dot : 'bg-gray-300'}`}
+                          style={{ left: `${(pct / 120) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                        />
+                      ))}
                     </div>
+                    {/* Etiquetas debajo de cada marcador */}
+                    <div className="relative w-full mt-1 h-3.5">
+                      {([
+                        { pct: 100, label: '100%', color: 'text-green-600' },
+                        { pct: 110, label: '110%', color: 'text-blue-700'  },
+                        { pct: 120, label: '120%', color: 'text-sky-600'   },
+                      ] as const).map(({ pct, label, color }) => (
+                        <span
+                          key={pct}
+                          className={`absolute text-[10px] font-medium leading-none ${progreso >= pct ? color : 'text-gray-400'}`}
+                          style={{ left: `${(pct / 120) * 100}%`, transform: 'translateX(-50%)' }}
+                        >
+                          {label}
+                        </span>
+                      ))}
+                    </div>
+                    {/* Premios ganados */}
+                    {progreso >= 100 && (
+                      <div className="mt-2">
+                      <p className="text-xs text-gray-400 mb-1.5">Beneficios alcanzados</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                          📌 Pin
+                        </span>
+                        {progreso >= 110 && (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                            🎁 Bono corral
+                          </span>
+                        )}
+                        {progreso >= 120 && (
+                          <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 font-medium">
+                            🏖️ Día libre
+                          </span>
+                        )}
+                      </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Importe y falta */}
@@ -344,8 +463,8 @@ export default function Home() {
                           <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">UPT</span>
                           <span className="text-xs text-gray-700 flex-1 min-w-0 font-medium">
                             {upt.toFixed(2)}
-                            {meta?.metaUPT && (
-                              <span className="text-gray-400 font-normal"> / {meta.metaUPT.toFixed(2)}</span>
+                            {metaUPTHoy && (
+                              <span className="text-gray-400 font-normal"> / {metaUPTHoy.toFixed(2)}</span>
                             )}
                           </span>
                           {pctUPT !== null && (
@@ -363,8 +482,7 @@ export default function Home() {
                           <span className="text-xs text-gray-600 flex-1 min-w-0">
                             {totalTransacciones}
                             <span className="text-gray-400">
-                              {' '}/ {meta!.metaTransacciones}
-                              {metaDiariaTxn !== null ? ` · ${metaDiariaTxn.toFixed(1)}/día` : ''}
+                              {' '}/ {Math.round(metaTxnAsesor!)}
                             </span>
                           </span>
                           <span className={`text-xs font-semibold tabular-nums shrink-0 ${pctColor(pctTxn)}`}>
@@ -374,15 +492,14 @@ export default function Home() {
                       )}
 
                       {/* Unidades */}
-                      {(totalUnidades > 0 || meta?.metaUnidades) && (
+                      {(totalUnidades > 0 || metaUdsAsesor !== null) && (
                         <div className="flex items-center px-3 py-2 gap-3 bg-white/70">
                           <span className="text-xs text-gray-400 w-[4.5rem] shrink-0">Unidades</span>
                           <span className="text-xs text-gray-600 flex-1 min-w-0">
                             {totalUnidades}
-                            {meta?.metaUnidades && (
+                            {metaUdsAsesor !== null && (
                               <span className="text-gray-400">
-                                {' '}/ {meta.metaUnidades}
-                                {metaDiariaUds !== null ? ` · ${metaDiariaUds.toFixed(1)}/día` : ''}
+                                {' '}/ {Math.round(metaUdsAsesor)}
                               </span>
                             )}
                           </span>
@@ -396,37 +513,165 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Promedio diario y meta ajustada */}
-                  {mc && (
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">Promedio diario requerido</p>
-                        {promedioDiario !== null
-                          ? <>
-                              <p className="text-sm font-bold text-orange-600">{formatCurrency(promedioDiario)}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">por día · {diasRestLab}d restantes</p>
-                            </>
-                          : <p className="text-sm font-bold text-green-600">¡Meta cumplida!</p>
-                        }
+                  {/* ── META HOY ── */}
+                  {hasHoyData && (
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <div className="flex items-center justify-between mb-2.5">
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Hoy</p>
+                        <p className="text-[11px] text-gray-400">{hoy}</p>
                       </div>
-                      <div className="bg-white/70 rounded-xl px-3 py-2">
-                        <p className="text-xs text-gray-400">Meta ajustada</p>
-                        <p className="text-sm font-bold text-gray-900">{formatCurrency(mc.metaMensual)}</p>
-                        <p className="text-xs mt-0.5">
-                          {mc.esProporcional
-                            ? <span className="text-orange-500">{mc.diasLaborados}/{mc.diasMes} días</span>
-                            : mc.redistribucion > 0
-                              ? <span className="text-blue-500">+{formatCurrency(mc.redistribucion)} redistrib.</span>
-                              : <span className="text-gray-400">Base directa</span>
-                          }
-                        </p>
+                      <div className="grid grid-cols-4 gap-2">
+                        {/* Txn hoy */}
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Txn</p>
+                          <p className={`text-sm font-bold leading-tight ${
+                            metaHoy?.txn && ventaHoy.transacciones >= metaHoy.txn ? 'text-green-600' : 'text-gray-900'
+                          }`}>
+                            {ventaHoy.transacciones}
+                          </p>
+                          {metaHoy?.txn && (
+                            <p className="text-[10px] text-gray-400">/{metaHoy.txn}</p>
+                          )}
+                        </div>
+                        {/* UPT hoy */}
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">UPT</p>
+                          <p className={`text-sm font-bold leading-tight ${
+                            metaHoy?.upt && uptHoy !== null && uptHoy >= metaHoy.upt ? 'text-green-600' : 'text-gray-900'
+                          }`}>
+                            {uptHoy !== null ? uptHoy.toFixed(1) : '—'}
+                          </p>
+                          {metaHoy?.upt && (
+                            <p className="text-[10px] text-gray-400">/{metaHoy.upt}</p>
+                          )}
+                        </div>
+                        {/* Unidades hoy */}
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Uds</p>
+                          <p className={`text-sm font-bold leading-tight ${
+                            metaHoy?.uds && ventaHoy.unidades >= metaHoy.uds ? 'text-green-600' : 'text-gray-900'
+                          }`}>
+                            {ventaHoy.unidades}
+                          </p>
+                          {metaHoy?.uds && (
+                            <p className="text-[10px] text-gray-400">/{metaHoy.uds}</p>
+                          )}
+                        </div>
+                        {/* Importe hoy */}
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Importe</p>
+                          <p className="text-sm font-bold text-gray-900 leading-tight">
+                            {ventaHoy.monto > 0 ? formatCurrency(ventaHoy.monto) : '—'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
+
                 </button>
               );
             })}
           </div>
+
+          {/* ── RANKING HOY ── */}
+          {metaHoy && dailyRanking.length > 0 && (
+            <div className="mt-10">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 tracking-tight">Ranking de hoy</h2>
+                <p className="text-sm text-gray-400 mt-0.5 capitalize">{hoy} · Progreso hacia la meta del día</p>
+              </div>
+              <div className="space-y-3">
+                {dailyRanking.map((asesor, index) => {
+                  const vh  = ventaHoyMap[asesor.id] ?? { monto: 0, unidades: 0, transacciones: 0 };
+                  const uptH = vh.transacciones > 0 ? vh.unidades / vh.transacciones : null;
+                  const pctTxn = metaHoy.txn > 0 ? (vh.transacciones / metaHoy.txn) * 100 : 0;
+                  const pctHoy = progresoHoy(vh, metaHoy);
+                  const isTop3 = index < 3;
+
+                  return (
+                    <div
+                      key={asesor.id}
+                      className={`w-full border rounded-2xl p-5 ${isTop3 ? RANK_COLORS[index] : 'border-gray-100 bg-white'}`}
+                    >
+                      {/* Header */}
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="flex-shrink-0 w-8 text-center">
+                          {isTop3
+                            ? <span className="text-2xl">{MEDALS[index]}</span>
+                            : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
+                        </div>
+                        <div className="w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          {asesor.fotoBase64
+                            ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
+                            : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{asesor.nombre} {asesor.apellido}</p>
+                          <p className="text-xs text-gray-400 truncate">{asesor.cargo}</p>
+                        </div>
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${
+                          pctHoy >= 100 ? 'text-green-600 bg-green-50' :
+                          pctHoy >= 75  ? 'text-blue-700 bg-blue-50'  :
+                          pctHoy >= 50  ? 'text-amber-600 bg-amber-50' :
+                                          'text-orange-600 bg-orange-50'
+                        }`}>
+                          {pctHoy.toFixed(0)}%
+                        </span>
+                      </div>
+
+                      {/* Barra de progreso Txn */}
+                      {metaHoy.txn > 0 && (
+                        <div className="mb-3">
+                          <div className="flex justify-between text-xs mb-1.5">
+                            <span className="text-gray-500">Transacciones</span>
+                            <span className="font-semibold text-gray-900">{vh.transacciones} / {metaHoy.txn}</span>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div
+                              className={`h-2 rounded-full transition-all ${pctTxn >= 100 ? 'bg-green-500' : 'bg-gray-900'}`}
+                              style={{ width: `${Math.min(100, pctTxn)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Grid de indicadores */}
+                      <div className="grid grid-cols-4 gap-2">
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Txn</p>
+                          <p className={`text-sm font-bold leading-tight ${metaHoy.txn > 0 && vh.transacciones >= metaHoy.txn ? 'text-green-600' : 'text-gray-900'}`}>
+                            {vh.transacciones}
+                          </p>
+                          {metaHoy.txn > 0 && <p className="text-[10px] text-gray-400">/{metaHoy.txn}</p>}
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">UPT</p>
+                          <p className={`text-sm font-bold leading-tight ${metaHoy.upt > 0 && uptH !== null && uptH >= metaHoy.upt ? 'text-green-600' : 'text-gray-900'}`}>
+                            {uptH !== null ? uptH.toFixed(1) : '—'}
+                          </p>
+                          {metaHoy.upt > 0 && <p className="text-[10px] text-gray-400">/{metaHoy.upt}</p>}
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Uds</p>
+                          <p className={`text-sm font-bold leading-tight ${metaHoy.uds > 0 && vh.unidades >= metaHoy.uds ? 'text-green-600' : 'text-gray-900'}`}>
+                            {vh.unidades}
+                          </p>
+                          {metaHoy.uds > 0 && <p className="text-[10px] text-gray-400">/{metaHoy.uds}</p>}
+                        </div>
+                        <div className="bg-white/70 rounded-xl p-2 text-center">
+                          <p className="text-[10px] text-gray-400 mb-0.5">Importe</p>
+                          <p className="text-sm font-bold text-gray-900 leading-tight">
+                            {vh.monto > 0 ? formatCurrency(vh.monto) : '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 
@@ -448,10 +693,6 @@ export default function Home() {
         <VentasModal
           asesor={ventasAsesor}
           metaMensual={metasMap[ventasAsesor.id]?.metaMensual ?? 0}
-          metaDiaria={(() => {
-            const mc = metasMap[ventasAsesor.id];
-            return mc && mc.diasLaborados > 0 ? mc.metaMensual / mc.diasLaborados : 0;
-          })()}
           totalVentas={ventasMap[ventasAsesor.id]?.totalVentas ?? 0}
           onClose={() => setVentasAsesor(null)}
         />
