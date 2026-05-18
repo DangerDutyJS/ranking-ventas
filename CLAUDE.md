@@ -25,8 +25,9 @@ src/
 │   ├── AsesorList.tsx      — Lista asesores + botón asignar PIN
 │   ├── AsignarPinModal.tsx — Modal asignar/cambiar PIN (4 dígitos)
 │   ├── PinModal.tsx        — Modal ingresar PIN para registrar venta
-│   ├── VentasModal.tsx     — Modal registrar monto de venta del día
-│   ├── MetaMes.tsx         — Configurar meta mensual y días laborados
+│   ├── VentasModal.tsx     — Modal registrar monto + unidades + transacciones del día
+│   ├── MetaMes.tsx         — Configurar meta mensual, días laborados e indicadores de referencia
+│   ├── MetasDiarias.tsx    — Tabla Lun-Dom con UPT/Txn/Uds + calendario visual del mes
 │   └── TutorialModal.tsx   — Tutorial de onboarding (primer ingreso)
 ├── context/
 │   ├── AuthContext.tsx     — Estado Firebase Auth + cookie auth-session
@@ -34,7 +35,8 @@ src/
 ├── lib/
 │   ├── firebase.ts         — Init Firebase (auth, db, googleProvider)
 │   ├── leaderAuth.ts       — Crear/verificar contraseña de líder
-│   └── hash.ts             — SHA-256 con Web Crypto API
+│   ├── hash.ts             — SHA-256 con Web Crypto API
+│   └── calcularMetas.ts    — calcularMetas() y distribuirIndicador() para distribución proporcional
 └── proxy.ts                — Protección de rutas (reemplaza middleware.ts en Next.js 16)
 ```
 
@@ -45,8 +47,11 @@ Cada líder tiene sus datos aislados bajo `tiendas/{uid}/` en Firestore. El `uid
 tiendas/{uid}/
 ├── config/leader           — { passwordHash }
 ├── asesores/{asesorId}     — { nombre, apellido, cargo, fotoBase64, pinHash, creadoEn }
-├── metas/{mes}             — { montoTotal, asesores: { [id]: { diasLaborados } }, actualizadoEn }
-└── ventasMes/{mes_uid}     — { mes, asesorId, totalVentas, registros: [{ monto, fecha, creadoEn }] }
+├── metas/{mes}             — { montoTotal, asesores: { [id]: { diasLaborados } }, metaAVT?,
+│                              metaUPT?, metaTransacciones?, metaUnidades?,
+│                              metasPorDia: { "0"–"6": { upt, txn, uds } }, actualizadoEn }
+└── ventasMes/{mes_uid}     — { mes, asesorId, totalVentas, totalUnidades, totalTransacciones,
+                               registros: [{ monto, unidades, transacciones, fecha, creadoEn }] }
 ```
 
 `StoreContext` provee `storeId` a todos los componentes:
@@ -90,7 +95,7 @@ service cloud.firestore {
 ### Dashboard principal (`/`)
 - Ranking en tiempo real ordenado por `totalVentas` descendente
 - Medallas 🥇🥈🥉 para los primeros 3
-- Tarjetas con: progreso mensual (barra de color con marcadores), vendido, falta para meta, meta diaria, necesita/día
+- Tarjetas con: progreso mensual (barra de color con marcadores), vendido, falta para meta, 5 indicadores de gestión, sección Hoy
 - Barra de progreso con rango 0–120%, marcadores en 100%, 110%, 120% (puntos de color sobre la barra + etiquetas)
 - Colores de barra y marcadores: rojo → naranja → ámbar → teal → **verde (100%)** → **azul (110%)** → **celeste (120%)**
 - Premios por nivel: 📌 Pin al 100% · 🎁 Bono corral al 110% · 🏖️ Día libre al 120%
