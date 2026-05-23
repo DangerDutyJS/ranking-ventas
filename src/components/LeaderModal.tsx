@@ -49,12 +49,17 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const ok = await verifyLeaderPassword(storeId, password);
-    if (ok) {
-      sessionStorage.setItem('leader-access', '1');
-      router.push('/lider');
-    } else {
-      setError('Contraseña incorrecta.');
+    try {
+      const ok = await verifyLeaderPassword(storeId, password);
+      if (ok) {
+        sessionStorage.setItem('leader-access', '1');
+        router.push('/lider');
+      } else {
+        setError('Contraseña incorrecta.');
+        setLoading(false);
+      }
+    } catch {
+      setError('Error de conexión. Intenta de nuevo.');
       setLoading(false);
     }
   };

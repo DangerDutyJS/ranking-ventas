@@ -1,17 +1,27 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 
-interface MetaDia {
-  upt: number;
-  txn: number;
-  uds: number;
+interface Asesor {
+  id: string;
+  nombre: string;
+  apellido: string;
+  cargo: string;
 }
 
-type DiaInput = { upt: string; txn: string; uds: string };
+interface MetaDia {
+  upt: number;
+  avt?: number;
+  txn: number;
+  uds: number;
+  monto?: number;
+  asesoresIds?: string[];
+}
+
+type DiaInput = { txn: string; uds: string; upt: string; avt: string; monto: string; asesoresIds: string[] };
 type MetasPorDiaInput = Record<string, DiaInput>;
 
 const DIAS_SEMANA = [
@@ -31,8 +41,18 @@ function mesActual() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function formatCurrency(n: number) {
+  return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
+}
+
+function shortAmount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(Math.round(n));
+}
+
 function buildCalendar(year: number, month: number): (Date | null)[] {
-  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7; // Mon=0
+  const firstDow = (new Date(year, month, 1).getDay() + 6) % 7;
   const totalDays = new Date(year, month + 1, 0).getDate();
   const cells: (Date | null)[] = Array(firstDow).fill(null);
   for (let d = 1; d <= totalDays; d++) cells.push(new Date(year, month, d));
@@ -40,14 +60,7 @@ function buildCalendar(year: number, month: number): (Date | null)[] {
   return cells;
 }
 
-function contarDiasMes(year: number, month: number): Record<string, number> {
-  const total = new Date(year, month + 1, 0).getDate();
-  const count: Record<string, number> = { '0': 0, '1': 0, '2': 0, '3': 0, '4': 0, '5': 0, '6': 0 };
-  for (let d = 1; d <= total; d++) count[String(new Date(year, month, d).getDay())]++;
-  return count;
-}
-
-const emptyDia: DiaInput = { upt: '', txn: '', uds: '' };
+const emptyDia: DiaInput = { txn: '', uds: '', upt: '', avt: '', monto: '', asesoresIds: [] };
 const emptyMetasPorDia = (): MetasPorDiaInput => ({
   '1': { ...emptyDia }, '2': { ...emptyDia }, '3': { ...emptyDia },
   '4': { ...emptyDia }, '5': { ...emptyDia }, '6': { ...emptyDia },
@@ -57,8 +70,13 @@ const emptyMetasPorDia = (): MetasPorDiaInput => ({
 export default function MetasDiarias() {
   const storeId = useStoreId();
   const mes = mesActual();
+
+  const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [metasPorDia, setMetasPorDia] = useState<MetasPorDiaInput>(emptyMetasPorDia());
   const [guardado, setGuardado] = useState<Record<string, MetaDia> | null>(null);
+  const [metaMensualTxn, setMetaMensualTxn] = useState<number | null>(null);
+  const [metaMensualUds, setMetaMensualUds] = useState<number | null>(null);
+  const [metaMensualExiste, setMetaMensualExiste] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(false);
@@ -68,21 +86,40 @@ export default function MetasDiarias() {
   const year = today.getFullYear();
   const month = today.getMonth();
   const calDays = buildCalendar(year, month);
-  const conteos = contarDiasMes(year, month);
+  const todayKey = String(today.getDay());
+  const mesNombre = today.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+
+  useEffect(() => {
+    if (!storeId) return;
+    const q = query(collection(db, 'tiendas', storeId, 'asesores'), orderBy('creadoEn', 'asc'));
+    return onSnapshot(q, (snap) => {
+      setAsesores(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Asesor)));
+    });
+  }, [storeId]);
 
   useEffect(() => {
     if (!storeId) return;
     getDoc(doc(db, 'tiendas', storeId, 'metas', mes)).then((snap) => {
+      setMetaMensualExiste(snap.exists());
       if (snap.exists()) {
-        const data = snap.data() as { metasPorDia?: Record<string, MetaDia> };
+        const data = snap.data() as {
+          metasPorDia?: Record<string, MetaDia>;
+          metaTransacciones?: number;
+          metaUnidades?: number;
+        };
+        if (data.metaTransacciones) setMetaMensualTxn(data.metaTransacciones);
+        if (data.metaUnidades) setMetaMensualUds(data.metaUnidades);
         if (data.metasPorDia) {
           setGuardado(data.metasPorDia);
           const loaded = emptyMetasPorDia();
           for (const [k, v] of Object.entries(data.metasPorDia)) {
             loaded[k] = {
-              upt: v.upt > 0 ? String(v.upt) : '',
               txn: v.txn > 0 ? String(v.txn) : '',
               uds: v.uds > 0 ? String(v.uds) : '',
+              upt: v.upt > 0 ? String(v.upt) : '',
+              avt: v.avt && v.avt > 0 ? String(v.avt) : '',
+              monto: v.monto && v.monto > 0 ? String(v.monto) : '',
+              asesoresIds: v.asesoresIds ?? [],
             };
           }
           setMetasPorDia(loaded);
@@ -98,10 +135,15 @@ export default function MetasDiarias() {
     const metasPorDiaSave: Record<string, MetaDia> = {};
     for (const { key } of DIAS_SEMANA) {
       const d = metasPorDia[key];
-      const upt = parseFloat(d?.upt || '0') || 0;
       const txn = parseInt(d?.txn || '0') || 0;
       const uds = parseInt(d?.uds || '0') || 0;
-      if (upt > 0 || txn > 0 || uds > 0) metasPorDiaSave[key] = { upt, txn, uds };
+      const upt = parseFloat(d?.upt || '0') || 0;
+      const avt = parseFloat(d?.avt || '0') || 0;
+      const monto = parseFloat(d?.monto || '0') || 0;
+      const asesoresIds = d?.asesoresIds ?? [];
+      if (txn > 0 || uds > 0 || upt > 0 || avt > 0 || monto > 0 || asesoresIds.length > 0) {
+        metasPorDiaSave[key] = { upt, ...(avt > 0 && { avt }), txn, uds, monto, asesoresIds };
+      }
     }
     try {
       await setDoc(
@@ -117,12 +159,20 @@ export default function MetasDiarias() {
     setSaving(false);
   };
 
-  const totales = {
-    txn: DIAS_SEMANA.reduce((a, { key }) => a + (Number(metasPorDia[key]?.txn) || 0) * conteos[key], 0),
-    uds: DIAS_SEMANA.reduce((a, { key }) => a + (Number(metasPorDia[key]?.uds) || 0) * conteos[key], 0),
-  };
+  const distribuidoTxn = DIAS_SEMANA.reduce((a, { key }) => a + (Number(metasPorDia[key]?.txn) || 0), 0);
+  const distribuidoUds  = DIAS_SEMANA.reduce((a, { key }) => a + (Number(metasPorDia[key]?.uds)  || 0), 0);
+  const restanteTxn = metaMensualTxn !== null ? metaMensualTxn - distribuidoTxn : null;
+  const restanteUds  = metaMensualUds  !== null ? metaMensualUds  - distribuidoUds  : null;
 
-  const mesNombre = today.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  const toggleAsesor = (id: string) => {
+    setMetasPorDia((prev) => {
+      const ids = [...(prev[todayKey]?.asesoresIds ?? [])];
+      const idx = ids.indexOf(id);
+      if (idx > -1) ids.splice(idx, 1);
+      else ids.push(id);
+      return { ...prev, [todayKey]: { ...prev[todayKey], asesoresIds: ids } };
+    });
+  };
 
   if (loading) {
     return (
@@ -132,8 +182,32 @@ export default function MetasDiarias() {
     );
   }
 
-  // ── VISTA ────────────────────────────────────────────────────────────────
+  // ── SIN META MENSUAL ───────────────────────────────────────────────────────
+  if (!metaMensualExiste) {
+    return (
+      <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-4">
+        <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+        </svg>
+        <p className="text-sm text-amber-700 leading-relaxed">
+          No hay meta mensual configurada. Ve a la pestaña <span className="font-semibold">Meta del mes</span> y configúrala primero.
+        </p>
+      </div>
+    );
+  }
+
+  // ── VISTA ──────────────────────────────────────────────────────────────────
   if (guardado && !editando) {
+    const todayMeta = guardado[todayKey];
+    const asesoresToday = todayMeta?.asesoresIds?.length
+      ? asesores.filter((a) => todayMeta.asesoresIds!.includes(a.id))
+      : [];
+    const n = asesoresToday.length;
+    const montoPorAsesor = n > 0 && todayMeta?.monto && todayMeta.monto > 0 ? todayMeta.monto / n : 0;
+    const txnPorAsesor   = n > 0 && todayMeta?.txn  && todayMeta.txn  > 0 ? todayMeta.txn  / n : 0;
+    const udsPorAsesor   = n > 0 && todayMeta?.uds  && todayMeta.uds  > 0 ? todayMeta.uds  / n : 0;
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -180,9 +254,9 @@ export default function MetasDiarias() {
                           {targets.txn}<span className="opacity-60">txn</span>
                         </p>
                       )}
-                      {targets.upt > 0 && (
+                      {targets.monto && targets.monto > 0 && (
                         <p className={`text-[9px] leading-none ${isToday ? 'text-gray-400' : 'text-gray-400'}`}>
-                          {targets.upt}<span className="opacity-60">UPT</span>
+                          {shortAmount(targets.monto)}
                         </p>
                       )}
                       {targets.uds > 0 && (
@@ -198,73 +272,143 @@ export default function MetasDiarias() {
           </div>
         </div>
 
-        {/* Tabla resumen por día de semana */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Target por día de semana</p>
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-gray-400 border-b border-gray-100">
-                <th className="text-left pb-2 font-medium">Día</th>
-                <th className="text-center pb-2 font-medium">UPT</th>
-                <th className="text-center pb-2 font-medium">Txn</th>
-                <th className="text-center pb-2 font-medium">Unidades</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {DIAS_SEMANA.map(({ key, label }) => {
-                const d = guardado[key];
-                if (!d) return (
-                  <tr key={key}>
-                    <td className="py-2 text-gray-400">{label}</td>
-                    <td className="py-2 text-center text-gray-300">—</td>
-                    <td className="py-2 text-center text-gray-300">—</td>
-                    <td className="py-2 text-center text-gray-300">—</td>
-                  </tr>
-                );
-                return (
-                  <tr key={key}>
-                    <td className="py-2 text-gray-700 font-medium">{label}</td>
-                    <td className="py-2 text-center text-gray-900">{d.upt > 0 ? d.upt.toFixed(2) : '—'}</td>
-                    <td className="py-2 text-center text-gray-900">{d.txn > 0 ? d.txn : '—'}</td>
-                    <td className="py-2 text-center text-gray-900">{d.uds > 0 ? d.uds : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/* Meta de hoy */}
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-4">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Meta de hoy</p>
+
+          {todayMeta ? (
+            <>
+              {(todayMeta.txn > 0 || todayMeta.uds > 0 || todayMeta.upt > 0 || (todayMeta.avt ?? 0) > 0) && (
+                <div className="grid grid-cols-2 gap-3">
+                  {todayMeta.txn > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 mb-0.5">Transacciones</p>
+                      <p className="text-lg font-bold text-gray-900">{todayMeta.txn}</p>
+                    </div>
+                  )}
+                  {todayMeta.uds > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 mb-0.5">Unidades</p>
+                      <p className="text-lg font-bold text-gray-900">{todayMeta.uds}</p>
+                    </div>
+                  )}
+                  {todayMeta.upt > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 mb-0.5">UPT</p>
+                      <p className="text-lg font-bold text-gray-900">{todayMeta.upt}</p>
+                    </div>
+                  )}
+                  {(todayMeta.avt ?? 0) > 0 && (
+                    <div className="bg-gray-50 rounded-xl p-3">
+                      <p className="text-xs text-gray-400 mb-0.5">AVT</p>
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(todayMeta.avt!)}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Distribución por asesor: monto, txn y uds */}
+              {asesoresToday.length > 0 && (
+                <div className="border-t border-gray-100 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-medium text-gray-600">Distribución por asesor</p>
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                      {todayMeta.txn > 0 && <span>{todayMeta.txn} txn</span>}
+                      {todayMeta.uds > 0 && <span>{todayMeta.uds} uds</span>}
+                      {todayMeta.monto && todayMeta.monto > 0 && (
+                        <span className="font-semibold text-gray-900">{formatCurrency(todayMeta.monto)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {asesoresToday.map((a) => (
+                      <div key={a.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{a.nombre} {a.apellido}</p>
+                          <p className="text-xs text-gray-400">{a.cargo}</p>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {txnPorAsesor > 0 && (
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">Txn</p>
+                              <p className="text-sm font-bold text-gray-900">{Math.round(txnPorAsesor)}</p>
+                            </div>
+                          )}
+                          {udsPorAsesor > 0 && (
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">Uds</p>
+                              <p className="text-sm font-bold text-gray-900">{Math.round(udsPorAsesor)}</p>
+                            </div>
+                          )}
+                          {montoPorAsesor > 0 && (
+                            <div className="text-right">
+                              <p className="text-xs text-gray-400">Monto</p>
+                              <p className="text-sm font-bold text-gray-900">{formatCurrency(montoPorAsesor)}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <p className="text-xs text-gray-400 text-right">
+                      {n} asesor{n !== 1 ? 'es' : ''} ·{txnPorAsesor > 0 ? ` ${Math.round(txnPorAsesor)} txn` : ''}{udsPorAsesor > 0 ? ` · ${Math.round(udsPorAsesor)} uds` : ''}{montoPorAsesor > 0 ? ` · ${formatCurrency(montoPorAsesor)}` : ''} c/u
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {!asesoresToday.length && (
+                <p className="text-xs text-gray-400">Sin asesores asignados para hoy.</p>
+              )}
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">No hay meta configurada para hoy.</p>
+          )}
         </div>
       </div>
     );
   }
 
-  // ── FORMULARIO ────────────────────────────────────────────────────────────
+  // ── FORMULARIO ─────────────────────────────────────────────────────────────
+  const todayInput   = metasPorDia[todayKey];
+  const montoTotal   = parseFloat(todayInput?.monto || '0') || 0;
+  const txnTotal     = parseInt(todayInput?.txn || '0') || 0;
+  const udsTotal     = parseInt(todayInput?.uds || '0') || 0;
+  const asesoresSel  = todayInput?.asesoresIds ?? [];
+  const n = asesoresSel.length;
+
+  const montoPorAsesorPreview = n > 0 && montoTotal > 0 ? montoTotal / n : 0;
+  const txnPorAsesorPreview   = n > 0 && txnTotal   > 0 ? txnTotal   / n : 0;
+  const udsPorAsesorPreview   = n > 0 && udsTotal   > 0 ? udsTotal   / n : 0;
+
+  const hayPreview = montoPorAsesorPreview > 0 || txnPorAsesorPreview > 0 || udsPorAsesorPreview > 0;
+
   return (
     <div className="space-y-6 max-w-lg">
       {!guardado && (
         <p className="text-sm text-gray-500">
-          Define el objetivo diario para cada tipo de día. El calendario se actualizará automáticamente.
+          Define el objetivo diario. El calendario se actualizará automáticamente.
         </p>
       )}
 
+      {/* Tabla txn / uds */}
       <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr className="text-gray-400">
               <th className="text-left px-4 py-3 font-medium">Día</th>
-              <th className="text-center px-2 py-3 font-medium">UPT</th>
-              <th className="text-center px-2 py-3 font-medium">Txn / día</th>
-              <th className="text-center px-2 py-3 font-medium">Uds / día</th>
+              <th className="text-center px-2 py-3 font-medium">Transacciones día</th>
+              <th className="text-center px-2 py-3 font-medium">Unidades día</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {DIAS_SEMANA.map(({ key, label }) => (
+            {DIAS_SEMANA.filter(({ key }) => key === todayKey).map(({ key, label }) => (
               <tr key={key}>
                 <td className="px-4 py-2.5 font-medium text-gray-700">{label}</td>
-                {(['upt', 'txn', 'uds'] as const).map((field) => (
+                {(['txn', 'uds'] as const).map((field) => (
                   <td key={field} className="px-2 py-2 text-center">
                     <input
                       type="number"
-                      step={field === 'upt' ? '0.1' : '1'}
+                      step="1"
                       value={metasPorDia[key]?.[field] ?? ''}
                       onChange={(e) =>
                         setMetasPorDia((prev) => ({
@@ -283,15 +427,152 @@ export default function MetasDiarias() {
           </tbody>
         </table>
 
-        {(totales.txn > 0 || totales.uds > 0) && (
-          <div className="border-t border-gray-100 px-4 py-2.5 flex flex-wrap gap-4 bg-gray-50">
-            <span className="text-xs text-gray-400">Total mes estimado:</span>
-            {totales.txn > 0 && (
-              <span className="text-xs font-medium text-gray-700">{Math.round(totales.txn)} transacciones</span>
+        {/* Restante del mes */}
+        {(metaMensualTxn !== null || metaMensualUds !== null) && (
+          <div className="border-t border-gray-100 px-4 py-3 bg-gray-50 space-y-2">
+            {metaMensualTxn !== null && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400">Transacciones del mes</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500">{distribuidoTxn} distribuidas</span>
+                  <span className="text-gray-300">/</span>
+                  <span className="font-semibold text-gray-700">{metaMensualTxn} meta</span>
+                  <span className={`font-semibold ${restanteTxn !== null && restanteTxn < 0 ? 'text-red-500' : 'text-gray-900'}`}>
+                    → {restanteTxn !== null ? restanteTxn : '—'} restantes
+                  </span>
+                </div>
+              </div>
             )}
-            {totales.uds > 0 && (
-              <span className="text-xs font-medium text-gray-700">{Math.round(totales.uds)} unidades</span>
+            {metaMensualUds !== null && (
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-400">Unidades del mes</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-gray-500">{distribuidoUds} distribuidas</span>
+                  <span className="text-gray-300">/</span>
+                  <span className="font-semibold text-gray-700">{metaMensualUds} meta</span>
+                  <span className={`font-semibold ${restanteUds !== null && restanteUds < 0 ? 'text-red-500' : 'text-gray-900'}`}>
+                    → {restanteUds !== null ? restanteUds : '—'} restantes
+                  </span>
+                </div>
+              </div>
             )}
+          </div>
+        )}
+      </div>
+
+      {/* Presupuesto diario + selección de asesores */}
+      <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
+        <div>
+          <p className="text-xs font-medium text-gray-600 mb-1.5">Presupuesto del día</p>
+          <input
+            type="number"
+            value={todayInput?.monto ?? ''}
+            onChange={(e) =>
+              setMetasPorDia((prev) => ({
+                ...prev,
+                [todayKey]: { ...prev[todayKey], monto: e.target.value },
+              }))
+            }
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Ej. 5000000"
+            min={0}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Meta UPT</label>
+            <input
+              type="number"
+              value={todayInput?.upt ?? ''}
+              onChange={(e) =>
+                setMetasPorDia((prev) => ({
+                  ...prev,
+                  [todayKey]: { ...prev[todayKey], upt: e.target.value },
+                }))
+              }
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              placeholder="Ej. 1.8"
+              min={0}
+              step={0.01}
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">Meta AVT</label>
+            <input
+              type="number"
+              value={todayInput?.avt ?? ''}
+              onChange={(e) =>
+                setMetasPorDia((prev) => ({
+                  ...prev,
+                  [todayKey]: { ...prev[todayKey], avt: e.target.value },
+                }))
+              }
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              placeholder="Ej. 85000"
+              min={0}
+            />
+          </div>
+        </div>
+
+        {asesores.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-gray-600 mb-2">
+              Dividir entre asesores que trabajan hoy
+              {hayPreview && n > 0 && (
+                <span className="text-gray-400 font-normal ml-2">
+                  →{txnPorAsesorPreview > 0 ? ` ${Math.round(txnPorAsesorPreview)} txn` : ''}{udsPorAsesorPreview > 0 ? ` · ${Math.round(udsPorAsesorPreview)} uds` : ''}{montoPorAsesorPreview > 0 ? ` · ${formatCurrency(montoPorAsesorPreview)}` : ''} c/u
+                </span>
+              )}
+            </p>
+            <div className="space-y-2">
+              {asesores.map((a) => {
+                const selected = asesoresSel.includes(a.id);
+                return (
+                  <label
+                    key={a.id}
+                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
+                      selected
+                        ? 'border-gray-900 bg-gray-50'
+                        : 'border-gray-100 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={() => toggleAsesor(a.id)}
+                      className="w-4 h-4 accent-gray-900 flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{a.nombre} {a.apellido}</p>
+                      <p className="text-xs text-gray-400">{a.cargo}</p>
+                    </div>
+                    {selected && hayPreview && (
+                      <div className="flex items-center gap-3 flex-shrink-0">
+                        {txnPorAsesorPreview > 0 && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-gray-400">Txn</p>
+                            <p className="text-sm font-bold text-gray-900">{Math.round(txnPorAsesorPreview)}</p>
+                          </div>
+                        )}
+                        {udsPorAsesorPreview > 0 && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-gray-400">Uds</p>
+                            <p className="text-sm font-bold text-gray-900">{Math.round(udsPorAsesorPreview)}</p>
+                          </div>
+                        )}
+                        {montoPorAsesorPreview > 0 && (
+                          <div className="text-right">
+                            <p className="text-[10px] text-gray-400">Monto</p>
+                            <p className="text-sm font-bold text-gray-900">{formatCurrency(montoPorAsesorPreview)}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </label>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

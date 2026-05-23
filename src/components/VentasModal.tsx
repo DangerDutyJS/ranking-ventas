@@ -58,7 +58,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
     const mes = mesActual();
     const docId = `${mes}_${asesor.id}`;
     const ref = doc(db, 'tiendas', storeId, 'ventasMes', docId);
-    const registro = { monto: valor, unidades: uds, transacciones: txn, fecha: fechaHoy(), creadoEn: new Date().toISOString() };
+    const registro = { id: crypto.randomUUID(), monto: valor, unidades: uds, transacciones: txn, fecha: fechaHoy(), creadoEn: new Date().toISOString() };
     try {
       const snap = await getDoc(ref);
       if (snap.exists()) {

@@ -26,8 +26,9 @@ src/
 │   ├── AsignarPinModal.tsx — Modal asignar/cambiar PIN (4 dígitos)
 │   ├── PinModal.tsx        — Modal ingresar PIN para registrar venta
 │   ├── VentasModal.tsx     — Modal registrar monto + unidades + transacciones del día
-│   ├── MetaMes.tsx         — Configurar meta mensual, días laborados e indicadores de referencia
-│   ├── MetasDiarias.tsx    — Tabla Lun-Dom con UPT/Txn/Uds + calendario visual del mes
+│   ├── AcumuladoMesModal.tsx — Modal ingresar acumulado del mes (ventas no registradas por día); NO afecta ranking de hoy
+│   ├── MetaMes.tsx         — Configurar meta mensual, días laborados e indicadores de referencia (sin ajuste proporcional visible)
+│   ├── MetasDiarias.tsx    — Meta del día actual: Txn/Uds + presupuesto diario con selección de asesores + calendario visual del mes
 │   └── TutorialModal.tsx   — Tutorial de onboarding (primer ingreso)
 ├── context/
 │   ├── AuthContext.tsx     — Estado Firebase Auth + cookie auth-session
@@ -49,9 +50,11 @@ tiendas/{uid}/
 ├── asesores/{asesorId}     — { nombre, apellido, cargo, fotoBase64, pinHash, creadoEn }
 ├── metas/{mes}             — { montoTotal, asesores: { [id]: { diasLaborados } }, metaAVT?,
 │                              metaUPT?, metaTransacciones?, metaUnidades?,
-│                              metasPorDia: { "0"–"6": { upt, txn, uds } }, actualizadoEn }
+│                              metasPorDia: { "0"–"6": { upt, avt?, txn, uds, monto?, asesoresIds? } },
+│                              actualizadoEn }
 └── ventasMes/{mes_uid}     — { mes, asesorId, totalVentas, totalUnidades, totalTransacciones,
-                               registros: [{ monto, unidades, transacciones, fecha, creadoEn }] }
+                               registros: [{ monto, unidades, transacciones, fecha, creadoEn }],
+                               acumuladoMes?: { monto, unidades, transacciones } }
 ```
 
 `StoreContext` provee `storeId` a todos los componentes:
@@ -93,25 +96,35 @@ service cloud.firestore {
 ## Funcionalidades implementadas
 
 ### Dashboard principal (`/`)
-- Ranking en tiempo real ordenado por `totalVentas` descendente
+- Ranking en tiempo real; **ranking mensual ordenado por `totalVentas + acumuladoMes.monto`** (el total real visible)
 - Medallas 🥇🥈🥉 para los primeros 3
-- Tarjetas con: progreso mensual (barra de color con marcadores), vendido, falta para meta, 5 indicadores de gestión, sección Hoy
-- Barra de progreso con rango 0–120%, marcadores en 100%, 110%, 120% (puntos de color sobre la barra + etiquetas)
+- Barra de progreso mensual con rango 0–120%, marcadores en 100%, 110%, 120% (puntos de color sobre la barra + etiquetas)
 - Colores de barra y marcadores: rojo → naranja → ámbar → teal → **verde (100%)** → **azul (110%)** → **celeste (120%)**
 - Premios por nivel: 📌 Pin al 100% · 🎁 Bono corral al 110% · 🏖️ Día libre al 120%
 - Badge motivacional: "¡Empieza hoy!" → "¡Buen ritmo!" → "¡Meta cumplida!" → "¡Por encima!" → "¡Top absoluto!"
-- 5 indicadores de gestión: PPTO s/IVA, AVT, UPT, Transacciones, Unidades
-- Txn y Unidades: targets per-asesor (distribuidos proporcionalmente desde el total del mes)
-- UPT y targets diarios: usa `metasPorDia[hoy.getDay()]` si el líder configuró la tabla por día de semana; sino usa el promedio mensual/días
-- **Sin metas diarias auto-calculadas**: se eliminaron "Promedio diario requerido" y "Meta ajustada". Los valores mensuales son solo referencia; los targets diarios son manuales (tabla por día de semana)
-- Tarjeta dividida en dos secciones: **Meta mensual** (barra 0-120%, PPTO/AVT/UPT/Txn/Unidades, beneficios) y **Hoy** (grid 4 celdas: Txn/UPT/Uds/Importe del día actual vs target del día; verde si cumplido). La sección Hoy usa `registros[].fecha === hoy` para calcular los totales del día; aparece si hay metas del día configuradas o si ya hay ventas hoy
-- Clic en tarjeta → PinModal → VentasModal (registra venta con `increment()` + `arrayUnion()`)
-- **Ranking de hoy** (sección debajo del ranking mensual): aparece solo si hay `metasPorDia` configurada para el día actual; tarjetas ordenadas por `progresoHoy()` (% Txn vs meta del día); muestra barra de progreso de Txn + grid 4 celdas (Txn/UPT/Uds/Importe); badge de % en color (verde ≥100%, azul ≥75%, ámbar ≥50%, naranja <50%). Las tarjetas de ranking de hoy no son clickeables (no registran venta). La función `progresoHoy()` prioriza Txn; si txn=0 usa Uds. El mapa `ventaHoyMap` se calcula una vez fuera del render para ambas secciones.
+- **Indicadores de gestión con barras de progreso** (`IndicatorBar`): cada indicador muestra valor actual / meta + barra de color + % semántico (verde ≥100%, ámbar ≥80%, rojo <80%). Colores fijos por tipo:
+  - Monto → esmeralda/verde · AVT → azul/índigo · UPT → teal/cyan · Txn → violeta/púrpura · Uds → naranja/ámbar
+- Txn y Unidades: targets per-asesor distribuidos proporcionalmente por días laborados; si el asesor no está en `meta.asesores`, usa división igual (`total / n`) como fallback
+- UPT y AVT diarios: usa `metasPorDia[hoy.getDay()].upt` / `.avt` si el líder los configuró
+- **Sin metas diarias auto-calculadas**: los targets diarios son manuales (tabla por día de semana)
+- **Estructura del dashboard — dos secciones independientes:**
+  - **"Ranking de hoy"** (sección superior, clickeable): se muestra SOLO cuando el líder configuró `asesoresIds` para ese día. Muestra únicamente los asesores seleccionados, ordenados por `progresoHoy()` (% Txn vs meta). Tarjetas: barra "General" combinada + bloque unificado `IndicatorBar` para Txn/Uds/Monto/UPT/AVT.
+  - **"Ranking mensual"** (sección inferior, siempre visible, clickeable): muestra TODOS los asesores sin excepción, ordenados por total real. Incluye barra 0-120% + bloque `IndicatorBar` (Monto/AVT/UPT/Txn/Uds) + beneficios. Sección "Hoy" al fondo solo cuando NO hay ranking de hoy activo.
+- `asesoresHoy`: array vacío si no hay `asesoresIds` configurados. `showDailySection = asesoresHoy.length > 0`.
+- Clic en tarjeta **ranking de hoy** → PIN → VentasModal (registra venta del día con `increment()` + `arrayUnion()`)
+- Clic en tarjeta **ranking mensual** → PIN → AcumuladoMesModal (registra acumulado del mes en campo separado `acumuladoMes`)
+- `acumuladoMes` se suma al total mensual visible pero NO aparece en `registros[]`, por lo que no afecta `ventaHoyMap` ni el ranking de hoy
+- La función `progresoHoy()` prioriza Txn; si txn=0 usa Uds. El mapa `ventaHoyMap` se calcula una vez fuera del render.
 
 ### Panel líder (`/lider`) — 3 tabs
 - **Asesores**: registrar asesores (foto, nombre, cargo) y asignar PINs
-- **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + UPT/Txn/Unidades mensuales de referencia distribuidos por asesor; "Mismo para todos" para días laborados
-- **Metas diarias** (`MetasDiarias.tsx`): tabla Lun–Dom × UPT/Txn/Unidades + calendario visual del mes con targets proyectados por tipo de día; guarda en `metas/{mes}.metasPorDia` con `{ merge: true }` para no pisar campos de Meta del mes
+- **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + **4 indicadores mensuales de referencia**: Transacciones, Unidades, UPT y AVT. "Mismo para todos" para días laborados. Vista guardada muestra por asesor: meta mensual proporcional + Txn/Uds distribuidas + UPT y AVT como target único (mismo para todos, no se distribuye). **No muestra ajuste proporcional ni redistribución** — solo "Días laborados" y "Meta mensual" por asesor
+- **Metas diarias** (`MetasDiarias.tsx`): muestra y edita **solo el día actual** (no tabla Lun–Dom completa). Secciones:
+  - Tabla: Transacciones día + Unidades día con contador restante vs meta mensual
+  - **Presupuesto del día**: monto total + **Meta UPT** + **Meta AVT** del día + checkboxes para seleccionar asesores → muestra reparto individual de **Txn, Uds y Monto** (`valor / N`) en tiempo real por cada asesor marcado
+  - En la vista guardada: grid de tarjetas (Txn/Uds/UPT/AVT) + sección "Distribución por asesor" con columnas Txn/Uds/Monto
+  - Calendario visual del mes (targets por tipo de día)
+  - Guarda en `metas/{mes}.metasPorDia[dow]` con `{ merge: true }`. `upt` ahora guarda el valor real (antes siempre era 0); `avt` es campo nuevo
 
 ### Tutorial de onboarding (`TutorialModal`)
 - Aparece automáticamente en el primer ingreso del líder
@@ -136,6 +149,7 @@ service cloud.firestore {
 - **Dominio autorizado en Firebase Auth:** `ranking-ventas.web.app`
 - Next.js configurado con `output: 'export'` e `images: { unoptimized: true }`
 - El `proxy.ts` (middleware) no aplica en static export — la protección es client-side
+- **Cache headers (`firebase.json`):** HTML → `no-cache, no-store, must-revalidate` (siempre fresco); `_next/static/**` → `public, max-age=31536000, immutable` (cache permanente con hash). Esto garantiza que los usuarios vean cambios sin limpiar caché manualmente
 
 ## Variables de entorno requeridas (`.env.local` — nunca commitear)
 ```
@@ -146,6 +160,15 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 ```
+
+## Bugs corregidos relevantes
+
+- **`lider/page.tsx` race condition**: el `useEffect` de protección ahora hace `if (loading) return` como primera línea. La versión anterior ejecutaba el check de `sessionStorage` mientras `loading=true`, causando redirect prematuro a `/` antes de que Firebase Auth resolviera el usuario.
+- **`LeaderModal.tsx` error silencioso**: `handleVerify` ahora tiene `try/catch`. Sin él, un error de Firestore dejaba el botón en "Verificando..." indefinidamente sin mensaje de error.
+- **`fechaHoy()` zona horaria**: usa `toISOString().slice(0,10)` (UTC). En Colombia (UTC-5) puede devolver el día siguiente a partir de las 7pm. Pendiente de corregir con `toLocaleDateString('fr-CA')`.
+- **Ranking mensual sort incorrecto**: el sort usaba `ventasMap[id].totalVentas` (sin acumuladoMes), pero las tarjetas mostraban `totalVentas + acumuladoMes.monto`. Corregido: el sort ahora usa el mismo total real que se muestra.
+- **`metaTxnAsesor`/`metaUdsAsesor` siempre null**: si un asesor no estaba en `meta.asesores` (p.ej. agregado después de configurar la meta), `distribuirIndicador` le asignaba 0 y `pctTxn`/`pctUds` quedaba null. Corregido con fallback a división igual (`metaTransacciones / n`).
+- **`NotificacionesPanel` lista invisible**: `h-full` en el panel no resolvía correctamente la altura cuando el padre usa `fixed inset-0` (altura implícita, no propiedad `height` explícita). `flex-1` del área de contenido colapsaba a 0px y `overflow-y-auto` ocultaba todo. Corregido con `h-screen` en el panel y `min-h-0` en el contenedor del listado.
 
 ## Instrucción permanente — Registro de cambios
 

@@ -21,20 +21,26 @@ interface EditAsesorModalProps {
 
 function comprimirImagen(file: File, maxSize = 150): Promise<string> {
   return new Promise((resolve, reject) => {
-    const img = new window.Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = maxSize;
-      canvas.height = maxSize;
-      const ctx = canvas.getContext('2d')!;
-      const size = Math.min(img.width, img.height);
-      const x = (img.width - size) / 2;
-      const y = (img.height - size) / 2;
-      ctx.drawImage(img, x, y, size, size, 0, 0, maxSize, maxSize);
-      resolve(canvas.toDataURL('image/jpeg', 0.75));
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      const img = new window.Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = maxSize;
+        canvas.height = maxSize;
+        const ctx = canvas.getContext('2d')!;
+        const size = Math.min(img.width, img.height);
+        const x = (img.width - size) / 2;
+        const y = (img.height - size) / 2;
+        ctx.drawImage(img, x, y, size, size, 0, 0, maxSize, maxSize);
+        resolve(canvas.toDataURL('image/jpeg', 0.75));
+      };
+      img.src = dataUrl;
     };
-    img.onerror = reject;
-    img.src = URL.createObjectURL(file);
+    reader.readAsDataURL(file);
   });
 }
 

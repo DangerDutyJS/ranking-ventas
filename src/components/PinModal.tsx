@@ -107,7 +107,7 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="w-full max-w-xs mx-4 bg-white rounded-2xl shadow-lg border border-gray-100 p-7">
+      <div className="w-full max-w-xs mx-4 bg-white rounded-2xl shadow-xl border border-gray-100 p-7 animate-modal">
         <div className="flex flex-col items-center mb-6">
           <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center mb-3">
             {asesor.fotoBase64 ? (

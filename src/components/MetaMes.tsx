@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
@@ -21,15 +21,21 @@ interface MetaAsesor {
 interface Meta {
   montoTotal: number;
   asesores: Record<string, MetaAsesor>;
-  metaAVT?: number;
-  metaUPT?: number;
   metaTransacciones?: number;
   metaUnidades?: number;
+  metaUPT?: number;
+  metaAVT?: number;
 }
 
 function mesActual() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMes(mes: string): string {
+  const [year, month] = mes.split('-');
+  const date = new Date(Number(year), Number(month) - 1, 1);
+  return date.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 }
 
 function formatCurrency(n: number) {
@@ -39,14 +45,16 @@ function formatCurrency(n: number) {
 export default function MetaMes() {
   const storeId = useStoreId();
   const mes = mesActual();
+
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [montoTotal, setMontoTotal] = useState('');
   const [dias, setDias] = useState<Record<string, string>>({});
-  const [metaAVT, setMetaAVT] = useState('');
-  const [metaUPT, setMetaUPT] = useState('');
   const [metaTransacciones, setMetaTransacciones] = useState('');
   const [metaUnidades, setMetaUnidades] = useState('');
+  const [metaUPT, setMetaUPT] = useState('');
+  const [metaAVT, setMetaAVT] = useState('');
   const [metaGuardada, setMetaGuardada] = useState<Meta | null>(null);
+  const [historial, setHistorial] = useState<Array<{ mes: string; data: Meta }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -72,12 +80,18 @@ export default function MetaMes() {
           diasInit[id] = String(val.diasLaborados);
         }
         setDias(diasInit);
-        setMetaAVT(data.metaAVT ? String(data.metaAVT) : '');
-        setMetaUPT(data.metaUPT ? String(data.metaUPT) : '');
         setMetaTransacciones(data.metaTransacciones ? String(data.metaTransacciones) : '');
         setMetaUnidades(data.metaUnidades ? String(data.metaUnidades) : '');
+        setMetaUPT(data.metaUPT ? String(data.metaUPT) : '');
+        setMetaAVT(data.metaAVT ? String(data.metaAVT) : '');
       }
       setLoading(false);
+    });
+    getDocs(collection(db, 'tiendas', storeId, 'metas')).then((snap) => {
+      const all = snap.docs
+        .map((d) => ({ mes: d.id, data: d.data() as Meta }))
+        .sort((a, b) => b.mes.localeCompare(a.mes));
+      setHistorial(all);
     });
   }, [storeId, mes]);
 
@@ -94,13 +108,13 @@ export default function MetaMes() {
     for (const a of asesores) {
       asesorData[a.id] = { diasLaborados: Number(dias[a.id]) };
     }
-    const metaObj: Partial<Meta> = {
+    const metaObj: Meta = {
       montoTotal: monto,
       asesores: asesorData,
-      ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
-      ...(Number(metaUPT) > 0 && { metaUPT: parseFloat(metaUPT) }),
       ...(Number(metaTransacciones) > 0 && { metaTransacciones: Number(metaTransacciones) }),
       ...(Number(metaUnidades) > 0 && { metaUnidades: Number(metaUnidades) }),
+      ...(Number(metaUPT) > 0 && { metaUPT: Number(metaUPT) }),
+      ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
     };
     try {
       await setDoc(
@@ -108,7 +122,11 @@ export default function MetaMes() {
         { ...metaObj, actualizadoEn: serverTimestamp() },
         { merge: true }
       );
-      setMetaGuardada(metaObj as Meta);
+      setMetaGuardada(metaObj);
+      setHistorial((prev) => {
+        const filtered = prev.filter((h) => h.mes !== mes);
+        return [{ mes, data: metaObj }, ...filtered].sort((a, b) => b.mes.localeCompare(a.mes));
+      });
       setEditando(false);
     } catch {
       setError('Error al guardar. Intenta de nuevo.');
@@ -141,23 +159,43 @@ export default function MetaMes() {
 
   // ── VISTA ────────────────────────────────────────────────────────────────
   if (metaGuardada && !editando) {
+    const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+    const pastMonths = historial.filter((h) => h.mes !== mes);
+
     return (
       <div className="space-y-6">
+        {/* Header mes actual */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide">Monto total del mes</p>
+            <p className="text-xs text-gray-400 uppercase tracking-wide capitalize">{mesNombre}</p>
             <p className="text-2xl font-semibold text-gray-900 mt-0.5">{formatCurrency(metaGuardada.montoTotal)}</p>
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
+              {metaGuardada.metaTransacciones && (
+                <span className="text-xs text-gray-500">{metaGuardada.metaTransacciones} txn</span>
+              )}
+              {metaGuardada.metaUnidades && (
+                <span className="text-xs text-gray-500">{metaGuardada.metaUnidades} uds</span>
+              )}
+              {metaGuardada.metaUPT && (
+                <span className="text-xs text-gray-500">UPT {metaGuardada.metaUPT}</span>
+              )}
+              {metaGuardada.metaAVT && (
+                <span className="text-xs text-gray-500">AVT {formatCurrency(metaGuardada.metaAVT)}</span>
+              )}
+            </div>
           </div>
-          <button onClick={() => setEditando(true)}
-            className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+          <button
+            onClick={() => setEditando(true)}
+            className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
+          >
             Editar
           </button>
         </div>
 
-        {/* Presupuesto por asesor */}
+        {/* Tarjetas por asesor */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {asesores.map((a) => {
-            const mc = metasMap[a.id];
+            const mc  = metasMap[a.id];
             const txn = txnPorAsesor[a.id];
             const uds = udsPorAsesor[a.id];
             return (
@@ -167,30 +205,14 @@ export default function MetaMes() {
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Días laborados</span>
-                    <span className="font-medium text-gray-900">{mc?.diasLaborados ?? 0} / {mc?.diasMes ?? 0} días</span>
+                    <span className="font-medium text-gray-900">{mc?.diasLaborados ?? 0} días</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Presupuesto base</span>
-                    <span className="font-medium text-gray-500">{mc ? formatCurrency(mc.presupuestoBase) : '—'}</span>
-                  </div>
-                  {mc?.esProporcional && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-orange-500">Ajuste proporcional</span>
-                      <span className="font-medium text-orange-500">{mc ? formatCurrency(mc.redistribucion) : '—'}</span>
-                    </div>
-                  )}
-                  {!mc?.esProporcional && mc && mc.redistribucion > 0 && (
-                    <div className="flex justify-between text-xs">
-                      <span className="text-blue-500">+ Redistribución</span>
-                      <span className="font-medium text-blue-500">+{formatCurrency(mc.redistribucion)}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-xs border-t border-gray-100 pt-2 mt-2">
+                  <div className="flex justify-between text-xs border-t border-gray-100 pt-2">
                     <span className="text-gray-700 font-semibold">Meta mensual</span>
                     <span className="font-bold text-gray-900">{mc ? formatCurrency(mc.metaMensual) : '—'}</span>
                   </div>
                   {txn !== undefined && (
-                    <div className="flex justify-between text-xs border-t border-gray-50 pt-1 mt-1">
+                    <div className="flex justify-between text-xs">
                       <span className="text-gray-500">Txn / mes</span>
                       <span className="font-medium text-gray-900">{Math.round(txn)}</span>
                     </div>
@@ -203,8 +225,14 @@ export default function MetaMes() {
                   )}
                   {metaGuardada.metaUPT && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">Meta UPT</span>
-                      <span className="font-medium text-gray-900">{metaGuardada.metaUPT.toFixed(2)}</span>
+                      <span className="text-gray-500">UPT</span>
+                      <span className="font-medium text-gray-900">{metaGuardada.metaUPT}</span>
+                    </div>
+                  )}
+                  {metaGuardada.metaAVT && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-500">AVT</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(metaGuardada.metaAVT)}</span>
                     </div>
                   )}
                 </div>
@@ -213,12 +241,34 @@ export default function MetaMes() {
           })}
         </div>
 
-        {/* AVT global */}
-        {metaGuardada.metaAVT && (
-          <div className="bg-white border border-gray-100 rounded-2xl p-5">
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">AVT</p>
-            <p className="text-sm font-semibold text-gray-900">{formatCurrency(metaGuardada.metaAVT)}</p>
-            <p className="text-xs text-gray-400">s/IVA: {formatCurrency(metaGuardada.metaAVT / 1.19)}</p>
+        {/* Historial de meses anteriores */}
+        {pastMonths.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Historial</p>
+            <div className="space-y-2">
+              {pastMonths.map(({ mes: m, data }) => (
+                <div key={m} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 capitalize">{formatMes(m)}</p>
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      {data.metaTransacciones && (
+                        <span className="text-xs text-gray-400">{data.metaTransacciones} txn</span>
+                      )}
+                      {data.metaUnidades && (
+                        <span className="text-xs text-gray-400">{data.metaUnidades} uds</span>
+                      )}
+                      {data.metaUPT && (
+                        <span className="text-xs text-gray-400">UPT {data.metaUPT}</span>
+                      )}
+                      {data.metaAVT && (
+                        <span className="text-xs text-gray-400">AVT {formatCurrency(data.metaAVT)}</span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(data.montoTotal)}</p>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -226,8 +276,12 @@ export default function MetaMes() {
   }
 
   // ── FORMULARIO ────────────────────────────────────────────────────────────
+  const mesNombreForm = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+
   return (
     <form onSubmit={handleGuardar} className="space-y-6 max-w-lg" autoComplete="off">
+      <p className="text-sm text-gray-500 capitalize">{mesNombreForm}</p>
+
       {/* Monto total */}
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Monto total del mes</label>
@@ -241,6 +295,55 @@ export default function MetaMes() {
         />
       </div>
 
+      {/* Indicadores del mes */}
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Meta transacciones</label>
+          <input
+            type="number"
+            value={metaTransacciones}
+            onChange={(e) => setMetaTransacciones(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Ej. 120"
+            min={0}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Meta unidades</label>
+          <input
+            type="number"
+            value={metaUnidades}
+            onChange={(e) => setMetaUnidades(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Ej. 400"
+            min={0}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Meta UPT</label>
+          <input
+            type="number"
+            value={metaUPT}
+            onChange={(e) => setMetaUPT(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Ej. 1.8"
+            min={0}
+            step={0.01}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Meta AVT</label>
+          <input
+            type="number"
+            value={metaAVT}
+            onChange={(e) => setMetaAVT(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Ej. 85000"
+            min={0}
+          />
+        </div>
+      </div>
+
       {/* Días laborados */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -248,10 +351,10 @@ export default function MetaMes() {
           <div className="flex items-center gap-2">
             <input
               type="number"
-              placeholder="Mismo para todos"
+              placeholder="Igual para todos"
               min={1}
               max={31}
-              className="w-36 px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-gray-900 transition-colors text-gray-900 text-center"
+              className="w-32 px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-gray-900 transition-colors text-gray-900 text-center"
               onChange={(e) => {
                 const val = e.target.value;
                 if (!val) return;
@@ -283,92 +386,6 @@ export default function MetaMes() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Vista previa presupuesto */}
-      {montoTotal && Number(montoTotal) > 0 && asesores.length > 0 && (
-        <div className="bg-gray-50 rounded-xl p-4 space-y-1.5">
-          <p className="text-xs font-medium text-gray-500 mb-2">Vista previa presupuesto</p>
-          {(() => {
-            const monto = Number(montoTotal);
-            const diasInput: Record<string, { diasLaborados: number }> = {};
-            asesores.forEach((a) => { diasInput[a.id] = { diasLaborados: Number(dias[a.id] ?? 0) }; });
-            const preview = calcularMetas(monto, asesores.map((a) => a.id), diasInput);
-            return asesores.map((a) => {
-              const mc = preview[a.id];
-              if (!mc) return null;
-              return (
-                <div key={a.id} className="flex justify-between text-xs">
-                  <span className="text-gray-500 truncate max-w-[140px]">{a.nombre}</span>
-                  <span className={`font-semibold ${mc.esProporcional ? 'text-orange-600' : mc.redistribucion > 0 ? 'text-blue-600' : 'text-gray-900'}`}>
-                    {formatCurrency(mc.metaMensual)}
-                    {mc.esProporcional && ' ↓'}
-                    {!mc.esProporcional && mc.redistribucion > 0 && ' ↑'}
-                  </span>
-                </div>
-              );
-            });
-          })()}
-        </div>
-      )}
-
-      {/* AVT */}
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Meta AVT <span className="text-gray-400 font-normal">($ con IVA · opcional)</span>
-        </label>
-        <input
-          type="number"
-          value={metaAVT}
-          onChange={(e) => setMetaAVT(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-          placeholder="Ej. 150000"
-          min={0}
-        />
-      </div>
-
-      {/* Metas mensuales UPT / Txn / Unidades */}
-      <div className="space-y-3">
-        <p className="text-xs font-medium text-gray-600">
-          Metas mensuales totales{' '}
-          <span className="text-gray-400 font-normal">(referencia · se distribuyen por asesor)</span>
-        </p>
-        <div className="grid grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">UPT</label>
-            <input
-              type="number"
-              step="0.1"
-              value={metaUPT}
-              onChange={(e) => setMetaUPT(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-              placeholder="Ej. 3.5"
-              min={0}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Transacciones</label>
-            <input
-              type="number"
-              value={metaTransacciones}
-              onChange={(e) => setMetaTransacciones(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-              placeholder="Ej. 60"
-              min={0}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Unidades</label>
-            <input
-              type="number"
-              value={metaUnidades}
-              onChange={(e) => setMetaUnidades(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-              placeholder="Ej. 200"
-              min={0}
-            />
-          </div>
-        </div>
       </div>
 
       {error && <p className="text-xs text-red-500">{error}</p>}

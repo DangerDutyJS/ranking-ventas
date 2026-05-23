@@ -25,11 +25,12 @@ export default function LiderPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+    if (!user) {
       router.push('/login');
       return;
     }
-    if (typeof window !== 'undefined' && !sessionStorage.getItem('leader-access')) {
+    if (!sessionStorage.getItem('leader-access')) {
       router.push('/');
     }
   }, [user, loading, router]);
