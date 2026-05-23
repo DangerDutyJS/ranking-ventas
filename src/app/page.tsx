@@ -12,6 +12,7 @@ import PinModal from '@/components/PinModal';
 import VentasModal from '@/components/VentasModal';
 import HistorialVentasDiaModal from '@/components/HistorialVentasDiaModal';
 import NotificacionesPanel from '@/components/NotificacionesPanel';
+import InstallPWA from '@/components/InstallPWA';
 import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
@@ -280,6 +281,7 @@ export default function Home() {
             )}
             <span className="text-sm text-gray-600 hidden sm:block">{user.displayName}</span>
           </div>
+          <InstallPWA />
           <NotificacionesPanel />
           <button onClick={() => setShowLeaderModal(true)}
             className="inline-flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
