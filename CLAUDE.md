@@ -29,6 +29,8 @@ src/
 │   ├── AcumuladoMesModal.tsx — Modal ingresar acumulado del mes (ventas no registradas por día); NO afecta ranking de hoy
 │   ├── MetaMes.tsx         — Configurar meta mensual, días laborados e indicadores de referencia (sin ajuste proporcional visible)
 │   ├── MetasDiarias.tsx    — Meta del día actual: Txn/Uds + presupuesto diario con selección de asesores + calendario visual del mes
+│   ├── DinamicasTab.tsx    — Tab "Dinámicas" del panel líder: form + lista + progreso por asesor
+│   ├── DinamicaProgressModal.tsx — Modal para que el asesor registre su total en una dinámica (post-PIN)
 │   └── TutorialModal.tsx   — Tutorial de onboarding (primer ingreso)
 ├── context/
 │   ├── AuthContext.tsx     — Estado Firebase Auth + cookie auth-session
@@ -101,6 +103,7 @@ service cloud.firestore {
 - Barra de progreso mensual con rango 0–120%, marcadores en 100%, 110%, 120% (puntos de color sobre la barra + etiquetas)
 - Colores de barra y marcadores: rojo → naranja → ámbar → teal → **verde (100%)** → **azul (110%)** → **celeste (120%)**
 - Premios por nivel: 📌 Pin al 100% · 🎁 Bono corral al 110% · 🏖️ Día libre al 120%
+- **Mini-barra "siguiente nivel"** en tarjetas del ranking mensual: cuando el asesor está entre 100–109% aparece una mini-barra azul/índigo "Siguiente: 🎁 Bono corral" con progreso de 100% a 110% y etiqueta "+X% más"; entre 110–119% aparece mini-barra sky "Siguiente: 🏖️ Día libre" hacia 120%. Desaparece al llegar a 120%.
 - Badge motivacional: "¡Empieza hoy!" → "¡Buen ritmo!" → "¡Meta cumplida!" → "¡Por encima!" → "¡Top absoluto!"
 - **Indicadores de gestión con barras de progreso** (`IndicatorBar`): cada indicador muestra valor actual / meta + barra de color + % semántico (verde ≥100%, ámbar ≥80%, rojo <80%). Colores fijos por tipo:
   - Monto → esmeralda/verde · AVT → azul/índigo · UPT → teal/cyan · Txn → violeta/púrpura · Uds → naranja/ámbar
@@ -125,6 +128,19 @@ service cloud.firestore {
   - En la vista guardada: grid de tarjetas (Txn/Uds/UPT/AVT) + sección "Distribución por asesor" con columnas Txn/Uds/Monto
   - Calendario visual del mes (targets por tipo de día)
   - Guarda en `metas/{mes}.metasPorDia[dow]` con `{ merge: true }`. `upt` ahora guarda el valor real (antes siempre era 0); `avt` es campo nuevo
+
+### Dinámicas comerciales
+- **Panel líder**: tab "Dinámicas" (4to tab en `lider/page.tsx`) con `DinamicasTab.tsx`
+  - Formulario: nombre, meta por asesor (número), fecha (default hoy), selección de asesores con checkboxes
+  - Lista agrupada en "Hoy" y "Anteriores", cada dinámica muestra barra de progreso global + toggle activa/inactiva + eliminar
+  - "Ver por asesor" desplegable con barra individual por cada participante
+- **Dashboard**: sección "Dinámicas del día" (entre Ranking de hoy y Ranking mensual) visible cuando hay dinámicas activas para hoy
+  - Cada dinámica: card con progreso global + filas por asesor (foto, nombre, cantidad/meta, %, barra)
+  - Clic en fila de asesor → PIN → `DinamicaProgressModal` (modo **incremento**: input vacío, agrega cantidad al acumulado con `increment(v)` + `arrayUnion({cantidad, creadoEn})`; muestra historial del día ordenado más reciente primero + barra preview gris/color)
+- **`HistorialVentasDiaModal`** — sección "Dinámicas del día" al pie del modal: input arranca **vacío** (placeholder = valor actual acumulado), barra preview (gris = acumulado actual, color = preview con nuevo valor), "Acumulado: X / meta" como referencia debajo si ya hay progreso; botón "Guardar" deshabilitado hasta que se escriba algo; modo **set** (reemplaza `progreso[asesorId]` directamente)
+- **Firestore**: `tiendas/{uid}/dinamicas/{id}` — `{ nombre, meta, fecha, activa, asesoresIds[], progreso: { [asesorId]: number }, registros?: { [asesorId]: [{cantidad, creadoEn}][] }, creadoEn }`
+- Query en dashboard: `where('fecha', '==', hoy)` + filtro `activa` client-side (evita índice compuesto)
+- `pinMode` extendido a `'diario' | 'acumulado' | 'dinamica'`; nuevo estado `pinDinamicaRef` + `dinamicaProgressData`
 
 ### Tutorial de onboarding (`TutorialModal`)
 - Aparece automáticamente en el primer ingreso del líder
@@ -165,7 +181,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 
 - **`lider/page.tsx` race condition**: el `useEffect` de protección ahora hace `if (loading) return` como primera línea. La versión anterior ejecutaba el check de `sessionStorage` mientras `loading=true`, causando redirect prematuro a `/` antes de que Firebase Auth resolviera el usuario.
 - **`LeaderModal.tsx` error silencioso**: `handleVerify` ahora tiene `try/catch`. Sin él, un error de Firestore dejaba el botón en "Verificando..." indefinidamente sin mensaje de error.
-- **`fechaHoy()` zona horaria**: usa `toISOString().slice(0,10)` (UTC). En Colombia (UTC-5) puede devolver el día siguiente a partir de las 7pm. Pendiente de corregir con `toLocaleDateString('fr-CA')`.
+- **`fechaHoy()` zona horaria**: corregido en `page.tsx` y `DinamicasTab.tsx` usando `toLocaleDateString('fr-CA')` (hora local). La versión anterior con `toISOString().slice(0,10)` (UTC) causaba que el ranking de hoy mostrara ceros después de las 7pm en Colombia (UTC-5).
 - **Ranking mensual sort incorrecto**: el sort usaba `ventasMap[id].totalVentas` (sin acumuladoMes), pero las tarjetas mostraban `totalVentas + acumuladoMes.monto`. Corregido: el sort ahora usa el mismo total real que se muestra.
 - **`metaTxnAsesor`/`metaUdsAsesor` siempre null**: si un asesor no estaba en `meta.asesores` (p.ej. agregado después de configurar la meta), `distribuirIndicador` le asignaba 0 y `pctTxn`/`pctUds` quedaba null. Corregido con fallback a división igual (`metaTransacciones / n`).
 - **`NotificacionesPanel` lista invisible**: `h-full` en el panel no resolvía correctamente la altura cuando el padre usa `fixed inset-0` (altura implícita, no propiedad `height` explícita). `flex-1` del área de contenido colapsaba a 0px y `overflow-y-auto` ocultaba todo. Corregido con `h-screen` en el panel y `min-h-0` en el contenedor del listado.

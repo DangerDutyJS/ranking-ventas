@@ -8,13 +8,15 @@ import AsesorForm from '@/components/AsesorForm';
 import AsesorList from '@/components/AsesorList';
 import MetaMes from '@/components/MetaMes';
 import MetasDiarias from '@/components/MetasDiarias';
+import DinamicasTab from '@/components/DinamicasTab';
 
-type Tab = 'asesores' | 'meta' | 'diarias';
+type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas';
 
 const TAB_LABELS: Record<Tab, string> = {
-  asesores: 'Asesores',
-  meta:     'Meta del mes',
-  diarias:  'Metas diarias',
+  asesores:  'Asesores',
+  meta:      'Meta del mes',
+  diarias:   'Metas diarias',
+  dinamicas: 'Dinámicas',
 };
 
 export default function LiderPage() {
@@ -136,6 +138,19 @@ export default function LiderPage() {
               </p>
             </div>
             <MetasDiarias />
+          </>
+        )}
+
+        {/* Tab Dinámicas */}
+        {tab === 'dinamicas' && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Dinámicas comerciales</h1>
+              <p className="mt-0.5 text-sm text-gray-500">
+                Retos del día con meta individual por asesor y seguimiento en tiempo real.
+              </p>
+            </div>
+            <DinamicasTab />
           </>
         )}
       </div>

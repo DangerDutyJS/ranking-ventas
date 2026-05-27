@@ -23,8 +23,16 @@ interface Registro {
   creadoEn: string;
 }
 
+interface Dinamica {
+  id: string;
+  nombre: string;
+  meta: number;
+  progreso: Record<string, number>;
+}
+
 interface Props {
   asesor: Asesor;
+  dinamicas?: Dinamica[];
   onClose: () => void;
 }
 
@@ -51,7 +59,7 @@ function entryKey(r: Registro) {
   return r.id ?? r.creadoEn;
 }
 
-export default function HistorialVentasDiaModal({ asesor, onClose }: Props) {
+export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: Props) {
   const storeId = useStoreId();
   const mes = mesActual();
   const hoy = fechaHoy();
@@ -72,6 +80,13 @@ export default function HistorialVentasDiaModal({ asesor, onClose }: Props) {
   const [editMonto, setEditMonto] = useState('');
   const [editUds, setEditUds] = useState('');
   const [editTxn, setEditTxn] = useState('');
+
+  const [dinValues, setDinValues] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    (dinamicas ?? []).forEach((d) => { init[d.id] = ''; });
+    return init;
+  });
+  const [dinSaving, setDinSaving] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     return onSnapshot(docRef, (snap) => {
@@ -178,6 +193,18 @@ export default function HistorialVentasDiaModal({ asesor, onClose }: Props) {
         `Editó venta: ${formatCurrency(editEntry.monto)} → ${formatCurrency(m)} · ${t} txn · ${u} uds`);
       setEditEntry(null);
     } catch { /* silent */ }
+  };
+
+  const handleUpdateDinamica = async (dinamicaId: string) => {
+    const val = parseInt(dinValues[dinamicaId] ?? '0', 10);
+    if (isNaN(val) || val < 0) return;
+    setDinSaving((prev) => ({ ...prev, [dinamicaId]: true }));
+    try {
+      await updateDoc(doc(db, 'tiendas', storeId, 'dinamicas', dinamicaId), {
+        [`progreso.${asesor.id}`]: val,
+      });
+    } catch { /* silent */ }
+    setDinSaving((prev) => ({ ...prev, [dinamicaId]: false }));
   };
 
   const total = registros.reduce(
@@ -338,6 +365,63 @@ export default function HistorialVentasDiaModal({ asesor, onClose }: Props) {
               className="w-full px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors">
               + Registrar venta
             </button>
+          )}
+
+          {dinamicas && dinamicas.length > 0 && (
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <p className="text-xs font-medium text-gray-500">Dinámicas del día</p>
+              <div className="space-y-2 max-h-44 overflow-y-auto">
+                {dinamicas.map((din) => {
+                  const actual = din.progreso?.[asesor.id] ?? 0;
+                  const inputVal = dinValues[din.id] ?? '';
+                  const displayVal = inputVal !== '' ? Number(inputVal) : actual;
+                  const pct = din.meta > 0 ? Math.min(100, (displayVal / din.meta) * 100) : 0;
+                  const pctActual = din.meta > 0 ? Math.min(100, (actual / din.meta) * 100) : 0;
+                  const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-500';
+                  return (
+                    <div key={din.id} className="border border-gray-100 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-medium text-gray-700 truncate">{din.nombre}</span>
+                        <span className={`text-xs font-semibold tabular-nums flex-shrink-0 ${textC}`}>{pct.toFixed(0)}%</span>
+                      </div>
+                      <div className="relative w-full bg-gray-100 rounded-full h-1">
+                        <div
+                          className={`h-1 rounded-full absolute left-0 bg-gray-300`}
+                          style={{ width: `${pctActual}%` }}
+                        />
+                        <div
+                          className={`h-1 rounded-full transition-all absolute left-0 ${pct >= 100 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <input
+                          type="number"
+                          min="0"
+                          value={inputVal}
+                          onChange={(e) => setDinValues((prev) => ({ ...prev, [din.id]: e.target.value }))}
+                          placeholder={String(actual)}
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-900 text-center tabular-nums"
+                        />
+                        <span className="text-xs text-gray-400 flex-shrink-0">/ {din.meta}</span>
+                        <button
+                          onClick={() => handleUpdateDinamica(din.id)}
+                          disabled={dinSaving[din.id] || inputVal === ''}
+                          className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg disabled:opacity-40 whitespace-nowrap"
+                        >
+                          {dinSaving[din.id] ? '...' : 'Guardar'}
+                        </button>
+                      </div>
+                      {actual > 0 && (
+                        <p className="text-[10px] text-gray-400 tabular-nums">
+                          Acumulado: <span className="font-medium text-gray-600">{actual}</span> / {din.meta}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
       </div>

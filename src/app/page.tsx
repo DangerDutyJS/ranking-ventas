@@ -5,7 +5,7 @@ import { StoreProvider } from '@/context/StoreContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { collection, doc, getDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import LeaderModal from '@/components/LeaderModal';
 import PinModal from '@/components/PinModal';
@@ -15,6 +15,7 @@ import NotificacionesPanel from '@/components/NotificacionesPanel';
 import InstallPWA from '@/components/InstallPWA';
 import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
+import DinamicaProgressModal from '@/components/DinamicaProgressModal';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 
 interface Asesor {
@@ -61,13 +62,29 @@ interface Meta {
   metasPorDia?: Record<string, MetaDia>;
 }
 
+interface RegistroDinamica {
+  cantidad: number;
+  creadoEn: string;
+}
+
+interface Dinamica {
+  id: string;
+  nombre: string;
+  meta: number;
+  fecha: string;
+  activa: boolean;
+  asesoresIds: string[];
+  progreso: Record<string, number>;
+  registros?: Record<string, RegistroDinamica[]>;
+}
+
 function mesActual() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function fechaHoy() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString('fr-CA');
 }
 
 function formatCurrency(n: number) {
@@ -162,10 +179,13 @@ export default function Home() {
 
   const [showLeaderModal, setShowLeaderModal] = useState(false);
   const [pinAsesor, setPinAsesor] = useState<Asesor | null>(null);
-  const [pinMode, setPinMode] = useState<'diario' | 'acumulado'>('diario');
+  const [pinMode, setPinMode] = useState<'diario' | 'acumulado' | 'dinamica'>('diario');
   const [ventasAsesor, setVentasAsesor] = useState<Asesor | null>(null);
   const [acumuladoAsesor, setAcumuladoAsesor] = useState<Asesor | null>(null);
   const [showTutorial, setShowTutorial] = useState<boolean | null>(null);
+  const [pinDinamicaRef, setPinDinamicaRef] = useState<Dinamica | null>(null);
+  const [dinamicaProgressData, setDinamicaProgressData] = useState<{ asesor: Asesor; dinamica: Dinamica } | null>(null);
+  const [dinamicas, setDinamicas] = useState<Dinamica[]>([]);
 
   const mes = mesActual();
 
@@ -209,6 +229,20 @@ export default function Home() {
       (err) => console.error('ventasMes:', err)
     );
   }, [user, mes]);
+
+  useEffect(() => {
+    if (!user) return;
+    const today = new Date().toLocaleDateString('fr-CA');
+    const q = query(
+      collection(db, 'tiendas', user.uid, 'dinamicas'),
+      where('fecha', '==', today)
+    );
+    return onSnapshot(q, (snap) => {
+      setDinamicas(
+        snap.docs.map((d) => ({ id: d.id, ...d.data() } as Dinamica)).filter((d) => d.activa)
+      );
+    });
+  }, [user]);
 
   if (authLoading || !user) return null;
 
@@ -260,6 +294,10 @@ export default function Home() {
   });
 
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+
+  const todayDate = new Date();
+  const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
+  const diasRestantes = Math.max(1, daysInMonth - todayDate.getDate() + 1);
 
   return (
     <StoreProvider storeId={user.uid}>
@@ -400,56 +438,81 @@ export default function Home() {
                           </div>
                         )}
 
-                        {/* Indicadores individuales */}
-                        {(pctTxn !== null || pctUds !== null || pctMonto !== null || uptH !== null || avtH !== null) && (
-                          <div className="rounded-xl border border-gray-100 bg-white/70 px-3 py-2.5 space-y-2.5">
-                            {pctTxn !== null && (
-                              <IndicatorBar
-                                label="Txn"
-                                value={String(vh.transacciones)}
-                                meta={String(Math.round(txnMeta))}
-                                pct={pctTxn}
-                                barColor="bg-gradient-to-r from-violet-400 to-purple-500"
-                              />
-                            )}
-                            {pctUds !== null && (
-                              <IndicatorBar
-                                label="Uds"
-                                value={String(vh.unidades)}
-                                meta={String(Math.round(udsMeta))}
-                                pct={pctUds}
-                                barColor="bg-gradient-to-r from-orange-400 to-amber-500"
-                              />
-                            )}
-                            {pctMonto !== null && (
-                              <IndicatorBar
-                                label="Monto"
-                                value={formatCurrency(vh.monto)}
-                                meta={formatCurrency(montoMeta)}
-                                pct={pctMonto}
-                                barColor="bg-gradient-to-r from-emerald-400 to-green-500"
-                              />
-                            )}
-                            {uptH !== null && (
-                              <IndicatorBar
-                                label="UPT"
-                                value={uptH.toFixed(2)}
-                                meta={metaHoy?.upt && metaHoy.upt > 0 ? metaHoy.upt.toFixed(2) : null}
-                                pct={pctUPTH}
-                                barColor="bg-gradient-to-r from-teal-400 to-cyan-500"
-                              />
-                            )}
-                            {avtH !== null && (
-                              <IndicatorBar
-                                label="AVT"
-                                value={formatCurrency(avtH)}
-                                meta={metaHoy?.avt && metaHoy.avt > 0 ? formatCurrency(metaHoy.avt) : null}
-                                pct={pctAVTH}
-                                barColor="bg-gradient-to-r from-blue-400 to-indigo-500"
-                              />
-                            )}
-                          </div>
-                        )}
+                        {/* Indicadores individuales — siempre visibles */}
+                        <div className="rounded-xl border border-gray-100 bg-white/70 px-3 py-2.5 space-y-2.5">
+                          <IndicatorBar
+                            label="Txn"
+                            value={String(vh.transacciones)}
+                            meta={txnMeta > 0 ? String(Math.round(txnMeta)) : null}
+                            pct={pctTxn}
+                            barColor="bg-gradient-to-r from-violet-400 to-purple-500"
+                          />
+                          <IndicatorBar
+                            label="Uds"
+                            value={String(vh.unidades)}
+                            meta={udsMeta > 0 ? String(Math.round(udsMeta)) : null}
+                            pct={pctUds}
+                            barColor="bg-gradient-to-r from-orange-400 to-amber-500"
+                          />
+                          {pctMonto !== null && (
+                            <IndicatorBar
+                              label="Monto"
+                              value={formatCurrency(vh.monto)}
+                              meta={formatCurrency(montoMeta)}
+                              pct={pctMonto}
+                              barColor="bg-gradient-to-r from-emerald-400 to-green-500"
+                            />
+                          )}
+                          {uptH !== null && (
+                            <IndicatorBar
+                              label="UPT"
+                              value={uptH.toFixed(2)}
+                              meta={metaHoy?.upt && metaHoy.upt > 0 ? metaHoy.upt.toFixed(2) : null}
+                              pct={pctUPTH}
+                              barColor="bg-gradient-to-r from-teal-400 to-cyan-500"
+                            />
+                          )}
+                          {avtH !== null && (
+                            <IndicatorBar
+                              label="AVT"
+                              value={formatCurrency(avtH)}
+                              meta={metaHoy?.avt && metaHoy.avt > 0 ? formatCurrency(metaHoy.avt) : null}
+                              pct={pctAVTH}
+                              barColor="bg-gradient-to-r from-blue-400 to-indigo-500"
+                            />
+                          )}
+                        </div>
+
+                        {/* Dinámicas del asesor hoy */}
+                        {(() => {
+                          const dinAsesor = dinamicas.filter((d) => d.asesoresIds.includes(asesor.id));
+                          if (dinAsesor.length === 0) return null;
+                          return (
+                            <div className="mt-2.5 rounded-xl border border-violet-100/80 bg-violet-50/30 px-3 py-2.5 space-y-2.5">
+                              <p className="text-[10px] font-medium text-violet-400 uppercase tracking-wide">Dinámicas</p>
+                              {dinAsesor.map((din) => {
+                                const val = din.progreso?.[asesor.id] ?? 0;
+                                const pct = din.meta > 0 ? Math.min(100, (val / din.meta) * 100) : 0;
+                                const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-600';
+                                return (
+                                  <div key={din.id} className="space-y-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-xs text-gray-500 truncate flex-1">{din.nombre}</span>
+                                      <span className="text-xs text-gray-400 flex-shrink-0">{val}/{din.meta}</span>
+                                      <span className={`text-xs font-semibold w-9 text-right flex-shrink-0 ${textC}`}>{pct.toFixed(0)}%</span>
+                                    </div>
+                                    <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                      <div
+                                        className="h-1.5 rounded-full bg-gradient-to-r from-violet-400 to-purple-500 transition-all duration-300"
+                                        style={{ width: `${pct}%` }}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </button>
                     );
                   })}
@@ -457,8 +520,104 @@ export default function Home() {
               </>
             )}
 
+            {/* ── DINÁMICAS DEL DÍA ── */}
+            {dinamicas.length > 0 && (
+              <div className={showDailySection ? 'mt-8' : ''}>
+                <div className="mb-4">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="flex h-2 w-2 rounded-full bg-violet-400 ring-2 ring-violet-400/30" />
+                    <h2 className="text-xl font-bold text-gray-900 tracking-tight">Dinámicas del día</h2>
+                  </div>
+                  <p className="text-sm text-gray-400 capitalize">
+                    {dinamicas.length} dinámica{dinamicas.length !== 1 ? 's' : ''} activa{dinamicas.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {dinamicas.map((din) => {
+                    const participantes = asesores.filter((a) => din.asesoresIds.includes(a.id));
+                    const totalVal  = participantes.reduce((s, a) => s + (din.progreso?.[a.id] ?? 0), 0);
+                    const totalMeta = din.meta * (participantes.length || 1);
+                    const pctGlobal = totalMeta > 0 ? (totalVal / totalMeta) * 100 : 0;
+                    return (
+                      <div key={din.id} className="border border-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden">
+                        <div className="px-5 py-4 border-b border-gray-50">
+                          <div className="flex items-center justify-between gap-3 mb-2.5">
+                            <div>
+                              <h3 className="text-sm font-semibold text-gray-900">{din.nombre}</h3>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                Meta {din.meta} por asesor · {totalVal} / {totalMeta} total
+                              </p>
+                            </div>
+                            <span className={`text-lg font-bold tabular-nums flex-shrink-0 ${
+                              pctGlobal >= 100 ? 'text-emerald-600' : pctGlobal >= 80 ? 'text-amber-600' : 'text-rose-600'
+                            }`}>
+                              {pctGlobal.toFixed(0)}%
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-1.5">
+                            <div
+                              className={`h-1.5 rounded-full transition-all duration-500 ${
+                                pctGlobal >= 100 ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
+                                pctGlobal >= 80  ? 'bg-gradient-to-r from-amber-400 to-yellow-400' :
+                                                   'bg-gradient-to-r from-rose-400 to-red-400'
+                              }`}
+                              style={{ width: `${Math.min(100, pctGlobal)}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                          {participantes.map((asesor) => {
+                            const val = din.progreso?.[asesor.id] ?? 0;
+                            const pct = din.meta > 0 ? Math.min(100, (val / din.meta) * 100) : 0;
+                            const fillC = pct >= 100
+                              ? 'bg-gradient-to-r from-emerald-400 to-green-500'
+                              : pct >= 80
+                              ? 'bg-gradient-to-r from-amber-400 to-yellow-400'
+                              : 'bg-gradient-to-r from-rose-400 to-red-400';
+                            const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-600';
+                            return (
+                              <button
+                                key={asesor.id}
+                                onClick={() => {
+                                  setPinMode('dinamica');
+                                  setPinDinamicaRef(din);
+                                  setPinAsesor(asesor);
+                                }}
+                                className="w-full text-left px-5 py-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                              >
+                                <div className="flex items-center gap-3 mb-2">
+                                  <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                                    {asesor.fotoBase64
+                                      ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={28} height={28} className="w-full h-full object-cover" />
+                                      : <span className="text-xs font-semibold text-gray-400">{asesor.nombre[0]}</span>}
+                                  </div>
+                                  <span className="text-sm text-gray-700 font-medium flex-1 truncate">
+                                    {asesor.nombre} {asesor.apellido}
+                                  </span>
+                                  <span className="text-xs text-gray-400 tabular-nums flex-shrink-0">{val} / {din.meta}</span>
+                                  <span className={`text-xs font-bold tabular-nums w-9 text-right flex-shrink-0 ${textC}`}>
+                                    {pct.toFixed(0)}%
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                  <div
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${fillC}`}
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* ── RANKING MENSUAL: todos los asesores ── */}
-            <div className={showDailySection ? 'mt-10' : ''}>
+            <div className={showDailySection || dinamicas.length > 0 ? 'mt-10' : ''}>
               <div className="mb-6">
                 <h2 className="text-xl font-bold text-gray-900 tracking-tight">Ranking mensual</h2>
                 <p className="text-sm text-gray-400 mt-0.5 capitalize">{mesNombre} · {asesores.length} asesores</p>
@@ -599,6 +758,41 @@ export default function Home() {
                             </div>
                           </div>
                         )}
+
+                        {/* Mini-barra hacia el siguiente nivel */}
+                        {progreso >= 100 && progreso < 120 && (() => {
+                          const isTo110  = progreso < 110;
+                          const from     = isTo110 ? 100 : 110;
+                          const to       = isTo110 ? 110 : 120;
+                          const miniPct  = Math.min(100, ((progreso - from) / (to - from)) * 100);
+                          const falta    = (to - progreso).toFixed(1);
+                          const label    = isTo110 ? '🎁 Bono corral' : '🏖️ Día libre';
+                          const fill     = isTo110
+                            ? 'bg-gradient-to-r from-indigo-400 to-blue-500'
+                            : 'bg-gradient-to-r from-sky-400 to-cyan-400';
+                          const tColor   = isTo110 ? 'text-indigo-600' : 'text-sky-600';
+                          const bg       = isTo110
+                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100/60'
+                            : 'bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-100/60';
+                          return (
+                            <div className={`mt-2.5 rounded-xl px-3 py-2.5 ${bg}`}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className={`text-xs font-semibold ${tColor}`}>Siguiente: {label}</span>
+                                <span className={`text-xs tabular-nums font-medium ${tColor}`}>+{falta}% más</span>
+                              </div>
+                              <div className="w-full bg-white/60 rounded-full h-1.5">
+                                <div
+                                  className={`h-1.5 rounded-full transition-all duration-700 ${fill}`}
+                                  style={{ width: `${miniPct}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                                <span>{from}%</span>
+                                <span>{to}%</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
@@ -613,6 +807,16 @@ export default function Home() {
                           </p>
                         </div>
                       </div>
+
+                      {faltaMes > 0 && metaMensual > 0 && (
+                        <div className="mt-2 flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+                          <span className="text-xs text-gray-400">Promedio / día</span>
+                          <span className="text-xs font-semibold text-gray-700">
+                            {formatCurrency(faltaMes / diasRestantes)}
+                            <span className="text-gray-400 font-normal"> · {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}</span>
+                          </span>
+                        </div>
+                      )}
 
                       {vm?.acumuladoMes && (vm.acumuladoMes.monto > 0 || vm.acumuladoMes.transacciones > 0 || vm.acumuladoMes.unidades > 0) && (
                         <div className="mt-2 flex items-center justify-between bg-indigo-50/60 border border-indigo-100/60 rounded-xl px-3 py-2">
@@ -728,10 +932,13 @@ export default function Home() {
           onSuccess={() => {
             if (pinMode === 'diario') {
               setVentasAsesor(pinAsesor);
-            } else {
+            } else if (pinMode === 'acumulado') {
               setAcumuladoAsesor(pinAsesor);
+            } else if (pinMode === 'dinamica' && pinDinamicaRef) {
+              setDinamicaProgressData({ asesor: pinAsesor!, dinamica: pinDinamicaRef });
             }
             setPinAsesor(null);
+            setPinDinamicaRef(null);
           }}
           onClose={() => setPinAsesor(null)}
         />
@@ -740,6 +947,7 @@ export default function Home() {
       {ventasAsesor && (
         <HistorialVentasDiaModal
           asesor={ventasAsesor}
+          dinamicas={dinamicas.filter((d) => d.asesoresIds.includes(ventasAsesor.id))}
           onClose={() => setVentasAsesor(null)}
         />
       )}
@@ -748,6 +956,14 @@ export default function Home() {
         <HistorialAcumuladoModal
           asesor={acumuladoAsesor}
           onClose={() => setAcumuladoAsesor(null)}
+        />
+      )}
+
+      {dinamicaProgressData && (
+        <DinamicaProgressModal
+          dinamica={dinamicaProgressData.dinamica}
+          asesor={dinamicaProgressData.asesor}
+          onClose={() => setDinamicaProgressData(null)}
         />
       )}
     </main>
