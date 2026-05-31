@@ -28,27 +28,42 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm px-8 py-12 bg-white rounded-2xl shadow-sm border border-gray-100">
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#080808]">
+      {/* Ambient blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-indigo-600/10 blur-3xl" />
+        <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-emerald-600/8 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-violet-900/5 blur-3xl" />
+      </div>
+      {/* Dot grid overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundSize: '24px 24px',
+        }}
+      />
+
+      <div className="relative w-full max-w-sm mx-4 px-8 py-12 bg-white/[0.04] border border-white/[0.08] rounded-2xl backdrop-blur-xl animate-modal">
         <div className="mb-10 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gray-900 mb-6">
-            <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white mb-6 shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.5)]">
+            <svg className="w-7 h-7 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Ranking Ventas</h1>
-          <p className="mt-2 text-sm text-gray-500">Inicia sesión para continuar</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Ranking Ventas</h1>
+          <p className="mt-2 text-sm text-white/40">Inicia sesión para continuar</p>
         </div>
 
         {error && (
-          <p className="mb-4 text-sm text-red-500 text-center">{error}</p>
+          <p className="mb-4 text-[13px] text-red-400 text-center">{error}</p>
         )}
 
         <button
           onClick={handleSignIn}
           disabled={isSigningIn}
-          className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-200 rounded-xl text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-3 px-4 h-11 bg-white hover:bg-gray-50 active:bg-gray-100 rounded-xl text-[13px] font-medium text-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
         >
           {isSigningIn ? (
             <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />

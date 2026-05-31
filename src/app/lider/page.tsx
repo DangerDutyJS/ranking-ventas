@@ -47,31 +47,32 @@ export default function LiderPage() {
 
   return (
     <StoreProvider storeId={user.uid}>
-    <main className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+    <main className="min-h-screen bg-dot-grid">
+      <header className="bg-white border-b border-[#eaeaea] px-6 py-4 flex items-center justify-between relative">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-indigo-500 via-violet-500 to-pink-500" />
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/')}
-            className="text-gray-400 hover:text-gray-700 transition-colors">
+            className="text-[#8f8f8f] hover:text-gray-900 transition-colors p-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="font-semibold text-gray-900 text-sm tracking-tight">Dashboard Líder</span>
+          <span className="font-semibold text-gray-900 text-sm">Dashboard Líder</span>
         </div>
-        <span className="text-xs text-gray-400 bg-gray-100 px-2.5 py-1 rounded-full">Solo líder</span>
+        <span className="text-[11px] text-[#8f8f8f] bg-[#f2f2f2] px-2.5 py-1 rounded-md">Solo líder</span>
       </header>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-gray-100 px-6 overflow-x-auto">
-        <div className="flex gap-6 min-w-max">
+      <div className="bg-white border-b border-[#eaeaea] px-6 overflow-x-auto">
+        <div className="flex gap-0 min-w-max">
           {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => { setTab(t); setShowForm(false); }}
-              className={`py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+              className={`py-3 px-4 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t
-                  ? 'border-gray-900 text-gray-900'
-                  : 'border-transparent text-gray-400 hover:text-gray-600'
+                  ? 'border-black text-black'
+                  : 'border-transparent text-[#8f8f8f] hover:text-gray-700'
               }`}
             >
               {TAB_LABELS[t]}
@@ -87,13 +88,13 @@ export default function LiderPage() {
           <>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Asesores</h1>
-                <p className="mt-0.5 text-sm text-gray-500">Equipo de ventas registrado.</p>
+                <h1 className="text-xl font-semibold text-gray-900">Asesores</h1>
+                <p className="mt-0.5 text-[13px] text-[#8f8f8f]">Equipo de ventas registrado.</p>
               </div>
               {!showForm && (
                 <button onClick={() => setShowForm(true)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  className="inline-flex items-center gap-2 px-4 h-9 bg-black text-white text-[13px] font-medium rounded-md hover:bg-gray-800 transition-colors">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Nuevo asesor
@@ -102,7 +103,7 @@ export default function LiderPage() {
             </div>
 
             {successMsg && (
-              <div className="mb-6 px-4 py-3 bg-green-50 border border-green-100 text-green-700 text-sm rounded-xl">
+              <div className="mb-6 px-4 py-3 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[13px] rounded-md">
                 {successMsg}
               </div>
             )}
@@ -119,8 +120,8 @@ export default function LiderPage() {
         {tab === 'meta' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Meta del mes</h1>
-              <p className="mt-0.5 text-sm text-gray-500">
+              <h1 className="text-xl font-semibold text-gray-900">Meta del mes</h1>
+              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
                 Monto total, días laborados e indicadores de referencia por asesor.
               </p>
             </div>
@@ -132,8 +133,8 @@ export default function LiderPage() {
         {tab === 'diarias' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Metas diarias</h1>
-              <p className="mt-0.5 text-sm text-gray-500">
+              <h1 className="text-xl font-semibold text-gray-900">Metas diarias</h1>
+              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
                 Objetivo por día de semana — UPT, transacciones y unidades según el tráfico esperado.
               </p>
             </div>
@@ -145,8 +146,8 @@ export default function LiderPage() {
         {tab === 'dinamicas' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900 tracking-tight">Dinámicas comerciales</h1>
-              <p className="mt-0.5 text-sm text-gray-500">
+              <h1 className="text-xl font-semibold text-gray-900">Dinámicas comerciales</h1>
+              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
                 Retos del día con meta individual por asesor y seguimiento en tiempo real.
               </p>
             </div>

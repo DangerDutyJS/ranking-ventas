@@ -7,7 +7,7 @@ Plataforma de ranking de ventas en tiempo real para tiendas. Cada líder gestion
 - **Framework:** Next.js 16.2.6 (App Router, Turbopack)
 - **Base de datos:** Firebase Firestore (tiempo real con `onSnapshot`)
 - **Autenticación:** Firebase Auth — solo Google Sign-In
-- **Estilos:** Tailwind CSS v4 — diseño minimalista neutro (blancos y grises)
+- **Estilos:** Tailwind CSS v4 — diseño editorial con dot-grid, glassmorphism en login, acento de gradiente en headers
 - **Deploy:** Firebase Hosting — static export (`output: 'export'`)
 
 ## Estructura de archivos clave
@@ -112,7 +112,8 @@ service cloud.firestore {
 - **Sin metas diarias auto-calculadas**: los targets diarios son manuales (tabla por día de semana)
 - **Estructura del dashboard — dos secciones independientes:**
   - **"Ranking de hoy"** (sección superior, clickeable): se muestra SOLO cuando el líder configuró `asesoresIds` para ese día. Muestra únicamente los asesores seleccionados, ordenados por `progresoHoy()` (% Txn vs meta). Tarjetas: barra "General" combinada + bloque unificado `IndicatorBar` para Txn/Uds/Monto/UPT/AVT.
-  - **"Ranking mensual"** (sección inferior, siempre visible, clickeable): muestra TODOS los asesores sin excepción, ordenados por total real. Incluye barra 0-120% + bloque `IndicatorBar` (Monto/AVT/UPT/Txn/Uds) + beneficios. Sección "Hoy" al fondo solo cuando NO hay ranking de hoy activo.
+  - **"Ranking mensual"** (sección inferior, siempre visible, clickeable): muestra TODOS los asesores sin excepción, ordenados por total real. Incluye barra 0-120% + bloque `IndicatorBar` (Monto/AVT/UPT/Txn/Uds) + beneficios + tabla de comisiones. Sección "Hoy" al fondo solo cuando NO hay ranking de hoy activo.
+- **Tabla de comisiones por asesor** (`TablaComisionesAsesor` + `calcularComision` en `page.tsx`): visible en cada tarjeta del ranking mensual cuando hay meta asignada. Lógica: Amarillo 90–99.99% → 0.65%, Verde 100–109.99% → 1.10%, Azul 110–119.99% → 1.20%, Celeste ≥120% → 1.30%. Destaca el nivel activo con borde izquierdo de color. Muestra comisión estimada en dinero (vendido × %) y montos faltantes para llegar a 90%, 100% y 120%.
 - `asesoresHoy`: array vacío si no hay `asesoresIds` configurados. `showDailySection = asesoresHoy.length > 0`.
 - Clic en tarjeta **ranking de hoy** → PIN → VentasModal (registra venta del día con `increment()` + `arrayUnion()`)
 - Clic en tarjeta **ranking mensual** → PIN → AcumuladoMesModal (registra acumulado del mes en campo separado `acumuladoMes`)
@@ -185,6 +186,17 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 - **Ranking mensual sort incorrecto**: el sort usaba `ventasMap[id].totalVentas` (sin acumuladoMes), pero las tarjetas mostraban `totalVentas + acumuladoMes.monto`. Corregido: el sort ahora usa el mismo total real que se muestra.
 - **`metaTxnAsesor`/`metaUdsAsesor` siempre null**: si un asesor no estaba en `meta.asesores` (p.ej. agregado después de configurar la meta), `distribuirIndicador` le asignaba 0 y `pctTxn`/`pctUds` quedaba null. Corregido con fallback a división igual (`metaTransacciones / n`).
 - **`NotificacionesPanel` lista invisible**: `h-full` en el panel no resolvía correctamente la altura cuando el padre usa `fixed inset-0` (altura implícita, no propiedad `height` explícita). `flex-1` del área de contenido colapsaba a 0px y `overflow-y-auto` ocultaba todo. Corregido con `h-screen` en el panel y `min-h-0` en el contenedor del listado.
+
+## Diseño visual (frontend-design skill aplicado)
+- **Login (`/login`):** fondo oscuro `#080808` con blobs de luz ambiental (índigo + esmeralda) y dot-grid overlay; card con glassmorphism (`bg-white/4`, `backdrop-blur-xl`, borde `white/8`); logo en cuadrado blanco con sombra dramática; tipografía `text-2xl font-bold`
+- **Header global:** línea de acento de 2px en borde superior con gradiente `indigo→violet→pink`; funciona igual en dashboard y panel líder
+- **Fondo de páginas:** clase `.bg-dot-grid` (color `#f8f8f8` + puntos `#e0e0e0` cada 24px) en lugar de blanco plano; definida en `globals.css`
+- **Tarjetas del ranking:** `rounded-xl` (antes `rounded-lg`), sombra base sutil `shadow-[0_1px_3px_...]` + hover shadow más pronunciada `shadow-[0_6px_20px_...]`
+- **Live dot "Ranking de hoy":** `h-2.5 w-2.5` con `shadow` glow esmeralda en lugar de ring
+- **Títulos de sección:** `text-2xl font-bold` (antes `text-xl`)
+- **PinModal:** `rounded-2xl` + sombra más profunda
+- **Colores de barras de progreso:** SIN CAMBIOS (requerimiento del cliente)
+- **Logo:** SIN CAMBIOS (requerimiento del cliente)
 
 ## Instrucción permanente — Registro de cambios
 

@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
 :root {
+  /* Vercel Geist light mode tokens */
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0a0a0a;
+  --ds-surface:  #fafafa;
+  --ds-border:   #eaeaea;
+  --ds-border-subtle: #f2f2f2;
+  --ds-gray-100: #f2f2f2;
+  --ds-gray-200: #ebebeb;
+  --ds-gray-400: #8f8f8f;
+  --ds-gray-900: #171717;
+  --ds-blue:     #0070f3;
 }
 
 @theme inline {
@@ -15,6 +24,22 @@
 body {
   background: var(--background);
   color: var(--foreground);
+  letter-spacing: -0.011em;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  letter-spacing: -0.03em;
+}
+
+input, button, select, textarea {
+  letter-spacing: -0.011em;
+}
+
+/* ── Utility backgrounds ─────────────────────────────────────── */
+.bg-dot-grid {
+  background-color: #f8f8f8;
+  background-image: radial-gradient(circle, #e0e0e0 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* ── Animaciones ─────────────────────────────────────────────── */

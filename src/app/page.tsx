@@ -93,9 +93,9 @@ function formatCurrency(n: number) {
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const RANK_COLORS = [
-  'border-amber-200/80 bg-gradient-to-br from-amber-50 to-yellow-50',
-  'border-slate-200 bg-gradient-to-br from-slate-50 to-gray-50',
-  'border-orange-200/70 bg-gradient-to-br from-orange-50 to-amber-50/60',
+  'border-amber-200 bg-amber-50/50',
+  'border-slate-200 bg-slate-50/50',
+  'border-orange-200 bg-orange-50/40',
 ];
 
 
@@ -129,6 +129,128 @@ function indicatorBarFill(pct: number): string {
   if (pct >= 100) return 'bg-gradient-to-r from-emerald-400 to-green-500';
   if (pct >= 80)  return 'bg-gradient-to-r from-amber-400 to-yellow-400';
   return 'bg-gradient-to-r from-rose-400 to-red-400';
+}
+
+interface ComisionResult {
+  pct: number;
+  talento: 'amarillo' | 'verde' | 'azul' | 'celeste' | null;
+  comision: number | null;
+  falta90: number;
+  falta100: number;
+  falta110: number;
+  falta120: number;
+}
+
+function calcularComision(metaAsignada: number, montoVendido: number): ComisionResult {
+  const pct = metaAsignada > 0 ? (montoVendido / metaAsignada) * 100 : 0;
+  const meta90  = metaAsignada * 0.90;
+  const meta100 = metaAsignada * 1.00;
+  const meta110 = metaAsignada * 1.10;
+  const meta120 = metaAsignada * 1.20;
+
+  let talento: ComisionResult['talento'] = null;
+  let comision: number | null = null;
+  if (pct >= 120)       { talento = 'celeste';  comision = 1.30; }
+  else if (pct >= 110)  { talento = 'azul';     comision = 1.20; }
+  else if (pct >= 100)  { talento = 'verde';    comision = 1.10; }
+  else if (pct >= 90)   { talento = 'amarillo'; comision = 0.65; }
+
+  return {
+    pct,
+    talento,
+    comision,
+    falta90:  Math.max(0, meta90  - montoVendido),
+    falta100: Math.max(0, meta100 - montoVendido),
+    falta110: Math.max(0, meta110 - montoVendido),
+    falta120: Math.max(0, meta120 - montoVendido),
+  };
+}
+
+const COMISION_ROWS: { talento: ComisionResult['talento']; label: string; rango: string; pago: string; bg: string; text: string; border: string }[] = [
+  { talento: 'amarillo', label: 'Amarillo', rango: '90% – 99.99%',  pago: '0.65%', bg: 'bg-yellow-50',  text: 'text-yellow-800', border: 'border-yellow-300' },
+  { talento: 'verde',    label: 'Verde',    rango: '100% – 109.99%', pago: '1.10%', bg: 'bg-green-50',   text: 'text-green-800',  border: 'border-green-300'  },
+  { talento: 'azul',     label: 'Azul',     rango: '110% – 119.99%', pago: '1.20%', bg: 'bg-blue-50',    text: 'text-blue-800',   border: 'border-blue-300'   },
+  { talento: 'celeste',  label: 'Celeste',  rango: '≥ 120%',         pago: '1.30%', bg: 'bg-sky-50',     text: 'text-sky-800',    border: 'border-sky-300'    },
+];
+
+function TablaComisionesAsesor({ meta, vendido }: { meta: number; vendido: number }) {
+  if (meta <= 0) return null;
+  const { talento, comision, falta90, falta100, falta110, falta120 } = calcularComision(meta, vendido);
+  return (
+    <div className="mt-3 rounded-md border border-[#eaeaea] overflow-hidden">
+      <div className="px-3 pt-2.5 pb-1.5 border-b border-[#eaeaea] bg-[#fafafa]">
+        <p className="text-[11px] font-medium text-[#8f8f8f] uppercase tracking-[0.06em]">Comisiones</p>
+      </div>
+      <table className="w-full text-[12px] border-collapse">
+        <thead>
+          <tr className="bg-[#fafafa] border-b border-[#eaeaea]">
+            <th className="px-3 py-2 text-left font-medium text-[#8f8f8f]">Talento</th>
+            <th className="px-3 py-2 text-center font-medium text-[#8f8f8f]">Cumplimiento</th>
+            <th className="px-3 py-2 text-right font-medium text-[#8f8f8f]">Pago</th>
+          </tr>
+        </thead>
+        <tbody>
+          {COMISION_ROWS.map((row) => {
+            const isActive = talento === row.talento;
+            return (
+              <tr
+                key={row.talento}
+                className={`border-b border-[#f2f2f2] last:border-0 transition-colors ${isActive ? `${row.bg} border-l-2 ${row.border}` : 'bg-white'}`}
+              >
+                <td className={`px-3 py-2 font-semibold ${isActive ? row.text : 'text-[#8f8f8f]'}`}>
+                  {isActive && <span className="mr-1">›</span>}{row.label}
+                </td>
+                <td className={`px-3 py-2 text-center tabular-nums ${isActive ? row.text : 'text-[#8f8f8f]'}`}>{row.rango}</td>
+                <td className={`px-3 py-2 text-right font-bold tabular-nums ${isActive ? row.text : 'text-[#8f8f8f]'}`}>{row.pago}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {comision !== null && (
+        <div className="px-3 py-2 bg-[#fafafa] border-t border-[#eaeaea]">
+          <p className="text-[12px] text-[#8f8f8f]">
+            Comisión estimada:{' '}
+            <span className="font-semibold text-gray-800">{formatCurrency(vendido * 0.81 * comision / 100)}</span>
+            <span className="text-[#8f8f8f]"> ({comision}% sobre {formatCurrency(vendido * 0.81)} sin IVA)</span>
+          </p>
+        </div>
+      )}
+      {(falta90 > 0 || falta100 > 0 || falta110 > 0 || falta120 > 0) && (
+        <div className="px-3 py-2.5 space-y-1.5 border-t border-[#eaeaea]">
+          {falta90 > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#8f8f8f]">Para 90% <span className="text-yellow-600 font-medium">(Amarillo)</span></span>
+              <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta90)}</span>
+            </div>
+          )}
+          {falta100 > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#8f8f8f]">Para 100% <span className="text-green-600 font-medium">(Verde)</span></span>
+              <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta100)}</span>
+            </div>
+          )}
+          {falta110 > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#8f8f8f]">Para 110% <span className="text-blue-600 font-medium">(Azul)</span></span>
+              <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta110)}</span>
+            </div>
+          )}
+          {falta120 > 0 && (
+            <div className="flex justify-between items-center">
+              <span className="text-[12px] text-[#8f8f8f]">Para 120% <span className="text-sky-600 font-medium">(Celeste)</span></span>
+              <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta120)}</span>
+            </div>
+          )}
+        </div>
+      )}
+      {falta90 === 0 && falta100 === 0 && falta120 === 0 && (
+        <div className="px-3 py-2 border-t border-[#eaeaea] bg-sky-50">
+          <p className="text-[12px] text-sky-600 font-semibold text-center">🏖️ Nivel máximo alcanzado</p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function IndicatorBar({ label, value, meta, pct, barColor }: {
@@ -301,10 +423,11 @@ export default function Home() {
 
   return (
     <StoreProvider storeId={user.uid}>
-    <main className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/60">
-      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-gray-100/80 shadow-[0_1px_12px_rgba(0,0,0,0.04)] px-6 py-4 flex items-center justify-between">
+    <main className="min-h-screen bg-dot-grid">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-[#eaeaea] px-6 py-4 flex items-center justify-between relative">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-indigo-500 via-violet-500 to-pink-500" />
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gray-900 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-md bg-black flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -322,24 +445,24 @@ export default function Home() {
           <InstallPWA />
           <NotificacionesPanel />
           <button onClick={() => setShowLeaderModal(true)}
-            className="inline-flex items-center gap-1.5 text-xs text-gray-500 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors">
+            className="inline-flex items-center gap-1.5 text-[12px] text-[#8f8f8f] border border-[#eaeaea] px-3 h-8 rounded-md hover:bg-[#fafafa] hover:text-gray-700 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
             Líder
           </button>
-          <button onClick={logout} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">Salir</button>
+          <button onClick={logout} className="text-[12px] text-[#8f8f8f] hover:text-gray-900 transition-colors">Salir</button>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-xl font-semibold text-gray-900 tracking-tight capitalize">{mesNombre}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight capitalize">{mesNombre}</h1>
           {meta ? (
-            <p className="text-sm text-gray-400 mt-0.5">Meta total: {formatCurrency(meta.montoTotal)} · {asesores.length} asesores</p>
+            <p className="text-sm text-gray-400 mt-1">Meta total: {formatCurrency(meta.montoTotal)} · {asesores.length} asesores</p>
           ) : (
-            <p className="text-sm text-gray-400 mt-0.5">No hay meta configurada para este mes.</p>
+            <p className="text-sm text-gray-400 mt-1">No hay meta configurada para este mes.</p>
           )}
         </div>
 
@@ -355,9 +478,9 @@ export default function Home() {
             {showDailySection && (
               <>
                 <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="flex h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-emerald-400/30 animate-pulse" />
-                    <h2 className="text-xl font-bold text-gray-900 tracking-tight">Ranking de hoy</h2>
+                  <div className="flex items-center gap-2.5 mb-1">
+                    <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Ranking de hoy</h2>
                   </div>
                   <p className="text-sm text-gray-400 capitalize">{hoy} · {dailyRanking.length} trabajando hoy</p>
                 </div>
@@ -398,7 +521,7 @@ export default function Home() {
                       <button
                         key={asesor.id}
                         onClick={() => { setPinMode('diario'); setPinAsesor(asesor); }}
-                        className={`w-full text-left border rounded-2xl p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${isTop3 ? RANK_COLORS[index] : 'border-gray-100 bg-white shadow-sm'}`}
+                        className={`w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${isTop3 ? RANK_COLORS[index] : 'border-[#eaeaea] bg-white'}`}
                         style={{ animationDelay: `${index * 60}ms` }}
                       >
                         {/* Header */}
@@ -619,8 +742,8 @@ export default function Home() {
             {/* ── RANKING MENSUAL: todos los asesores ── */}
             <div className={showDailySection || dinamicas.length > 0 ? 'mt-10' : ''}>
               <div className="mb-6">
-                <h2 className="text-xl font-bold text-gray-900 tracking-tight">Ranking mensual</h2>
-                <p className="text-sm text-gray-400 mt-0.5 capitalize">{mesNombre} · {asesores.length} asesores</p>
+                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Ranking mensual</h2>
+                <p className="text-sm text-gray-400 mt-1 capitalize">{mesNombre} · {asesores.length} asesores</p>
               </div>
               <div className="space-y-3">
                 {ranking.map((asesor, index) => {
@@ -667,8 +790,8 @@ export default function Home() {
                     <button
                       key={asesor.id}
                       onClick={() => { setPinMode('acumulado'); setPinAsesor(asesor); }}
-                      className={`w-full text-left border rounded-2xl p-5 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${
-                        isTop3 ? RANK_COLORS[index] : 'border-gray-100 bg-white shadow-sm'
+                      className={`w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${
+                        isTop3 ? RANK_COLORS[index] : 'border-[#eaeaea] bg-white'
                       }`}
                       style={{ animationDelay: `${index * 60}ms` }}
                     >
@@ -742,16 +865,16 @@ export default function Home() {
                           <div className="mt-2">
                             <p className="text-xs text-gray-400 mb-1.5">Beneficios alcanzados</p>
                             <div className="flex flex-wrap gap-1.5">
-                              <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-700 font-semibold border border-emerald-200/60">
+                              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">
                                 📌 Pin
                               </span>
                               {progreso >= 110 && (
-                                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-blue-100 to-indigo-100 text-indigo-700 font-semibold border border-indigo-200/60">
+                                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-indigo-700 font-medium border border-indigo-200">
                                   🎁 Bono corral
                                 </span>
                               )}
                               {progreso >= 120 && (
-                                <span className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-gradient-to-r from-sky-100 to-cyan-100 text-sky-700 font-semibold border border-sky-200/60">
+                                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-medium border border-sky-200">
                                   🏖️ Día libre
                                 </span>
                               )}
@@ -772,10 +895,10 @@ export default function Home() {
                             : 'bg-gradient-to-r from-sky-400 to-cyan-400';
                           const tColor   = isTo110 ? 'text-indigo-600' : 'text-sky-600';
                           const bg       = isTo110
-                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100/60'
-                            : 'bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-100/60';
+                            ? 'bg-blue-50 border border-indigo-100'
+                            : 'bg-sky-50 border border-sky-100';
                           return (
-                            <div className={`mt-2.5 rounded-xl px-3 py-2.5 ${bg}`}>
+                            <div className={`mt-2.5 rounded-md px-3 py-2.5 ${bg}`}>
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className={`text-xs font-semibold ${tColor}`}>Siguiente: {label}</span>
                                 <span className={`text-xs tabular-nums font-medium ${tColor}`}>+{falta}% más</span>
@@ -796,31 +919,31 @@ export default function Home() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-white/70 rounded-xl px-3 py-2">
-                          <p className="text-xs text-gray-400">Importe</p>
-                          <p className="text-sm font-bold text-gray-900">{formatCurrency(totalVentas)}</p>
+                        <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
+                          <p className="text-[11px] text-[#8f8f8f]">Importe</p>
+                          <p className="text-sm font-semibold text-gray-900">{formatCurrency(totalVentas)}</p>
                         </div>
-                        <div className={`rounded-xl px-3 py-2 ${progreso >= 100 ? 'bg-green-100' : 'bg-white/70'}`}>
-                          <p className="text-xs text-gray-400">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
-                          <p className={`text-sm font-bold ${progreso >= 100 ? 'text-green-600' : 'text-red-500'}`}>
+                        <div className={`border rounded-md px-3 py-2 ${progreso >= 100 ? 'bg-emerald-50 border-emerald-200' : 'bg-[#fafafa] border-[#eaeaea]'}`}>
+                          <p className="text-[11px] text-[#8f8f8f]">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
+                          <p className={`text-sm font-semibold ${progreso >= 100 ? 'text-emerald-600' : 'text-red-500'}`}>
                             {formatCurrency(progreso >= 100 ? totalVentas - metaMensual : faltaMes)}
                           </p>
                         </div>
                       </div>
 
                       {faltaMes > 0 && metaMensual > 0 && (
-                        <div className="mt-2 flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
-                          <span className="text-xs text-gray-400">Promedio / día</span>
-                          <span className="text-xs font-semibold text-gray-700">
+                        <div className="mt-2 flex items-center justify-between bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
+                          <span className="text-[11px] text-[#8f8f8f]">Promedio / día</span>
+                          <span className="text-[12px] font-semibold text-gray-700">
                             {formatCurrency(faltaMes / diasRestantes)}
-                            <span className="text-gray-400 font-normal"> · {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}</span>
+                            <span className="text-[#8f8f8f] font-normal"> · {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}</span>
                           </span>
                         </div>
                       )}
 
                       {vm?.acumuladoMes && (vm.acumuladoMes.monto > 0 || vm.acumuladoMes.transacciones > 0 || vm.acumuladoMes.unidades > 0) && (
-                        <div className="mt-2 flex items-center justify-between bg-indigo-50/60 border border-indigo-100/60 rounded-xl px-3 py-2">
-                          <span className="text-xs text-indigo-500/80">Acumulado ingresado</span>
+                        <div className="mt-2 flex items-center justify-between bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
+                          <span className="text-[11px] text-indigo-500">Acumulado ingresado</span>
                           <div className="flex items-center gap-2 text-xs text-gray-600 font-medium">
                             {vm.acumuladoMes.monto > 0 && <span>{formatCurrency(vm.acumuladoMes.monto)}</span>}
                             {vm.acumuladoMes.transacciones > 0 && <span className="text-gray-400">· {vm.acumuladoMes.transacciones} txn</span>}
@@ -830,7 +953,7 @@ export default function Home() {
                       )}
 
                       {showIndicators && (
-                        <div className="mt-3 rounded-xl border border-gray-100 bg-white/70 px-3 py-2.5 space-y-2.5">
+                        <div className="mt-3 rounded-md border border-[#eaeaea] bg-[#fafafa] px-3 py-2.5 space-y-2.5">
                           {metaMensual > 0 && (
                             <IndicatorBar
                               label="Monto"
@@ -879,35 +1002,37 @@ export default function Home() {
                         </div>
                       )}
 
+                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} />
+
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (
-                        <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="mt-3 pt-3 border-t border-[#eaeaea]">
                           <div className="flex items-center justify-between mb-2.5">
-                            <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Hoy</p>
-                            <p className="text-[11px] text-gray-400">{hoy}</p>
+                            <p className="text-[11px] font-medium text-[#8f8f8f] uppercase tracking-[0.06em]">Hoy</p>
+                            <p className="text-[11px] text-[#8f8f8f]">{hoy}</p>
                           </div>
-                          <div className="grid grid-cols-4 gap-2">
-                            <div className="bg-white/70 rounded-xl p-2 text-center">
-                              <p className="text-[10px] text-gray-400 mb-0.5">Txn</p>
-                              <p className="text-sm font-bold leading-tight text-gray-900">
+                          <div className="grid grid-cols-4 gap-1.5">
+                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
+                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">Txn</p>
+                              <p className="text-sm font-semibold leading-tight text-gray-900">
                                 {ventaHoy.transacciones}
                               </p>
                             </div>
-                            <div className="bg-white/70 rounded-xl p-2 text-center">
-                              <p className="text-[10px] text-gray-400 mb-0.5">UPT</p>
-                              <p className="text-sm font-bold leading-tight text-gray-900">
+                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
+                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">UPT</p>
+                              <p className="text-sm font-semibold leading-tight text-gray-900">
                                 {uptHoy !== null ? uptHoy.toFixed(1) : '—'}
                               </p>
                             </div>
-                            <div className="bg-white/70 rounded-xl p-2 text-center">
-                              <p className="text-[10px] text-gray-400 mb-0.5">Uds</p>
-                              <p className="text-sm font-bold leading-tight text-gray-900">
+                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
+                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">Uds</p>
+                              <p className="text-sm font-semibold leading-tight text-gray-900">
                                 {ventaHoy.unidades}
                               </p>
                             </div>
-                            <div className="bg-white/70 rounded-xl p-2 text-center">
-                              <p className="text-[10px] text-gray-400 mb-0.5">Importe</p>
-                              <p className="text-sm font-bold text-gray-900 leading-tight">
+                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
+                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">Importe</p>
+                              <p className="text-sm font-semibold text-gray-900 leading-tight">
                                 {ventaHoy.monto > 0 ? formatCurrency(ventaHoy.monto) : '—'}
                               </p>
                             </div>
