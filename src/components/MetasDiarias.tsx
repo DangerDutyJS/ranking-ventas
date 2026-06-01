@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 
@@ -82,6 +82,7 @@ export default function MetasDiarias() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editando, setEditando] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState('');
 
   const today = new Date();
@@ -180,6 +181,21 @@ export default function MetasDiarias() {
     });
   };
 
+  const handleDelete = async () => {
+    try {
+      await updateDoc(doc(db, 'tiendas', storeId, 'metas', mes), {
+        metasPorDia: deleteField(),
+        actualizadoEn: serverTimestamp(),
+      });
+      setGuardado(null);
+      setMetasPorDia(emptyMetasPorDia());
+      setEditando(false);
+      setConfirmDelete(false);
+    } catch {
+      setError('Error al eliminar. Intenta de nuevo.');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center py-12">
@@ -225,12 +241,32 @@ export default function MetasDiarias() {
             <p className="text-xs text-gray-400 uppercase tracking-wide">Metas por día</p>
             <p className="text-lg font-semibold text-gray-900 mt-0.5 capitalize">{mesNombre}</p>
           </div>
-          <button
-            onClick={() => setEditando(true)}
-            className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors"
-          >
-            Editar
-          </button>
+          <div className="flex items-center gap-2">
+            {confirmDelete ? (
+              <>
+                <span className="text-xs text-gray-500">¿Eliminar metas?</span>
+                <button type="button" onClick={() => setConfirmDelete(false)}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+                  No
+                </button>
+                <button type="button" onClick={handleDelete}
+                  className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+                  Sí, eliminar
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => setEditando(true)}
+                  className="text-sm text-gray-500 border border-gray-200 px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors">
+                  Editar
+                </button>
+                <button type="button" onClick={() => setConfirmDelete(true)}
+                  className="text-sm text-red-400 border border-red-200 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors">
+                  Eliminar
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Calendario */}
