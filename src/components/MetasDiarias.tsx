@@ -188,6 +188,10 @@ export default function MetasDiarias() {
     );
   }
 
+  if (asesores.length === 0) {
+    return <p className="text-sm text-gray-400 py-12 text-center">Registra asesores primero para configurar las metas diarias.</p>;
+  }
+
   // ── SIN META MENSUAL ───────────────────────────────────────────────────────
   if (!metaMensualExiste) {
     return (
