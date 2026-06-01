@@ -5,7 +5,7 @@ import { StoreProvider } from '@/context/StoreContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import LeaderModal from '@/components/LeaderModal';
 import PinModal from '@/components/PinModal';
@@ -81,6 +81,18 @@ interface Dinamica {
 function mesActual() {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function mesAnterior() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function mesHaceDosMeses() {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function fechaHoy() {
@@ -296,7 +308,9 @@ export default function Home() {
 
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [ventasMap, setVentasMap] = useState<Record<string, VentaMes>>({});
+  const [ventasMapAnterior, setVentasMapAnterior] = useState<Record<string, VentaMes>>({});
   const [meta, setMeta] = useState<Meta | null>(null);
+  const [metaAnterior, setMetaAnterior] = useState<Meta | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   const [showLeaderModal, setShowLeaderModal] = useState(false);
@@ -310,6 +324,7 @@ export default function Home() {
   const [dinamicas, setDinamicas] = useState<Dinamica[]>([]);
 
   const mes = mesActual();
+  const mesAnt = mesAnterior();
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -342,15 +357,29 @@ export default function Home() {
       collection(db, 'tiendas', user.uid, 'ventasMes'),
       (snap) => {
         const map: Record<string, VentaMes> = {};
+        const mapAnt: Record<string, VentaMes> = {};
         snap.docs.forEach((d) => {
           const data = d.data() as VentaMes & { mes: string };
           if (data.mes === mes) map[data.asesorId] = data;
+          else if (data.mes === mesAnt) mapAnt[data.asesorId] = data;
         });
         setVentasMap(map);
+        setVentasMapAnterior(mapAnt);
       },
       (err) => console.error('ventasMes:', err)
     );
-  }, [user, mes]);
+  }, [user, mes, mesAnt]);
+
+  useEffect(() => {
+    if (!user) return;
+    getDoc(doc(db, 'tiendas', user.uid, 'metas', mesAnt)).then((snap) => {
+      if (snap.exists()) setMetaAnterior(snap.data() as Meta);
+    });
+    const mesViejo = mesHaceDosMeses();
+    getDocs(query(collection(db, 'tiendas', user.uid, 'ventasMes'), where('mes', '==', mesViejo)))
+      .then((snap) => snap.docs.forEach((d) => deleteDoc(d.ref)));
+    deleteDoc(doc(db, 'tiendas', user.uid, 'metas', mesViejo)).catch(() => {});
+  }, [user, mesAnt]);
 
   useEffect(() => {
     if (!user) return;
@@ -416,10 +445,35 @@ export default function Home() {
   });
 
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  const mesAntNombre = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
+    .toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   const todayDate = new Date();
   const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
   const diasRestantes = Math.max(1, daysInMonth - todayDate.getDate() + 1);
+
+  const metasMapAnterior = metaAnterior && asesores.length > 0
+    ? calcularMetas(metaAnterior.montoTotal, asesorIds, metaAnterior.asesores)
+    : {};
+  const txnPorAsesorAnterior = metaAnterior?.metaTransacciones && metaAnterior.asesores
+    ? distribuirIndicador(metaAnterior.metaTransacciones, asesorIds, metaAnterior.asesores)
+    : {};
+  const udsPorAsesorAnterior = metaAnterior?.metaUnidades && metaAnterior.asesores
+    ? distribuirIndicador(metaAnterior.metaUnidades, asesorIds, metaAnterior.asesores)
+    : {};
+
+  const rankingAnterior = [...asesores]
+    .filter((a) => {
+      const vm = ventasMapAnterior[a.id];
+      return (vm?.totalVentas ?? 0) + (vm?.acumuladoMes?.monto ?? 0) > 0;
+    })
+    .sort((a, b) => {
+      const vmA = ventasMapAnterior[a.id];
+      const vmB = ventasMapAnterior[b.id];
+      const totalA = (vmA?.totalVentas ?? 0) + (vmA?.acumuladoMes?.monto ?? 0);
+      const totalB = (vmB?.totalVentas ?? 0) + (vmB?.acumuladoMes?.monto ?? 0);
+      return totalB - totalA;
+    });
 
   return (
     <StoreProvider storeId={user.uid}>
@@ -1044,6 +1098,182 @@ export default function Home() {
                 })}
               </div>
             </div>
+
+            {/* ── HISTORIAL MES ANTERIOR ── */}
+            {rankingAnterior.length > 0 && (
+              <div className="mt-10">
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-1">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 13h12l1-13M10 12h4" />
+                    </svg>
+                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Mes anterior</h2>
+                  </div>
+                  <p className="text-sm text-gray-400 mt-1 capitalize">
+                    {mesAntNombre} · {rankingAnterior.length} asesor{rankingAnterior.length !== 1 ? 'es' : ''}
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {rankingAnterior.map((asesor, index) => {
+                    const vm = ventasMapAnterior[asesor.id];
+                    const totalVentas        = (vm?.totalVentas        ?? 0) + (vm?.acumuladoMes?.monto         ?? 0);
+                    const totalUnidades      = (vm?.totalUnidades      ?? 0) + (vm?.acumuladoMes?.unidades      ?? 0);
+                    const totalTransacciones = (vm?.totalTransacciones ?? 0) + (vm?.acumuladoMes?.transacciones ?? 0);
+
+                    const mc          = metasMapAnterior[asesor.id];
+                    const metaMensual = mc?.metaMensual ?? 0;
+                    const progreso    = metaMensual > 0 ? (totalVentas / metaMensual) * 100 : 0;
+
+                    const avt    = totalTransacciones > 0 ? totalVentas   / totalTransacciones : null;
+                    const upt    = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
+                    const pctAVT = avt !== null && metaAnterior?.metaAVT ? (avt / metaAnterior.metaAVT) * 100 : null;
+                    const metaUPTRef = metaAnterior?.metaUPT ?? null;
+                    const pctUPT = upt !== null && metaUPTRef ? (upt / metaUPTRef) * 100 : null;
+
+                    const metaTxnAsesor: number | null = (() => {
+                      const v = txnPorAsesorAnterior[asesor.id];
+                      if (v !== undefined && v > 0) return v;
+                      return metaAnterior?.metaTransacciones && asesorIds.length > 0
+                        ? metaAnterior.metaTransacciones / asesorIds.length : null;
+                    })();
+                    const metaUdsAsesor: number | null = (() => {
+                      const v = udsPorAsesorAnterior[asesor.id];
+                      if (v !== undefined && v > 0) return v;
+                      return metaAnterior?.metaUnidades && asesorIds.length > 0
+                        ? metaAnterior.metaUnidades / asesorIds.length : null;
+                    })();
+                    const pctTxn = metaTxnAsesor !== null ? (totalTransacciones / metaTxnAsesor) * 100 : null;
+                    const pctUds = metaUdsAsesor !== null ? (totalUnidades / metaUdsAsesor) * 100 : null;
+
+                    const showIndicators = metaMensual > 0 || avt !== null || upt !== null || pctTxn !== null || pctUds !== null;
+                    const isTop3 = index < 3;
+                    const { text: mot, color: motColor } = motivacion(progreso);
+
+                    return (
+                      <div
+                        key={asesor.id}
+                        className={`border rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] opacity-85 ${
+                          isTop3 ? RANK_COLORS[index] : 'border-[#eaeaea] bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="flex-shrink-0 w-8 text-center">
+                            {isTop3
+                              ? <span className="text-2xl">{MEDALS[index]}</span>
+                              : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
+                          </div>
+                          <div className="w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                            {asesor.fotoBase64
+                              ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
+                              : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 truncate">{asesor.nombre} {asesor.apellido}</p>
+                            <p className="text-xs text-gray-400 truncate">{asesor.cargo}</p>
+                          </div>
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${motColor}`}>{mot}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-2">
+                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Meta mensual</p>
+                          <div className="flex-1 h-px bg-gray-100" />
+                        </div>
+
+                        <div className="mb-3">
+                          <div className="flex justify-between text-xs mb-1.5">
+                            <span className="text-gray-500">Progreso mensual</span>
+                            <span className={`font-semibold ${
+                              progreso >= 120 ? 'text-sky-600' : progreso >= 110 ? 'text-blue-700' :
+                              progreso >= 100 ? 'text-green-600' : 'text-gray-900'
+                            }`}>{progreso.toFixed(1)}%</span>
+                          </div>
+                          <div className="relative w-full bg-gray-100 rounded-full h-2.5 overflow-visible">
+                            <div
+                              className={`h-2.5 rounded-full transition-all duration-700 ease-out ${barColor(progreso)}`}
+                              style={{ width: `${Math.min(120, progreso) / 120 * 100}%` }}
+                            />
+                            {([
+                              { pct: 100, achieved: progreso >= 100, dot: 'bg-emerald-500', glow: 'shadow-[0_0_8px_rgba(52,211,153,0.7)]' },
+                              { pct: 110, achieved: progreso >= 110, dot: 'bg-indigo-500',  glow: 'shadow-[0_0_8px_rgba(99,102,241,0.7)]' },
+                              { pct: 120, achieved: progreso >= 120, dot: 'bg-sky-400',     glow: 'shadow-[0_0_8px_rgba(56,189,248,0.7)]' },
+                            ] as const).map(({ pct, achieved, dot, glow }) => (
+                              <span
+                                key={pct}
+                                className={`absolute top-1/2 w-3 h-3 rounded-full border-2 border-white transition-all duration-500 ${achieved ? `${dot} ${glow}` : 'bg-gray-300'}`}
+                                style={{ left: `${(pct / 120) * 100}%`, transform: 'translate(-50%, -50%)' }}
+                              />
+                            ))}
+                          </div>
+                          <div className="relative w-full mt-1 h-3.5">
+                            {([
+                              { pct: 100, label: '100%', color: 'text-green-600' },
+                              { pct: 110, label: '110%', color: 'text-blue-700'  },
+                              { pct: 120, label: '120%', color: 'text-sky-600'   },
+                            ] as const).map(({ pct, label, color }) => (
+                              <span
+                                key={pct}
+                                className={`absolute text-[10px] font-medium leading-none ${progreso >= pct ? color : 'text-gray-400'}`}
+                                style={{ left: `${(pct / 120) * 100}%`, transform: 'translateX(-50%)' }}
+                              >{label}</span>
+                            ))}
+                          </div>
+                          {progreso >= 100 && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-400 mb-1.5">Beneficios alcanzados</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">📌 Pin</span>
+                                {progreso >= 110 && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-indigo-700 font-medium border border-indigo-200">🎁 Bono corral</span>
+                                )}
+                                {progreso >= 120 && (
+                                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-medium border border-sky-200">🏖️ Día libre</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
+                            <p className="text-[11px] text-[#8f8f8f]">Importe</p>
+                            <p className="text-sm font-semibold text-gray-900">{formatCurrency(totalVentas)}</p>
+                          </div>
+                          <div className={`border rounded-md px-3 py-2 ${progreso >= 100 ? 'bg-emerald-50 border-emerald-200' : 'bg-[#fafafa] border-[#eaeaea]'}`}>
+                            <p className="text-[11px] text-[#8f8f8f]">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
+                            <p className={`text-sm font-semibold ${progreso >= 100 ? 'text-emerald-600' : 'text-red-500'}`}>
+                              {formatCurrency(progreso >= 100 ? totalVentas - metaMensual : Math.max(0, metaMensual - totalVentas))}
+                            </p>
+                          </div>
+                        </div>
+
+                        {showIndicators && (
+                          <div className="mt-3 rounded-md border border-[#eaeaea] bg-[#fafafa] px-3 py-2.5 space-y-2.5">
+                            {metaMensual > 0 && (
+                              <IndicatorBar label="Monto" value={formatCurrency(totalVentas)} meta={formatCurrency(metaMensual)} pct={progreso} barColor="bg-gradient-to-r from-emerald-400 to-green-500" />
+                            )}
+                            {avt !== null && (
+                              <IndicatorBar label="AVT" value={formatCurrency(avt)} meta={metaAnterior?.metaAVT ? formatCurrency(metaAnterior.metaAVT) : null} pct={pctAVT} barColor="bg-gradient-to-r from-blue-400 to-indigo-500" />
+                            )}
+                            {upt !== null && (
+                              <IndicatorBar label="UPT" value={upt.toFixed(2)} meta={metaUPTRef ? metaUPTRef.toFixed(2) : null} pct={pctUPT} barColor="bg-gradient-to-r from-teal-400 to-cyan-500" />
+                            )}
+                            {pctTxn !== null && (
+                              <IndicatorBar label="Transacc." value={String(totalTransacciones)} meta={String(Math.round(metaTxnAsesor!))} pct={pctTxn} barColor="bg-gradient-to-r from-violet-400 to-purple-500" />
+                            )}
+                            {(totalUnidades > 0 || metaUdsAsesor !== null) && (
+                              <IndicatorBar label="Unidades" value={String(totalUnidades)} meta={metaUdsAsesor !== null ? String(Math.round(metaUdsAsesor)) : null} pct={pctUds} barColor="bg-gradient-to-r from-orange-400 to-amber-500" />
+                            )}
+                          </div>
+                        )}
+
+                        <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

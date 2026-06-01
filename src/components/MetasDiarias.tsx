@@ -76,6 +76,8 @@ export default function MetasDiarias() {
   const [guardado, setGuardado] = useState<Record<string, MetaDia> | null>(null);
   const [metaMensualTxn, setMetaMensualTxn] = useState<number | null>(null);
   const [metaMensualUds, setMetaMensualUds] = useState<number | null>(null);
+  const [metaMensualUpt, setMetaMensualUpt] = useState<number | null>(null);
+  const [metaMensualAvt, setMetaMensualAvt] = useState<number | null>(null);
   const [metaMensualExiste, setMetaMensualExiste] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -106,9 +108,13 @@ export default function MetasDiarias() {
           metasPorDia?: Record<string, MetaDia>;
           metaTransacciones?: number;
           metaUnidades?: number;
+          metaUPT?: number;
+          metaAVT?: number;
         };
         if (data.metaTransacciones) setMetaMensualTxn(data.metaTransacciones);
         if (data.metaUnidades) setMetaMensualUds(data.metaUnidades);
+        if (data.metaUPT) setMetaMensualUpt(data.metaUPT);
+        if (data.metaAVT) setMetaMensualAvt(data.metaAVT);
         if (data.metasPorDia) {
           setGuardado(data.metasPorDia);
           const loaded = emptyMetasPorDia();
@@ -132,17 +138,18 @@ export default function MetasDiarias() {
   const handleGuardar = async () => {
     setError('');
     setSaving(true);
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const uptCalc = metaMensualUpt !== null ? parseFloat((metaMensualUpt / daysInMonth).toFixed(2)) : 0;
+    const avtCalc = metaMensualAvt !== null ? Math.round(metaMensualAvt / daysInMonth) : 0;
     const metasPorDiaSave: Record<string, MetaDia> = {};
     for (const { key } of DIAS_SEMANA) {
       const d = metasPorDia[key];
       const txn = parseInt(d?.txn || '0') || 0;
       const uds = parseInt(d?.uds || '0') || 0;
-      const upt = parseFloat(d?.upt || '0') || 0;
-      const avt = parseFloat(d?.avt || '0') || 0;
       const monto = parseFloat(d?.monto || '0') || 0;
       const asesoresIds = d?.asesoresIds ?? [];
-      if (txn > 0 || uds > 0 || upt > 0 || avt > 0 || monto > 0 || asesoresIds.length > 0) {
-        metasPorDiaSave[key] = { upt, ...(avt > 0 && { avt }), txn, uds, monto, asesoresIds };
+      if (txn > 0 || uds > 0 || uptCalc > 0 || avtCalc > 0 || monto > 0 || asesoresIds.length > 0) {
+        metasPorDiaSave[key] = { upt: uptCalc, ...(avtCalc > 0 && { avt: avtCalc }), txn, uds, monto, asesoresIds };
       }
     }
     try {
@@ -479,41 +486,29 @@ export default function MetasDiarias() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Meta UPT</label>
-            <input
-              type="number"
-              value={todayInput?.upt ?? ''}
-              onChange={(e) =>
-                setMetasPorDia((prev) => ({
-                  ...prev,
-                  [todayKey]: { ...prev[todayKey], upt: e.target.value },
-                }))
-              }
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-              placeholder="Ej. 1.8"
-              min={0}
-              step={0.01}
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1.5">Meta AVT</label>
-            <input
-              type="number"
-              value={todayInput?.avt ?? ''}
-              onChange={(e) =>
-                setMetasPorDia((prev) => ({
-                  ...prev,
-                  [todayKey]: { ...prev[todayKey], avt: e.target.value },
-                }))
-              }
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-              placeholder="Ej. 85000"
-              min={0}
-            />
-          </div>
-        </div>
+        {(metaMensualUpt !== null || metaMensualAvt !== null) && (() => {
+          const daysInMonth = new Date(year, month + 1, 0).getDate();
+          const uptCalc = metaMensualUpt !== null ? parseFloat((metaMensualUpt / daysInMonth).toFixed(2)) : null;
+          const avtCalc = metaMensualAvt !== null ? Math.round(metaMensualAvt / daysInMonth) : null;
+          return (
+            <div className="grid grid-cols-2 gap-3">
+              {uptCalc !== null && (
+                <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-400 mb-0.5">UPT diario</p>
+                  <p className="text-sm font-bold text-gray-900">{uptCalc}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">= {metaMensualUpt} ÷ {daysInMonth} días</p>
+                </div>
+              )}
+              {avtCalc !== null && (
+                <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-400 mb-0.5">AVT diario</p>
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(avtCalc)}</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">= {formatCurrency(metaMensualAvt!)} ÷ {daysInMonth} días</p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {asesores.length > 0 && (
           <div>

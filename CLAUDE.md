@@ -108,24 +108,28 @@ service cloud.firestore {
 - **Indicadores de gestión con barras de progreso** (`IndicatorBar`): cada indicador muestra valor actual / meta + barra de color + % semántico (verde ≥100%, ámbar ≥80%, rojo <80%). Colores fijos por tipo:
   - Monto → esmeralda/verde · AVT → azul/índigo · UPT → teal/cyan · Txn → violeta/púrpura · Uds → naranja/ámbar
 - Txn y Unidades: targets per-asesor distribuidos proporcionalmente por días laborados; si el asesor no está en `meta.asesores`, usa división igual (`total / n`) como fallback
-- UPT y AVT diarios: usa `metasPorDia[hoy.getDay()].upt` / `.avt` si el líder los configuró
-- **Sin metas diarias auto-calculadas**: los targets diarios son manuales (tabla por día de semana)
-- **Estructura del dashboard — dos secciones independientes:**
+- UPT y AVT diarios: usa `metasPorDia[hoy.getDay()].upt` / `.avt`; estos valores son auto-calculados al guardar metas diarias (`metaUPT / diasDelMes` y `metaAVT / diasDelMes`)
+- **UPT y AVT son los únicos targets completamente automáticos**; Txn, Uds y Monto siguen siendo manuales
+- **Estructura del dashboard — tres secciones:**
   - **"Ranking de hoy"** (sección superior, clickeable): se muestra SOLO cuando el líder configuró `asesoresIds` para ese día. Muestra únicamente los asesores seleccionados, ordenados por `progresoHoy()` (% Txn vs meta). Tarjetas: barra "General" combinada + bloque unificado `IndicatorBar` para Txn/Uds/Monto/UPT/AVT.
-  - **"Ranking mensual"** (sección inferior, siempre visible, clickeable): muestra TODOS los asesores sin excepción, ordenados por total real. Incluye barra 0-120% + bloque `IndicatorBar` (Monto/AVT/UPT/Txn/Uds) + beneficios + tabla de comisiones. Sección "Hoy" al fondo solo cuando NO hay ranking de hoy activo.
+  - **"Ranking mensual"** (sección central, siempre visible, clickeable): muestra TODOS los asesores sin excepción, ordenados por total real. Incluye barra 0-120% + bloque `IndicatorBar` (Monto/AVT/UPT/Txn/Uds) + beneficios + tabla de comisiones. Sección "Hoy" al fondo solo cuando NO hay ranking de hoy activo.
+  - **"Mes anterior"** (sección inferior, solo lectura): aparece automáticamente cuando hay datos del mes pasado en Firestore. Mismas tarjetas que el ranking mensual (progreso, indicadores, comisiones, beneficios) pero como `div` no clickeable. Solo muestra asesores con ventas > 0 ese mes.
 - **Tabla de comisiones por asesor** (`TablaComisionesAsesor` + `calcularComision` en `page.tsx`): visible en cada tarjeta del ranking mensual cuando hay meta asignada. Lógica: Amarillo 90–99.99% → 0.65%, Verde 100–109.99% → 1.10%, Azul 110–119.99% → 1.20%, Celeste ≥120% → 1.30%. Destaca el nivel activo con borde izquierdo de color. Muestra comisión estimada en dinero (vendido × %) y montos faltantes para llegar a 90%, 100% y 120%.
 - `asesoresHoy`: array vacío si no hay `asesoresIds` configurados. `showDailySection = asesoresHoy.length > 0`.
 - Clic en tarjeta **ranking de hoy** → PIN → VentasModal (registra venta del día con `increment()` + `arrayUnion()`)
 - Clic en tarjeta **ranking mensual** → PIN → AcumuladoMesModal (registra acumulado del mes en campo separado `acumuladoMes`)
 - `acumuladoMes` se suma al total mensual visible pero NO aparece en `registros[]`, por lo que no afecta `ventaHoyMap` ni el ranking de hoy
 - La función `progresoHoy()` prioriza Txn; si txn=0 usa Uds. El mapa `ventaHoyMap` se calcula una vez fuera del render.
+- **Historial mes anterior**: `ventasMapAnterior` y `metaAnterior` se cargan en un `useEffect` separado leyendo `ventasMes` (filtrado en el `onSnapshot` existente) y `metas/{mesAnterior}`. Helpers `mesAnterior()` y `mesHaceDosMeses()` calculan los strings de mes.
+- **Limpieza automática de datos viejos**: al cargar la app se borran todos los docs `ventasMes` donde `mes == mesHaceDosMeses()` y el doc `metas/{mesHaceDosMeses()}`. Retención: mes actual + 1 mes anterior.
 
 ### Panel líder (`/lider`) — 3 tabs
 - **Asesores**: registrar asesores (foto, nombre, cargo) y asignar PINs
 - **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + **4 indicadores mensuales de referencia**: Transacciones, Unidades, UPT y AVT. "Mismo para todos" para días laborados. Vista guardada muestra por asesor: meta mensual proporcional + Txn/Uds distribuidas + UPT y AVT como target único (mismo para todos, no se distribuye). **No muestra ajuste proporcional ni redistribución** — solo "Días laborados" y "Meta mensual" por asesor
 - **Metas diarias** (`MetasDiarias.tsx`): muestra y edita **solo el día actual** (no tabla Lun–Dom completa). Secciones:
   - Tabla: Transacciones día + Unidades día con contador restante vs meta mensual
-  - **Presupuesto del día**: monto total + **Meta UPT** + **Meta AVT** del día + checkboxes para seleccionar asesores → muestra reparto individual de **Txn, Uds y Monto** (`valor / N`) en tiempo real por cada asesor marcado
+  - **Presupuesto del día**: monto total + checkboxes para seleccionar asesores → muestra reparto individual de **Txn, Uds y Monto** (`valor / N`) en tiempo real por cada asesor marcado
+  - **UPT y AVT diarios auto-calculados**: NO son campos manuales. Se derivan de `metaUPT / diasDelMes` y `metaAVT / diasDelMes` (días calendario del mes). Se muestran como solo lectura con la fórmula visible ("= X ÷ N días"). Al guardar, estos valores calculados se escriben en `metasPorDia[dow].upt` y `.avt` para todos los días, y el dashboard los lee igual que antes.
   - En la vista guardada: grid de tarjetas (Txn/Uds/UPT/AVT) + sección "Distribución por asesor" con columnas Txn/Uds/Monto
   - Calendario visual del mes (targets por tipo de día)
   - Guarda en `metas/{mes}.metasPorDia[dow]` con `{ merge: true }`. `upt` ahora guarda el valor real (antes siempre era 0); `avt` es campo nuevo
