@@ -59,9 +59,9 @@ export default function AsesorList() {
 
   return (
     <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {asesores.map((asesor) => (
-          <div key={asesor.id} className="bg-white border border-gray-100 rounded-2xl p-5 flex flex-col gap-3">
+          <div key={asesor.id} className="bg-white border border-[#eaeaea] rounded-lg p-5 flex flex-col gap-3">
 
             {/* Info asesor */}
             <div className="flex items-center gap-3 min-w-0">
@@ -84,14 +84,14 @@ export default function AsesorList() {
                 <span className="text-xs text-gray-500 flex-1">¿Eliminar asesor?</span>
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors"
+                  className="text-[12px] px-3 h-7 rounded-md border border-[#eaeaea] text-[#8f8f8f] hover:bg-[#fafafa] transition-colors"
                 >
                   No
                 </button>
                 <button
                   onClick={() => handleDelete(asesor.id)}
                   disabled={deleting === asesor.id}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-50"
+                  className="text-[12px] px-3 h-7 rounded-md border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors disabled:opacity-40"
                 >
                   {deleting === asesor.id ? '...' : 'Sí, eliminar'}
                 </button>
@@ -100,10 +100,10 @@ export default function AsesorList() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setPinTarget(asesor)}
-                  className={`flex-1 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  className={`flex-1 text-[12px] px-3 h-7 rounded-md border transition-colors ${
                     asesor.pinHash
-                      ? 'border-green-200 text-green-700 bg-green-50 hover:bg-green-100'
-                      : 'border-gray-200 text-gray-500 bg-gray-50 hover:bg-gray-100'
+                      ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                      : 'border-[#eaeaea] text-[#8f8f8f] bg-[#fafafa] hover:bg-[#f2f2f2]'
                   }`}
                 >
                   {asesor.pinHash ? 'PIN ✓' : 'Asignar PIN'}
@@ -112,7 +112,7 @@ export default function AsesorList() {
                 {/* Editar */}
                 <button
                   onClick={() => setEditTarget(asesor)}
-                  className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="p-1.5 rounded-md border border-[#eaeaea] text-[#8f8f8f] hover:text-gray-700 hover:bg-[#fafafa] transition-colors"
                   title="Editar asesor"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,7 +123,7 @@ export default function AsesorList() {
                 {/* Eliminar */}
                 <button
                   onClick={() => setConfirmDelete(asesor.id)}
-                  className="p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
+                  className="p-1.5 rounded-md border border-[#eaeaea] text-[#8f8f8f] hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
                   title="Eliminar asesor"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

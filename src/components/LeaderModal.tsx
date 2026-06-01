@@ -94,8 +94,8 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="w-full max-w-sm mx-4 bg-white rounded-2xl shadow-lg border border-gray-100 p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
+      <div className="w-full max-w-sm mx-4 bg-white rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[#eaeaea] p-8">
 
         {mode === 'loading' && (
           <div className="flex justify-center py-8">
@@ -114,20 +114,20 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
                 <input type="password" autoComplete="new-password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
                   placeholder="Mínimo 4 caracteres" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
                 <input type="password" autoComplete="new-password" value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
                   placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">{loading ? 'Guardando...' : 'Crear y entrar'}</button>
+                <button type="button" onClick={onClose} className="flex-1 h-9 px-4 text-[13px] text-[#8f8f8f] border border-[#eaeaea] rounded-md hover:bg-[#fafafa] transition-colors">Cancelar</button>
+                <button type="submit" disabled={loading} className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40">{loading ? 'Guardando...' : 'Crear y entrar'}</button>
               </div>
             </form>
           </>
@@ -144,19 +144,19 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
                 <input type="password" autoComplete="new-password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
                   placeholder="••••••••" autoFocus />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">{loading ? 'Verificando...' : 'Entrar'}</button>
+                <button type="button" onClick={onClose} className="flex-1 h-9 px-4 text-[13px] text-[#8f8f8f] border border-[#eaeaea] rounded-md hover:bg-[#fafafa] transition-colors">Cancelar</button>
+                <button type="submit" disabled={loading} className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40">{loading ? 'Verificando...' : 'Entrar'}</button>
               </div>
             </form>
             <button
               type="button"
               onClick={() => { setError(''); setPassword(''); setMode('forgot'); }}
-              className="mt-4 w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors"
+              className="mt-4 w-full text-center text-[12px] text-[#8f8f8f] hover:text-gray-700 transition-colors"
             >
               ¿Olvidaste tu contraseña?
             </button>
@@ -175,7 +175,7 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 type="button"
                 onClick={handleReauth}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 h-9 px-4 text-[13px] font-medium text-gray-700 bg-white border border-[#eaeaea] rounded-md hover:bg-[#fafafa] transition-colors disabled:opacity-40"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -188,7 +188,7 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
               <button
                 type="button"
                 onClick={() => { setError(''); setMode('verify'); }}
-                className="w-full px-4 py-2.5 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors"
+                className="w-full h-9 px-4 text-[13px] text-[#8f8f8f] border border-[#eaeaea] rounded-md hover:bg-[#fafafa] transition-colors"
               >
                 Volver
               </button>
@@ -207,19 +207,19 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
                 <input type="password" autoComplete="new-password" value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
                   placeholder="Mínimo 4 caracteres" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
                 <input type="password" autoComplete="new-password" value={newConfirm}
                   onChange={(e) => setNewConfirm(e.target.value)}
-                  className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
                   placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <button type="submit" disabled={loading}
-                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
+                className="w-full h-9 px-4 text-[13px] font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40">
                 {loading ? 'Guardando...' : 'Guardar y entrar'}
               </button>
             </form>

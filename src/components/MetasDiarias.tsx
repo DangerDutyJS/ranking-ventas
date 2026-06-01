@@ -138,9 +138,8 @@ export default function MetasDiarias() {
   const handleGuardar = async () => {
     setError('');
     setSaving(true);
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const uptCalc = metaMensualUpt !== null ? parseFloat((metaMensualUpt / daysInMonth).toFixed(2)) : 0;
-    const avtCalc = metaMensualAvt !== null ? Math.round(metaMensualAvt / daysInMonth) : 0;
+    const uptCalc = metaMensualUpt ?? 0;
+    const avtCalc = metaMensualAvt ?? 0;
     const metasPorDiaSave: Record<string, MetaDia> = {};
     for (const { key } of DIAS_SEMANA) {
       const d = metasPorDia[key];
@@ -486,29 +485,22 @@ export default function MetasDiarias() {
           />
         </div>
 
-        {(metaMensualUpt !== null || metaMensualAvt !== null) && (() => {
-          const daysInMonth = new Date(year, month + 1, 0).getDate();
-          const uptCalc = metaMensualUpt !== null ? parseFloat((metaMensualUpt / daysInMonth).toFixed(2)) : null;
-          const avtCalc = metaMensualAvt !== null ? Math.round(metaMensualAvt / daysInMonth) : null;
-          return (
-            <div className="grid grid-cols-2 gap-3">
-              {uptCalc !== null && (
-                <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-                  <p className="text-xs text-gray-400 mb-0.5">UPT diario</p>
-                  <p className="text-sm font-bold text-gray-900">{uptCalc}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">= {metaMensualUpt} ÷ {daysInMonth} días</p>
-                </div>
-              )}
-              {avtCalc !== null && (
-                <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-                  <p className="text-xs text-gray-400 mb-0.5">AVT diario</p>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(avtCalc)}</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">= {formatCurrency(metaMensualAvt!)} ÷ {daysInMonth} días</p>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        {(metaMensualUpt !== null || metaMensualAvt !== null) && (
+          <div className="grid grid-cols-2 gap-3">
+            {metaMensualUpt !== null && (
+              <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                <p className="text-xs text-gray-400 mb-0.5">UPT</p>
+                <p className="text-sm font-bold text-gray-900">{metaMensualUpt}</p>
+              </div>
+            )}
+            {metaMensualAvt !== null && (
+              <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                <p className="text-xs text-gray-400 mb-0.5">AVT</p>
+                <p className="text-sm font-bold text-gray-900">{formatCurrency(metaMensualAvt)}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {asesores.length > 0 && (
           <div>
