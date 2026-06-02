@@ -77,6 +77,8 @@ export default function MetasDiarias() {
   const [metaMensualTxn, setMetaMensualTxn] = useState<number | null>(null);
   const [metaMensualUds, setMetaMensualUds] = useState<number | null>(null);
   const [metaMensualMonto, setMetaMensualMonto] = useState<number | null>(null);
+  const [metaMensualUpt, setMetaMensualUpt] = useState<number | null>(null);
+  const [metaMensualAvt, setMetaMensualAvt] = useState<number | null>(null);
   const [metaMensualExiste, setMetaMensualExiste] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,10 +111,14 @@ export default function MetasDiarias() {
           metaTransacciones?: number;
           metaUnidades?: number;
           montoTotal?: number;
+          metaUPT?: number;
+          metaAVT?: number;
         };
         if (data.metaTransacciones) setMetaMensualTxn(data.metaTransacciones);
         if (data.metaUnidades) setMetaMensualUds(data.metaUnidades);
         if (data.montoTotal) setMetaMensualMonto(data.montoTotal);
+        if (data.metaUPT) setMetaMensualUpt(data.metaUPT);
+        if (data.metaAVT) setMetaMensualAvt(data.metaAVT);
         if (data.metasPorDia) {
           setGuardado(data.metasPorDia);
           const loaded = emptyMetasPorDia();
@@ -136,8 +142,10 @@ export default function MetasDiarias() {
   const handleGuardar = async () => {
     setError('');
     setSaving(true);
-    const uptCalc = metaMensualTxn && metaMensualTxn > 0 && metaMensualUds ? metaMensualUds / metaMensualTxn : 0;
-    const avtCalc = metaMensualTxn && metaMensualTxn > 0 && metaMensualMonto ? metaMensualMonto / metaMensualTxn : 0;
+    const derivedUpt = metaMensualTxn && metaMensualTxn > 0 && metaMensualUds ? metaMensualUds / metaMensualTxn : 0;
+    const derivedAvt = metaMensualTxn && metaMensualTxn > 0 && metaMensualMonto ? metaMensualMonto / metaMensualTxn : 0;
+    const uptCalc = metaMensualUpt ?? derivedUpt;
+    const avtCalc = metaMensualAvt ?? derivedAvt;
     const metasPorDiaSave: Record<string, MetaDia> = {};
     for (const { key } of DIAS_SEMANA) {
       const d = metasPorDia[key];
@@ -230,6 +238,8 @@ export default function MetasDiarias() {
       ? metaMensualUds / metaMensualTxn : null;
     const derivedAVT = metaMensualTxn && metaMensualTxn > 0 && metaMensualMonto
       ? metaMensualMonto / metaMensualTxn : null;
+    const displayUPT = metaMensualUpt ?? derivedUPT;
+    const displayAVT = metaMensualAvt ?? derivedAVT;
     const n = asesoresToday.length;
     const montoPorAsesor = n > 0 && todayMeta?.monto && todayMeta.monto > 0 ? todayMeta.monto / n : 0;
     const txnPorAsesor   = n > 0 && todayMeta?.txn  && todayMeta.txn  > 0 ? todayMeta.txn  / n : 0;
@@ -325,7 +335,7 @@ export default function MetasDiarias() {
 
           {todayMeta ? (
             <>
-              {(todayMeta.txn > 0 || todayMeta.uds > 0 || derivedUPT !== null || derivedAVT !== null) && (
+              {(todayMeta.txn > 0 || todayMeta.uds > 0 || displayUPT !== null || displayAVT !== null) && (
                 <div className="grid grid-cols-2 gap-3">
                   {todayMeta.txn > 0 && (
                     <div className="bg-gray-50 rounded-xl p-3">
@@ -339,16 +349,16 @@ export default function MetasDiarias() {
                       <p className="text-lg font-bold text-gray-900">{todayMeta.uds}</p>
                     </div>
                   )}
-                  {derivedUPT !== null && (
+                  {displayUPT !== null && (
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 mb-0.5">UPT</p>
-                      <p className="text-lg font-bold text-gray-900">{derivedUPT.toFixed(2)}</p>
+                      <p className="text-lg font-bold text-gray-900">{displayUPT.toFixed(2)}</p>
                     </div>
                   )}
-                  {derivedAVT !== null && (
+                  {displayAVT !== null && (
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 mb-0.5">AVT</p>
-                      <p className="text-lg font-bold text-gray-900">{formatCurrency(derivedAVT)}</p>
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(displayAVT)}</p>
                     </div>
                   )}
                 </div>
@@ -526,22 +536,29 @@ export default function MetasDiarias() {
           />
         </div>
 
-        {metaMensualTxn !== null && metaMensualTxn > 0 && (metaMensualMonto !== null || metaMensualUds !== null) && (
-          <div className="grid grid-cols-2 gap-3">
-            {metaMensualMonto !== null && (
-              <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-gray-400 mb-0.5">AVT</p>
-                <p className="text-sm font-bold text-gray-900">{formatCurrency(metaMensualMonto / metaMensualTxn)}</p>
-              </div>
-            )}
-            {metaMensualUds !== null && (
-              <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-gray-400 mb-0.5">UPT</p>
-                <p className="text-sm font-bold text-gray-900">{(metaMensualUds / metaMensualTxn).toFixed(2)}</p>
-              </div>
-            )}
-          </div>
-        )}
+        {(() => {
+          const fAvt = metaMensualAvt
+            ?? (metaMensualTxn && metaMensualTxn > 0 && metaMensualMonto ? metaMensualMonto / metaMensualTxn : null);
+          const fUpt = metaMensualUpt
+            ?? (metaMensualTxn && metaMensualTxn > 0 && metaMensualUds ? metaMensualUds / metaMensualTxn : null);
+          if (!fAvt && !fUpt) return null;
+          return (
+            <div className="grid grid-cols-2 gap-3">
+              {fAvt !== null && (
+                <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-400 mb-0.5">AVT</p>
+                  <p className="text-sm font-bold text-gray-900">{formatCurrency(fAvt)}</p>
+                </div>
+              )}
+              {fUpt !== null && (
+                <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                  <p className="text-xs text-gray-400 mb-0.5">UPT</p>
+                  <p className="text-sm font-bold text-gray-900">{fUpt.toFixed(2)}</p>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {asesores.length > 0 && (
           <div>

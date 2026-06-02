@@ -23,6 +23,8 @@ interface Meta {
   asesores: Record<string, MetaAsesor>;
   metaTransacciones?: number;
   metaUnidades?: number;
+  metaUPT?: number;
+  metaAVT?: number;
 }
 
 function mesActual() {
@@ -49,6 +51,8 @@ export default function MetaMes() {
   const [dias, setDias] = useState<Record<string, string>>({});
   const [metaTransacciones, setMetaTransacciones] = useState('');
   const [metaUnidades, setMetaUnidades] = useState('');
+  const [metaUPT, setMetaUPT] = useState('');
+  const [metaAVT, setMetaAVT] = useState('');
   const [metaGuardada, setMetaGuardada] = useState<Meta | null>(null);
   const [historial, setHistorial] = useState<Array<{ mes: string; data: Meta }>>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +83,8 @@ export default function MetaMes() {
         setDias(diasInit);
         setMetaTransacciones(data.metaTransacciones ? String(data.metaTransacciones) : '');
         setMetaUnidades(data.metaUnidades ? String(data.metaUnidades) : '');
+        setMetaUPT(data.metaUPT ? String(data.metaUPT) : '');
+        setMetaAVT(data.metaAVT ? String(data.metaAVT) : '');
       }
       setLoading(false);
     });
@@ -108,6 +114,8 @@ export default function MetaMes() {
       asesores: asesorData,
       ...(Number(metaTransacciones) > 0 && { metaTransacciones: Number(metaTransacciones) }),
       ...(Number(metaUnidades) > 0 && { metaUnidades: Number(metaUnidades) }),
+      ...(Number(metaUPT) > 0 && { metaUPT: Number(metaUPT) }),
+      ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
     };
     try {
       await setDoc(
@@ -169,6 +177,10 @@ export default function MetaMes() {
       ? metaGuardada.metaUnidades / metaGuardada.metaTransacciones : null;
     const derivedAVT = metaGuardada.metaTransacciones && metaGuardada.metaTransacciones > 0
       ? metaGuardada.montoTotal / metaGuardada.metaTransacciones : null;
+    const displayUPT = metaGuardada.metaUPT ?? derivedUPT;
+    const displayAVT = metaGuardada.metaAVT ?? derivedAVT;
+    const uptEsManual = !!metaGuardada.metaUPT;
+    const avtEsManual = !!metaGuardada.metaAVT;
 
     return (
       <div className="space-y-6">
@@ -184,11 +196,11 @@ export default function MetaMes() {
               {metaGuardada.metaUnidades && (
                 <span className="text-xs text-gray-500">{metaGuardada.metaUnidades} uds</span>
               )}
-              {derivedUPT !== null && (
-                <span className="text-xs text-gray-500">UPT {derivedUPT.toFixed(2)}</span>
+              {displayUPT !== null && (
+                <span className="text-xs text-gray-500">UPT {displayUPT.toFixed(2)}{uptEsManual ? '' : ' *'}</span>
               )}
-              {derivedAVT !== null && (
-                <span className="text-xs text-gray-500">AVT {formatCurrency(derivedAVT)}</span>
+              {displayAVT !== null && (
+                <span className="text-xs text-gray-500">AVT {formatCurrency(displayAVT)}{avtEsManual ? '' : ' *'}</span>
               )}
             </div>
           </div>
@@ -251,16 +263,16 @@ export default function MetaMes() {
                       <span className="font-medium text-gray-900">{Math.round(uds)}</span>
                     </div>
                   )}
-                  {derivedUPT !== null && (
+                  {displayUPT !== null && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">UPT</span>
-                      <span className="font-medium text-gray-900">{derivedUPT.toFixed(2)}</span>
+                      <span className="text-gray-500">UPT{uptEsManual ? '' : ' *'}</span>
+                      <span className="font-medium text-gray-900">{displayUPT.toFixed(2)}</span>
                     </div>
                   )}
-                  {derivedAVT !== null && (
+                  {displayAVT !== null && (
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-500">AVT</span>
-                      <span className="font-medium text-gray-900">{formatCurrency(derivedAVT)}</span>
+                      <span className="text-gray-500">AVT{avtEsManual ? '' : ' *'}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(displayAVT)}</span>
                     </div>
                   )}
                 </div>
@@ -275,10 +287,12 @@ export default function MetaMes() {
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Historial</p>
             <div className="space-y-2">
               {pastMonths.map(({ mes: m, data }) => {
-                const hUPT = data.metaTransacciones && data.metaTransacciones > 0 && data.metaUnidades
-                  ? data.metaUnidades / data.metaTransacciones : null;
-                const hAVT = data.metaTransacciones && data.metaTransacciones > 0
-                  ? data.montoTotal / data.metaTransacciones : null;
+                const hUPT = data.metaUPT
+                  ?? (data.metaTransacciones && data.metaTransacciones > 0 && data.metaUnidades
+                    ? data.metaUnidades / data.metaTransacciones : null);
+                const hAVT = data.metaAVT
+                  ?? (data.metaTransacciones && data.metaTransacciones > 0
+                    ? data.montoTotal / data.metaTransacciones : null);
                 return (
                   <div key={m} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
                     <div>
@@ -353,32 +367,44 @@ export default function MetaMes() {
             min={0}
           />
         </div>
-      </div>
-
-      {/* Preview en tiempo real de UPT y AVT */}
-      {Number(metaTransacciones) > 0 && (Number(montoTotal) > 0 || Number(metaUnidades) > 0) && (
-        <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2.5">Indicadores calculados</p>
-          <div className="grid grid-cols-2 gap-3">
-            {Number(montoTotal) > 0 && (
-              <div>
-                <p className="text-[11px] text-gray-400 mb-0.5">AVT = Monto ÷ Txn</p>
-                <p className="text-base font-bold text-gray-900">
-                  {formatCurrency(Number(montoTotal) / Number(metaTransacciones))}
-                </p>
-              </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Meta UPT
+            {Number(metaTransacciones) > 0 && Number(metaUnidades) > 0 && !Number(metaUPT) && (
+              <span className="ml-1.5 text-gray-400 font-normal">
+                (auto: {(Number(metaUnidades) / Number(metaTransacciones)).toFixed(2)})
+              </span>
             )}
-            {Number(metaUnidades) > 0 && (
-              <div>
-                <p className="text-[11px] text-gray-400 mb-0.5">UPT = Uds ÷ Txn</p>
-                <p className="text-base font-bold text-gray-900">
-                  {(Number(metaUnidades) / Number(metaTransacciones)).toFixed(2)}
-                </p>
-              </div>
-            )}
-          </div>
+          </label>
+          <input
+            type="number"
+            value={metaUPT}
+            onChange={(e) => setMetaUPT(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Dejar vacío = auto"
+            min={0}
+            step={0.01}
+          />
         </div>
-      )}
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Meta AVT
+            {Number(metaTransacciones) > 0 && Number(montoTotal) > 0 && !Number(metaAVT) && (
+              <span className="ml-1.5 text-gray-400 font-normal">
+                (auto: {formatCurrency(Number(montoTotal) / Number(metaTransacciones))})
+              </span>
+            )}
+          </label>
+          <input
+            type="number"
+            value={metaAVT}
+            onChange={(e) => setMetaAVT(e.target.value)}
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            placeholder="Dejar vacío = auto"
+            min={0}
+          />
+        </div>
+      </div>
 
       {/* Días laborados */}
       <div className="space-y-3">
