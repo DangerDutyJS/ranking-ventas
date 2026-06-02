@@ -23,8 +23,6 @@ interface Meta {
   asesores: Record<string, MetaAsesor>;
   metaTransacciones?: number;
   metaUnidades?: number;
-  metaUPT?: number;
-  metaAVT?: number;
 }
 
 function mesActual() {
@@ -51,8 +49,6 @@ export default function MetaMes() {
   const [dias, setDias] = useState<Record<string, string>>({});
   const [metaTransacciones, setMetaTransacciones] = useState('');
   const [metaUnidades, setMetaUnidades] = useState('');
-  const [metaUPT, setMetaUPT] = useState('');
-  const [metaAVT, setMetaAVT] = useState('');
   const [metaGuardada, setMetaGuardada] = useState<Meta | null>(null);
   const [historial, setHistorial] = useState<Array<{ mes: string; data: Meta }>>([]);
   const [loading, setLoading] = useState(true);
@@ -83,8 +79,6 @@ export default function MetaMes() {
         setDias(diasInit);
         setMetaTransacciones(data.metaTransacciones ? String(data.metaTransacciones) : '');
         setMetaUnidades(data.metaUnidades ? String(data.metaUnidades) : '');
-        setMetaUPT(data.metaUPT ? String(data.metaUPT) : '');
-        setMetaAVT(data.metaAVT ? String(data.metaAVT) : '');
       }
       setLoading(false);
     });
@@ -114,8 +108,6 @@ export default function MetaMes() {
       asesores: asesorData,
       ...(Number(metaTransacciones) > 0 && { metaTransacciones: Number(metaTransacciones) }),
       ...(Number(metaUnidades) > 0 && { metaUnidades: Number(metaUnidades) }),
-      ...(Number(metaUPT) > 0 && { metaUPT: Number(metaUPT) }),
-      ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
     };
     try {
       await setDoc(
@@ -173,6 +165,10 @@ export default function MetaMes() {
   if (metaGuardada && !editando) {
     const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
     const pastMonths = historial.filter((h) => h.mes !== mes);
+    const derivedUPT = metaGuardada.metaTransacciones && metaGuardada.metaTransacciones > 0 && metaGuardada.metaUnidades
+      ? metaGuardada.metaUnidades / metaGuardada.metaTransacciones : null;
+    const derivedAVT = metaGuardada.metaTransacciones && metaGuardada.metaTransacciones > 0
+      ? metaGuardada.montoTotal / metaGuardada.metaTransacciones : null;
 
     return (
       <div className="space-y-6">
@@ -188,11 +184,11 @@ export default function MetaMes() {
               {metaGuardada.metaUnidades && (
                 <span className="text-xs text-gray-500">{metaGuardada.metaUnidades} uds</span>
               )}
-              {metaGuardada.metaUPT && (
-                <span className="text-xs text-gray-500">UPT {metaGuardada.metaUPT}</span>
+              {derivedUPT !== null && (
+                <span className="text-xs text-gray-500">UPT {derivedUPT.toFixed(2)}</span>
               )}
-              {metaGuardada.metaAVT && (
-                <span className="text-xs text-gray-500">AVT {formatCurrency(metaGuardada.metaAVT)}</span>
+              {derivedAVT !== null && (
+                <span className="text-xs text-gray-500">AVT {formatCurrency(derivedAVT)}</span>
               )}
             </div>
           </div>
@@ -255,16 +251,16 @@ export default function MetaMes() {
                       <span className="font-medium text-gray-900">{Math.round(uds)}</span>
                     </div>
                   )}
-                  {metaGuardada.metaUPT && (
+                  {derivedUPT !== null && (
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">UPT</span>
-                      <span className="font-medium text-gray-900">{metaGuardada.metaUPT}</span>
+                      <span className="font-medium text-gray-900">{derivedUPT.toFixed(2)}</span>
                     </div>
                   )}
-                  {metaGuardada.metaAVT && (
+                  {derivedAVT !== null && (
                     <div className="flex justify-between text-xs">
                       <span className="text-gray-500">AVT</span>
-                      <span className="font-medium text-gray-900">{formatCurrency(metaGuardada.metaAVT)}</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(derivedAVT)}</span>
                     </div>
                   )}
                 </div>
@@ -278,28 +274,34 @@ export default function MetaMes() {
           <div>
             <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Historial</p>
             <div className="space-y-2">
-              {pastMonths.map(({ mes: m, data }) => (
-                <div key={m} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 capitalize">{formatMes(m)}</p>
-                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                      {data.metaTransacciones && (
-                        <span className="text-xs text-gray-400">{data.metaTransacciones} txn</span>
-                      )}
-                      {data.metaUnidades && (
-                        <span className="text-xs text-gray-400">{data.metaUnidades} uds</span>
-                      )}
-                      {data.metaUPT && (
-                        <span className="text-xs text-gray-400">UPT {data.metaUPT}</span>
-                      )}
-                      {data.metaAVT && (
-                        <span className="text-xs text-gray-400">AVT {formatCurrency(data.metaAVT)}</span>
-                      )}
+              {pastMonths.map(({ mes: m, data }) => {
+                const hUPT = data.metaTransacciones && data.metaTransacciones > 0 && data.metaUnidades
+                  ? data.metaUnidades / data.metaTransacciones : null;
+                const hAVT = data.metaTransacciones && data.metaTransacciones > 0
+                  ? data.montoTotal / data.metaTransacciones : null;
+                return (
+                  <div key={m} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 capitalize">{formatMes(m)}</p>
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        {data.metaTransacciones && (
+                          <span className="text-xs text-gray-400">{data.metaTransacciones} txn</span>
+                        )}
+                        {data.metaUnidades && (
+                          <span className="text-xs text-gray-400">{data.metaUnidades} uds</span>
+                        )}
+                        {hUPT !== null && (
+                          <span className="text-xs text-gray-400">UPT {hUPT.toFixed(2)}</span>
+                        )}
+                        {hAVT !== null && (
+                          <span className="text-xs text-gray-400">AVT {formatCurrency(hAVT)}</span>
+                        )}
+                      </div>
                     </div>
+                    <p className="text-sm font-bold text-gray-900">{formatCurrency(data.montoTotal)}</p>
                   </div>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(data.montoTotal)}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -351,30 +353,32 @@ export default function MetaMes() {
             min={0}
           />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Meta UPT</label>
-          <input
-            type="number"
-            value={metaUPT}
-            onChange={(e) => setMetaUPT(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-            placeholder="Ej. 1.8"
-            min={0}
-            step={0.01}
-          />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">Meta AVT</label>
-          <input
-            type="number"
-            value={metaAVT}
-            onChange={(e) => setMetaAVT(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
-            placeholder="Ej. 85000"
-            min={0}
-          />
-        </div>
       </div>
+
+      {/* Preview en tiempo real de UPT y AVT */}
+      {Number(metaTransacciones) > 0 && (Number(montoTotal) > 0 || Number(metaUnidades) > 0) && (
+        <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-2.5">Indicadores calculados</p>
+          <div className="grid grid-cols-2 gap-3">
+            {Number(montoTotal) > 0 && (
+              <div>
+                <p className="text-[11px] text-gray-400 mb-0.5">AVT = Monto ÷ Txn</p>
+                <p className="text-base font-bold text-gray-900">
+                  {formatCurrency(Number(montoTotal) / Number(metaTransacciones))}
+                </p>
+              </div>
+            )}
+            {Number(metaUnidades) > 0 && (
+              <div>
+                <p className="text-[11px] text-gray-400 mb-0.5">UPT = Uds ÷ Txn</p>
+                <p className="text-base font-bold text-gray-900">
+                  {(Number(metaUnidades) / Number(metaTransacciones)).toFixed(2)}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Días laborados */}
       <div className="space-y-3">

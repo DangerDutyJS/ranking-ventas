@@ -76,8 +76,7 @@ export default function MetasDiarias() {
   const [guardado, setGuardado] = useState<Record<string, MetaDia> | null>(null);
   const [metaMensualTxn, setMetaMensualTxn] = useState<number | null>(null);
   const [metaMensualUds, setMetaMensualUds] = useState<number | null>(null);
-  const [metaMensualUpt, setMetaMensualUpt] = useState<number | null>(null);
-  const [metaMensualAvt, setMetaMensualAvt] = useState<number | null>(null);
+  const [metaMensualMonto, setMetaMensualMonto] = useState<number | null>(null);
   const [metaMensualExiste, setMetaMensualExiste] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,13 +108,11 @@ export default function MetasDiarias() {
           metasPorDia?: Record<string, MetaDia>;
           metaTransacciones?: number;
           metaUnidades?: number;
-          metaUPT?: number;
-          metaAVT?: number;
+          montoTotal?: number;
         };
         if (data.metaTransacciones) setMetaMensualTxn(data.metaTransacciones);
         if (data.metaUnidades) setMetaMensualUds(data.metaUnidades);
-        if (data.metaUPT) setMetaMensualUpt(data.metaUPT);
-        if (data.metaAVT) setMetaMensualAvt(data.metaAVT);
+        if (data.montoTotal) setMetaMensualMonto(data.montoTotal);
         if (data.metasPorDia) {
           setGuardado(data.metasPorDia);
           const loaded = emptyMetasPorDia();
@@ -139,8 +136,8 @@ export default function MetasDiarias() {
   const handleGuardar = async () => {
     setError('');
     setSaving(true);
-    const uptCalc = metaMensualUpt ?? 0;
-    const avtCalc = metaMensualAvt ?? 0;
+    const uptCalc = metaMensualTxn && metaMensualTxn > 0 && metaMensualUds ? metaMensualUds / metaMensualTxn : 0;
+    const avtCalc = metaMensualTxn && metaMensualTxn > 0 && metaMensualMonto ? metaMensualMonto / metaMensualTxn : 0;
     const metasPorDiaSave: Record<string, MetaDia> = {};
     for (const { key } of DIAS_SEMANA) {
       const d = metasPorDia[key];
@@ -229,6 +226,10 @@ export default function MetasDiarias() {
     const asesoresToday = todayMeta?.asesoresIds?.length
       ? asesores.filter((a) => todayMeta.asesoresIds!.includes(a.id))
       : [];
+    const derivedUPT = metaMensualTxn && metaMensualTxn > 0 && metaMensualUds
+      ? metaMensualUds / metaMensualTxn : null;
+    const derivedAVT = metaMensualTxn && metaMensualTxn > 0 && metaMensualMonto
+      ? metaMensualMonto / metaMensualTxn : null;
     const n = asesoresToday.length;
     const montoPorAsesor = n > 0 && todayMeta?.monto && todayMeta.monto > 0 ? todayMeta.monto / n : 0;
     const txnPorAsesor   = n > 0 && todayMeta?.txn  && todayMeta.txn  > 0 ? todayMeta.txn  / n : 0;
@@ -324,7 +325,7 @@ export default function MetasDiarias() {
 
           {todayMeta ? (
             <>
-              {(todayMeta.txn > 0 || todayMeta.uds > 0 || todayMeta.upt > 0 || (todayMeta.avt ?? 0) > 0) && (
+              {(todayMeta.txn > 0 || todayMeta.uds > 0 || derivedUPT !== null || derivedAVT !== null) && (
                 <div className="grid grid-cols-2 gap-3">
                   {todayMeta.txn > 0 && (
                     <div className="bg-gray-50 rounded-xl p-3">
@@ -338,16 +339,16 @@ export default function MetasDiarias() {
                       <p className="text-lg font-bold text-gray-900">{todayMeta.uds}</p>
                     </div>
                   )}
-                  {todayMeta.upt > 0 && (
+                  {derivedUPT !== null && (
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 mb-0.5">UPT</p>
-                      <p className="text-lg font-bold text-gray-900">{todayMeta.upt}</p>
+                      <p className="text-lg font-bold text-gray-900">{derivedUPT.toFixed(2)}</p>
                     </div>
                   )}
-                  {(todayMeta.avt ?? 0) > 0 && (
+                  {derivedAVT !== null && (
                     <div className="bg-gray-50 rounded-xl p-3">
                       <p className="text-xs text-gray-400 mb-0.5">AVT</p>
-                      <p className="text-lg font-bold text-gray-900">{formatCurrency(todayMeta.avt!)}</p>
+                      <p className="text-lg font-bold text-gray-900">{formatCurrency(derivedAVT)}</p>
                     </div>
                   )}
                 </div>
@@ -525,18 +526,18 @@ export default function MetasDiarias() {
           />
         </div>
 
-        {(metaMensualUpt !== null || metaMensualAvt !== null) && (
+        {metaMensualTxn !== null && metaMensualTxn > 0 && (metaMensualMonto !== null || metaMensualUds !== null) && (
           <div className="grid grid-cols-2 gap-3">
-            {metaMensualUpt !== null && (
-              <div className="bg-gray-50 rounded-xl px-3 py-2.5">
-                <p className="text-xs text-gray-400 mb-0.5">UPT</p>
-                <p className="text-sm font-bold text-gray-900">{metaMensualUpt}</p>
-              </div>
-            )}
-            {metaMensualAvt !== null && (
+            {metaMensualMonto !== null && (
               <div className="bg-gray-50 rounded-xl px-3 py-2.5">
                 <p className="text-xs text-gray-400 mb-0.5">AVT</p>
-                <p className="text-sm font-bold text-gray-900">{formatCurrency(metaMensualAvt)}</p>
+                <p className="text-sm font-bold text-gray-900">{formatCurrency(metaMensualMonto / metaMensualTxn)}</p>
+              </div>
+            )}
+            {metaMensualUds !== null && (
+              <div className="bg-gray-50 rounded-xl px-3 py-2.5">
+                <p className="text-xs text-gray-400 mb-0.5">UPT</p>
+                <p className="text-sm font-bold text-gray-900">{(metaMensualUds / metaMensualTxn).toFixed(2)}</p>
               </div>
             )}
           </div>

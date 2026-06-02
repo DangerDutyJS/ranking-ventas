@@ -109,7 +109,7 @@ service cloud.firestore {
   - Monto → esmeralda/verde · AVT → azul/índigo · UPT → teal/cyan · Txn → violeta/púrpura · Uds → naranja/ámbar
 - Txn y Unidades: targets per-asesor distribuidos proporcionalmente por días laborados; si el asesor no está en `meta.asesores`, usa división igual (`total / n`) como fallback
 - UPT y AVT diarios: usa `metasPorDia[hoy.getDay()].upt` / `.avt`; estos valores son auto-calculados al guardar metas diarias (`metaUPT / diasDelMes` y `metaAVT / diasDelMes`)
-- **UPT y AVT son targets fijos**: el valor mensual configurado se usa directamente como target diario sin dividir (es un ratio, no un acumulado); Txn, Uds y Monto siguen siendo manuales
+- **UPT y AVT son derivados automáticamente** de los indicadores existentes: `AVT = montoTotal / metaTransacciones`, `UPT = metaUnidades / metaTransacciones`. No se ingresan manualmente. Si no hay `metaTransacciones` configurado, no se muestran. Txn, Uds y Monto siguen siendo manuales
 - **Estructura del dashboard — tres secciones:**
   - **"Ranking de hoy"** (sección superior, clickeable): se muestra SOLO cuando el líder configuró `asesoresIds` para ese día. Muestra únicamente los asesores seleccionados, ordenados por `progresoHoy()` (% Txn vs meta). Tarjetas: barra "General" combinada + bloque unificado `IndicatorBar` para Txn/Uds/Monto/UPT/AVT.
   - **"Ranking mensual"** (sección central, siempre visible, clickeable): muestra TODOS los asesores sin excepción, ordenados por total real. Incluye barra 0-120% + bloque `IndicatorBar` (Monto/AVT/UPT/Txn/Uds) + beneficios + tabla de comisiones. Sección "Hoy" al fondo solo cuando NO hay ranking de hoy activo.
@@ -125,11 +125,11 @@ service cloud.firestore {
 
 ### Panel líder (`/lider`) — 3 tabs
 - **Asesores**: registrar asesores (foto, nombre, cargo) y asignar PINs
-- **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + **4 indicadores mensuales de referencia**: Transacciones, Unidades, UPT y AVT. "Mismo para todos" para días laborados. Vista guardada muestra por asesor: meta mensual proporcional + Txn/Uds distribuidas + UPT y AVT como target único (mismo para todos, no se distribuye). **No muestra ajuste proporcional ni redistribución** — solo "Días laborados" y "Meta mensual" por asesor
+- **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + **2 indicadores mensuales manuales**: Transacciones y Unidades. UPT y AVT se calculan automáticamente (`UPT = metaUnidades / metaTransacciones`, `AVT = montoTotal / metaTransacciones`) y se muestran como referencia en la vista guardada. "Mismo para todos" para días laborados. Vista guardada muestra por asesor: meta mensual proporcional + Txn/Uds distribuidas + UPT y AVT derivados. **No muestra ajuste proporcional ni redistribución** — solo "Días laborados" y "Meta mensual" por asesor
 - **Metas diarias** (`MetasDiarias.tsx`): muestra y edita **solo el día actual** (no tabla Lun–Dom completa). Secciones:
   - Tabla: Transacciones día + Unidades día con contador restante vs meta mensual
   - **Presupuesto del día**: monto total + checkboxes para seleccionar asesores → muestra reparto individual de **Txn, Uds y Monto** (`valor / N`) en tiempo real por cada asesor marcado
-  - **UPT y AVT diarios**: NO son campos manuales. Se toma directamente el valor mensual (`metaUPT` / `metaAVT`) sin dividir — el mismo target aplica para cada día y para cada asesor. Se muestra como solo lectura. Al guardar, se escribe el valor directo en `metasPorDia[dow].upt` y `.avt`.
+  - **UPT y AVT diarios**: calculados automáticamente como `UPT = metaUnidades / metaTransacciones` y `AVT = montoTotal / metaTransacciones`. Se muestran como solo lectura (no hay campos de entrada). Al guardar, se escriben los valores derivados en `metasPorDia[dow].upt` y `.avt`.
   - En la vista guardada: grid de tarjetas (Txn/Uds/UPT/AVT) + sección "Distribución por asesor" con columnas Txn/Uds/Monto
   - Calendario visual del mes (targets por tipo de día)
   - Guarda en `metas/{mes}.metasPorDia[dow]` con `{ merge: true }`. `upt` ahora guarda el valor real (antes siempre era 0); `avt` es campo nuevo

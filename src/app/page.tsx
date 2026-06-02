@@ -431,8 +431,23 @@ export default function Home() {
 
   // Ranking de hoy: solo cuando el líder seleccionó asesores para hoy
   const showDailySection = asesoresHoy.length > 0;
+
+  function pctCombinadoHoy(asesorId: string): number {
+    const vh = ventaHoyMap[asesorId] ?? { monto: 0, unidades: 0, transacciones: 0 };
+    const N = asesoresHoy.length || 1;
+    const txnMeta   = metaHoy && metaHoy.txn   > 0 ? metaHoy.txn   / N : 0;
+    const udsMeta   = metaHoy && metaHoy.uds   > 0 ? metaHoy.uds   / N : 0;
+    const montoMeta = metaHoy?.monto && metaHoy.monto > 0 ? metaHoy.monto / N : 0;
+    const pcts = [
+      txnMeta   > 0 ? (vh.transacciones / txnMeta)   * 100 : null,
+      udsMeta   > 0 ? (vh.unidades      / udsMeta)   * 100 : null,
+      montoMeta > 0 ? (vh.monto         / montoMeta) * 100 : null,
+    ].filter((p): p is number => p !== null);
+    return pcts.length > 0 ? pcts.reduce((a, b) => a + b, 0) / pcts.length : 0;
+  }
+
   const dailyRanking = showDailySection
-    ? [...asesoresHoy].sort((a, b) => progresoHoy(ventaHoyMap[b.id], metaHoy) - progresoHoy(ventaHoyMap[a.id], metaHoy))
+    ? [...asesoresHoy].sort((a, b) => pctCombinadoHoy(b.id) - pctCombinadoHoy(a.id))
     : [];
 
   // Ranking mensual: TODOS los asesores, ordenados por total real (incluye acumuladoMes)
@@ -812,11 +827,15 @@ export default function Home() {
                   const faltaMes    = Math.max(0, metaMensual - totalVentas);
 
                   const avt = totalTransacciones > 0 ? totalVentas / totalTransacciones : null;
-                  const pctAVT    = avt !== null && meta?.metaAVT ? (avt / meta.metaAVT) * 100 : null;
+                  const derivedMetaAVT = meta?.metaTransacciones && meta.metaTransacciones > 0
+                    ? meta.montoTotal / meta.metaTransacciones : null;
+                  const pctAVT = avt !== null && derivedMetaAVT !== null ? (avt / derivedMetaAVT) * 100 : null;
 
-                  const upt        = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
-                  const metaUPTRef = metaHoy?.upt ?? meta?.metaUPT ?? null;
-                  const pctUPT     = upt !== null && metaUPTRef ? (upt / metaUPTRef) * 100 : null;
+                  const upt = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
+                  const derivedMetaUPT = meta?.metaTransacciones && meta.metaTransacciones > 0 && meta?.metaUnidades
+                    ? meta.metaUnidades / meta.metaTransacciones : null;
+                  const metaUPTRef = metaHoy?.upt ?? derivedMetaUPT ?? null;
+                  const pctUPT = upt !== null && metaUPTRef ? (upt / metaUPTRef) * 100 : null;
 
                   const metaTxnAsesor: number | null = (() => {
                     const v = txnPorAsesor[asesor.id];
@@ -1021,7 +1040,7 @@ export default function Home() {
                             <IndicatorBar
                               label="AVT"
                               value={formatCurrency(avt)}
-                              meta={meta?.metaAVT ? formatCurrency(meta.metaAVT) : null}
+                              meta={derivedMetaAVT !== null ? formatCurrency(derivedMetaAVT) : null}
                               pct={pctAVT}
                               barColor="bg-gradient-to-r from-blue-400 to-indigo-500"
                             />
@@ -1030,7 +1049,7 @@ export default function Home() {
                             <IndicatorBar
                               label="UPT"
                               value={upt.toFixed(2)}
-                              meta={metaUPTRef ? metaUPTRef.toFixed(2) : null}
+                              meta={metaUPTRef !== null ? metaUPTRef.toFixed(2) : null}
                               pct={pctUPT}
                               barColor="bg-gradient-to-r from-teal-400 to-cyan-500"
                             />
