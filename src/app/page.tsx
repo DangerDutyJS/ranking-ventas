@@ -55,8 +55,6 @@ interface MetaDia {
 interface Meta {
   montoTotal: number;
   asesores: Record<string, { diasLaborados: number }>;
-  metaAVT?: number;
-  metaUPT?: number;
   metaTransacciones?: number;
   metaUnidades?: number;
   metasPorDia?: Record<string, MetaDia>;
@@ -1146,9 +1144,12 @@ export default function Home() {
 
                     const avt    = totalTransacciones > 0 ? totalVentas   / totalTransacciones : null;
                     const upt    = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
-                    const pctAVT = avt !== null && metaAnterior?.metaAVT ? (avt / metaAnterior.metaAVT) * 100 : null;
-                    const metaUPTRef = metaAnterior?.metaUPT ?? null;
-                    const pctUPT = upt !== null && metaUPTRef ? (upt / metaUPTRef) * 100 : null;
+                    const derivedMetaAVT_ant = metaAnterior?.metaTransacciones && metaAnterior.metaTransacciones > 0
+                      ? metaAnterior.montoTotal / metaAnterior.metaTransacciones : null;
+                    const derivedMetaUPT_ant = metaAnterior?.metaTransacciones && metaAnterior.metaTransacciones > 0 && metaAnterior?.metaUnidades
+                      ? metaAnterior.metaUnidades / metaAnterior.metaTransacciones : null;
+                    const pctAVT = avt !== null && derivedMetaAVT_ant !== null ? (avt / derivedMetaAVT_ant) * 100 : null;
+                    const pctUPT = upt !== null && derivedMetaUPT_ant !== null ? (upt / derivedMetaUPT_ant) * 100 : null;
 
                     const metaTxnAsesor: number | null = (() => {
                       const v = txnPorAsesorAnterior[asesor.id];
@@ -1272,10 +1273,10 @@ export default function Home() {
                               <IndicatorBar label="Monto" value={formatCurrency(totalVentas)} meta={formatCurrency(metaMensual)} pct={progreso} barColor="bg-gradient-to-r from-emerald-400 to-green-500" />
                             )}
                             {avt !== null && (
-                              <IndicatorBar label="AVT" value={formatCurrency(avt)} meta={metaAnterior?.metaAVT ? formatCurrency(metaAnterior.metaAVT) : null} pct={pctAVT} barColor="bg-gradient-to-r from-blue-400 to-indigo-500" />
+                              <IndicatorBar label="AVT" value={formatCurrency(avt)} meta={derivedMetaAVT_ant !== null ? formatCurrency(derivedMetaAVT_ant) : null} pct={pctAVT} barColor="bg-gradient-to-r from-blue-400 to-indigo-500" />
                             )}
                             {upt !== null && (
-                              <IndicatorBar label="UPT" value={upt.toFixed(2)} meta={metaUPTRef ? metaUPTRef.toFixed(2) : null} pct={pctUPT} barColor="bg-gradient-to-r from-teal-400 to-cyan-500" />
+                              <IndicatorBar label="UPT" value={upt.toFixed(2)} meta={derivedMetaUPT_ant !== null ? derivedMetaUPT_ant.toFixed(2) : null} pct={pctUPT} barColor="bg-gradient-to-r from-teal-400 to-cyan-500" />
                             )}
                             {pctTxn !== null && (
                               <IndicatorBar label="Transacc." value={String(totalTransacciones)} meta={String(Math.round(metaTxnAsesor!))} pct={pctTxn} barColor="bg-gradient-to-r from-violet-400 to-purple-500" />

@@ -50,13 +50,18 @@ Cada líder tiene sus datos aislados bajo `tiendas/{uid}/` en Firestore. El `uid
 tiendas/{uid}/
 ├── config/leader           — { passwordHash }
 ├── asesores/{asesorId}     — { nombre, apellido, cargo, fotoBase64, pinHash, creadoEn }
-├── metas/{mes}             — { montoTotal, asesores: { [id]: { diasLaborados } }, metaAVT?,
-│                              metaUPT?, metaTransacciones?, metaUnidades?,
+├── metas/{mes}             — { montoTotal, asesores: { [id]: { diasLaborados } },
+│                              metaTransacciones?, metaUnidades?,
 │                              metasPorDia: { "0"–"6": { upt, avt?, txn, uds, monto?, asesoresIds? } },
 │                              actualizadoEn }
+│                              (upt/avt en metasPorDia son calculados: UPT=metaUnidades/metaTransacciones,
+│                               AVT=montoTotal/metaTransacciones — no se ingresan manualmente)
 └── ventasMes/{mes_uid}     — { mes, asesorId, totalVentas, totalUnidades, totalTransacciones,
                                registros: [{ monto, unidades, transacciones, fecha, creadoEn }],
                                acumuladoMes?: { monto, unidades, transacciones } }
+
+Nota: `metaUPT` y `metaAVT` ya NO se escriben en Firestore. Son siempre derivados:
+  AVT = montoTotal / metaTransacciones  |  UPT = metaUnidades / metaTransacciones
 ```
 
 `StoreContext` provee `storeId` a todos los componentes:
