@@ -119,7 +119,10 @@ service cloud.firestore {
 - **Tabla de comisiones por asesor** (`TablaComisionesAsesor` + `calcularComision` en `page.tsx`): visible en cada tarjeta del ranking mensual cuando hay meta asignada. Lógica: Amarillo 90–99.99% → 0.65%, Verde 100–109.99% → 1.10%, Azul 110–119.99% → 1.20%, Celeste ≥120% → 1.30%. Destaca el nivel activo con borde izquierdo de color. Muestra comisión estimada en dinero (vendido × %) y montos faltantes para llegar a 90%, 100% y 120%.
 - `asesoresHoy`: array vacío si no hay `asesoresIds` configurados. `showDailySection = asesoresHoy.length > 0`.
 - Clic en tarjeta **ranking de hoy** → PIN → VentasModal (registra venta del día con `increment()` + `arrayUnion()`)
-- Clic en tarjeta **ranking mensual** → PIN → AcumuladoMesModal (registra acumulado del mes en campo separado `acumuladoMes`)
+- Clic en tarjeta **ranking mensual** → PIN → `HistorialAcumuladoModal` con dos tabs:
+  - **"Ventas diarias"** (tab activo por defecto): muestra todos los `registros[]` del mes actual agrupados por fecha, más reciente primero. Cada entrada tiene editar y eliminar; ajusta `totalVentas/totalUnidades/totalTransacciones` con `increment(delta)`. Resuelve la pérdida de acceso a los registros del día anterior tras cerrar el ranking de hoy.
+  - **"Acumulado del mes"**: entradas manuales de `acumuladoMes` con agregar/editar/eliminar (comportamiento anterior).
+  - Ambos tabs leen del mismo `onSnapshot` sobre `ventasMes/{mes}_{asesorId}` — un solo listener. Los datos son del mes actual exclusivamente (cada mes tiene su propio documento).
 - `acumuladoMes` se suma al total mensual visible pero NO aparece en `registros[]`, por lo que no afecta `ventaHoyMap` ni el ranking de hoy
 - `pctCombinadoHoy(asesorId)`: función que calcula el promedio de los porcentajes disponibles (Txn, Uds, Monto) para ordenar el ranking de hoy. Es la misma lógica que el badge "General" en las tarjetas — garantiza que el orden visual coincida con los números mostrados. El mapa `ventaHoyMap` se calcula una vez fuera del render.
 - **Historial mes anterior**: `ventasMapAnterior` y `metaAnterior` se cargan en un `useEffect` separado leyendo `ventasMes` (filtrado en el `onSnapshot` existente) y `metas/{mesAnterior}`. Helpers `mesAnterior()` y `mesHaceDosMeses()` calculan los strings de mes.
