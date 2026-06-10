@@ -9,14 +9,16 @@ import AsesorList from '@/components/AsesorList';
 import MetaMes from '@/components/MetaMes';
 import MetasDiarias from '@/components/MetasDiarias';
 import DinamicasTab from '@/components/DinamicasTab';
+import EditorVentasMes from '@/components/EditorVentasMes';
 
-type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas';
+type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas' | 'ventas';
 
 const TAB_LABELS: Record<Tab, string> = {
   asesores:  'Asesores',
   meta:      'Meta del mes',
   diarias:   'Metas diarias',
   dinamicas: 'Dinámicas',
+  ventas:    'Ventas del mes',
 };
 
 export default function LiderPage() {
@@ -152,6 +154,19 @@ export default function LiderPage() {
               </p>
             </div>
             <DinamicasTab />
+          </>
+        )}
+
+        {/* Tab Ventas del mes */}
+        {tab === 'ventas' && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-gray-900">Ventas del mes</h1>
+              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
+                Edita los totales del ranking mensual de todos los asesores a la vez.
+              </p>
+            </div>
+            <EditorVentasMes />
           </>
         )}
       </div>

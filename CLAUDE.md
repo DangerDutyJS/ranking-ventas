@@ -31,7 +31,8 @@ src/
 │   ├── MetasDiarias.tsx    — Meta del día actual: Txn/Uds + presupuesto diario con selección de asesores + calendario visual del mes
 │   ├── DinamicasTab.tsx    — Tab "Dinámicas" del panel líder: form + lista + progreso por asesor
 │   ├── DinamicaProgressModal.tsx — Modal para que el asesor registre su total en una dinámica (post-PIN)
-│   └── TutorialModal.tsx   — Tutorial de onboarding (primer ingreso)
+│   ├── TutorialModal.tsx   — Tutorial de onboarding (primer ingreso)
+│   └── EditorVentasMes.tsx — Editor masivo del ranking mensual (panel líder, tab "Ventas del mes")
 ├── context/
 │   ├── AuthContext.tsx     — Estado Firebase Auth + cookie auth-session
 │   └── StoreContext.tsx    — Provee storeId (uid del líder) a componentes
@@ -128,7 +129,7 @@ service cloud.firestore {
 - **Historial mes anterior**: `ventasMapAnterior` y `metaAnterior` se cargan en un `useEffect` separado leyendo `ventasMes` (filtrado en el `onSnapshot` existente) y `metas/{mesAnterior}`. Helpers `mesAnterior()` y `mesHaceDosMeses()` calculan los strings de mes.
 - **Limpieza automática de datos viejos**: al cargar la app se borran todos los docs `ventasMes` donde `mes == mesHaceDosMeses()` y el doc `metas/{mesHaceDosMeses()}`. Retención: mes actual + 1 mes anterior.
 
-### Panel líder (`/lider`) — 3 tabs
+### Panel líder (`/lider`) — 5 tabs
 - **Asesores**: registrar asesores (foto, nombre, cargo) y asignar PINs
 - **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + **2 indicadores manuales**: Transacciones y Unidades. UPT y AVT **no tienen campo de entrada** — se derivan y muestran en tiempo real mientras se escribe (`AVT = montoTotal / metaTransacciones`, `UPT = metaUnidades / metaTransacciones`) en un bloque "Indicadores calculados" dentro del formulario. Vista guardada muestra por asesor: meta mensual proporcional + Txn/Uds distribuidas + UPT y AVT derivados. Historial de meses anteriores también muestra UPT/AVT derivados.
 - **Metas diarias** (`MetasDiarias.tsx`): muestra y edita **solo el día actual** (no tabla Lun–Dom completa). Secciones:
@@ -138,6 +139,15 @@ service cloud.firestore {
   - En la vista guardada: grid de tarjetas (Txn/Uds/UPT/AVT) + sección "Distribución por asesor" con columnas Txn/Uds/Monto
   - Calendario visual del mes (targets por tipo de día)
   - Guarda en `metas/{mes}.metasPorDia[dow]` con `{ merge: true }`. `upt` ahora guarda el valor real (antes siempre era 0); `avt` es campo nuevo
+
+### Editor masivo de ventas del mes (`EditorVentasMes`)
+- Tab **"Ventas del mes"** en el panel líder — permite editar los totales mensuales de **todos los asesores a la vez** sin entrar uno por uno al historial
+- Muestra cada asesor con tres campos editables: **Monto total, Txn, Uds** (pre-llenados con el gran total actual: `totalVentas + acumuladoMes`)
+- Sub-etiqueta "PIN acum." muestra el componente de ventas diarias registradas con PIN (`totalVentas/Txn/Uds`) — solo lectura, no se modifica
+- Al guardar: calcula `acumuladoMes = totalEntrado - totalVentas` y reemplaza `acumulados[]` con una entrada única de ajuste. Los `registros[]`, `totalVentas`, `totalTransacciones`, `totalUnidades` **no se tocan** — el historial de hoy queda intacto
+- Detección de cambios (`isDirty`): resalta filas modificadas en índigo y muestra conteo en el botón "Guardar (N)"
+- Botón "Restablecer" por asesor para deshacer cambios individuales
+- Inicialización lazy: los rows solo se inicializan una vez por asesor (no sobreescribe ediciones en curso si llega un onSnapshot)
 
 ### Dinámicas comerciales
 - **Panel líder**: tab "Dinámicas" (4to tab en `lider/page.tsx`) con `DinamicasTab.tsx`
