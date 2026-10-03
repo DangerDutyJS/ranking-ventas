@@ -61,7 +61,7 @@ export default function AsesorList() {
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {asesores.map((asesor) => (
-          <div key={asesor.id} className="bg-white border border-[#eaeaea] rounded-lg p-5 flex flex-col gap-3">
+          <div key={asesor.id} className="bg-surface border border-gray-200 rounded-lg p-5 flex flex-col gap-3">
 
             {/* Info asesor */}
             <div className="flex items-center gap-3 min-w-0">
@@ -84,7 +84,7 @@ export default function AsesorList() {
                 <span className="text-xs text-gray-500 flex-1">¿Eliminar asesor?</span>
                 <button
                   onClick={() => setConfirmDelete(null)}
-                  className="text-[12px] px-3 h-7 rounded-md border border-[#eaeaea] text-[#8f8f8f] hover:bg-[#fafafa] transition-colors"
+                  className="text-[12px] px-3 h-7 rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50 transition-colors"
                 >
                   No
                 </button>
@@ -103,7 +103,7 @@ export default function AsesorList() {
                   className={`flex-1 text-[12px] px-3 h-7 rounded-md border transition-colors ${
                     asesor.pinHash
                       ? 'border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
-                      : 'border-[#eaeaea] text-[#8f8f8f] bg-[#fafafa] hover:bg-[#f2f2f2]'
+                      : 'border-gray-200 text-gray-400 bg-gray-50 hover:bg-gray-100'
                   }`}
                 >
                   {asesor.pinHash ? 'PIN ✓' : 'Asignar PIN'}
@@ -112,7 +112,7 @@ export default function AsesorList() {
                 {/* Editar */}
                 <button
                   onClick={() => setEditTarget(asesor)}
-                  className="p-1.5 rounded-md border border-[#eaeaea] text-[#8f8f8f] hover:text-gray-700 hover:bg-[#fafafa] transition-colors"
+                  className="p-1.5 rounded-md border border-gray-200 text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors"
                   title="Editar asesor"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -123,8 +123,9 @@ export default function AsesorList() {
                 {/* Eliminar */}
                 <button
                   onClick={() => setConfirmDelete(asesor.id)}
-                  className="p-1.5 rounded-md border border-[#eaeaea] text-[#8f8f8f] hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-colors"
+                  className="p-1.5 rounded-md border border-gray-200 text-gray-500 hover:text-red-600 hover:border-red-200 hover:bg-red-500/10 transition-colors"
                   title="Eliminar asesor"
+                  aria-label="Eliminar asesor"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4h6v3M4 7h16" />

@@ -93,12 +93,12 @@ export default function NotificacionesPanel() {
           <div className="flex-1 bg-black/20" onClick={handleClose} />
 
           {/* Panel */}
-          <div className="w-full max-w-sm bg-white shadow-xl flex flex-col h-screen">
+          <div className="halloween-panel w-full max-w-sm bg-surface shadow-xl flex flex-col h-screen">
             <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
               <div>
-                <h2 className="text-sm font-semibold text-gray-900">Notificaciones</h2>
+                <h2 className="text-sm font-semibold text-heading">Notificaciones</h2>
                 {unreadCount === 0 && notifs.length > 0 && (
-                  <p className="text-[11px] text-gray-400 mt-0.5">Todo al día</p>
+                  <p className="text-[11px] text-orange-700 font-medium mt-0.5"><span aria-hidden="true">👻</span> Todo al día</p>
                 )}
               </div>
               <button onClick={handleClose} className="p-1 text-gray-400 hover:text-gray-600">
@@ -111,8 +111,8 @@ export default function NotificacionesPanel() {
             <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-gray-50">
               {notifs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16 text-center px-6">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                    <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <div className="w-11 h-11 rounded-xl bg-[#241733] ring-1 ring-orange-400/30 flex items-center justify-center mb-3 shadow-[0_4px_14px_rgba(0,0,0,0.4)]">
+                    <svg className="w-5 h-5 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                         d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
@@ -126,7 +126,7 @@ export default function NotificacionesPanel() {
                   return (
                     <div
                       key={n.id}
-                      className={`flex items-start gap-3 px-5 py-4 transition-colors ${isNew ? 'bg-blue-50/60' : 'bg-white'}`}
+                      className={`flex items-start gap-3 px-5 py-4 transition-colors ${isNew ? 'bg-orange-50/70' : 'bg-surface'}`}
                     >
                       <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-600">
                         {iniciales(n.asesorNombre)}
@@ -137,7 +137,7 @@ export default function NotificacionesPanel() {
                         <p className="text-[10px] text-gray-400 mt-1">{tiempoRelativo(n.creadoEn)}</p>
                       </div>
                       {isNew && (
-                        <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />
+                        <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-1.5" />
                       )}
                     </div>
                   );

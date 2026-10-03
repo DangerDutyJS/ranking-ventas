@@ -214,7 +214,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
+      <div className="halloween-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
 
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4">
@@ -285,7 +285,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
                         Cancelar
                       </button>
                       <button onClick={handleGuardarEdit}
-                        className="flex-1 text-xs text-white bg-gray-900 rounded-lg py-1.5 hover:bg-gray-700">
+                        className="flex-1 text-xs text-white bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
                         Guardar
                       </button>
                     </div>
@@ -302,14 +302,14 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
                     </div>
                     <div className="flex items-center gap-0.5">
                       <button onClick={() => startEdit(r)}
-                        className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                        aria-label="Editar" className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-50 transition-colors">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                             d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
                       <button onClick={() => handleEliminar(r)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                        aria-label="Eliminar" className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-500/10 transition-colors">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                             d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -355,14 +355,14 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
                   Cancelar
                 </button>
                 <button onClick={handleAgregar} disabled={saving}
-                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 disabled:opacity-50">
+                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
                   {saving ? 'Guardando...' : 'Registrar'}
                 </button>
               </div>
             </div>
           ) : (
             <button onClick={() => { setShowForm(true); setEditEntry(null); }}
-              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors">
+              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
               + Registrar venta
             </button>
           )}
@@ -407,7 +407,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
                         <button
                           onClick={() => handleUpdateDinamica(din.id)}
                           disabled={dinSaving[din.id] || inputVal === ''}
-                          className="px-3 py-1.5 text-xs font-medium bg-gray-900 text-white rounded-lg disabled:opacity-40 whitespace-nowrap"
+                          className="px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg disabled:opacity-40 whitespace-nowrap"
                         >
                           {dinSaving[din.id] ? '...' : 'Guardar'}
                         </button>

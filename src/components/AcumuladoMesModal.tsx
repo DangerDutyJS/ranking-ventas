@@ -68,7 +68,7 @@ export default function AcumuladoMesModal({ asesor, acumuladoActual, onClose }: 
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm p-6 space-y-5">
+      <div className="bg-surface rounded-2xl w-full max-w-sm p-6 space-y-5">
         <div>
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Acumulado del mes</p>
           <p className="text-base font-semibold text-gray-900">{asesor.nombre} {asesor.apellido}</p>
@@ -134,7 +134,7 @@ export default function AcumuladoMesModal({ asesor, acumuladoActual, onClose }: 
           <button
             onClick={handleGuardar}
             disabled={saving}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50"
           >
             {saving ? 'Guardando...' : 'Guardar'}
           </button>

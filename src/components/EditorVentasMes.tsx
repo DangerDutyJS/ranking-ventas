@@ -220,7 +220,7 @@ export default function EditorVentasMes() {
 
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#8f8f8f]">
+        <p className="text-[13px] text-gray-400">
           {dirtyIds.length > 0
             ? `${dirtyIds.length} asesor${dirtyIds.length !== 1 ? 'es' : ''} con cambios`
             : 'Sin cambios pendientes'}
@@ -228,7 +228,7 @@ export default function EditorVentasMes() {
         <button
           onClick={handleSave}
           disabled={dirtyIds.length === 0 || saving}
-          className="inline-flex items-center gap-2 px-4 h-9 bg-black text-white text-[13px] font-medium rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-4 h-9 bg-accent text-white text-[13px] font-medium rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {saving ? 'Guardando...' : `Guardar${dirtyIds.length > 0 ? ` (${dirtyIds.length})` : ''}`}
         </button>
@@ -250,7 +250,7 @@ export default function EditorVentasMes() {
           return (
             <div
               key={asesor.id}
-              className={`border rounded-xl p-4 transition-colors ${dirty ? 'border-indigo-200 bg-indigo-50/20' : 'border-[#eaeaea] bg-white'}`}
+              className={`border rounded-xl p-4 transition-colors ${dirty ? 'border-indigo-200 bg-indigo-50/20' : 'border-gray-200 bg-surface'}`}
             >
               {/* Header */}
               <div className="flex items-center gap-3 mb-4">
@@ -262,7 +262,7 @@ export default function EditorVentasMes() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-gray-900 truncate">{asesor.nombre} {asesor.apellido}</p>
                   {hasPinData && (
-                    <p className="text-[11px] text-[#8f8f8f] mt-0.5">
+                    <p className="text-[11px] text-gray-400 mt-0.5">
                       PIN acum.:&nbsp;
                       {pin.monto > 0 ? formatCurrency(pin.monto) : '—'}
                       {pin.txn > 0 && ` · ${pin.txn} txn`}
@@ -273,7 +273,7 @@ export default function EditorVentasMes() {
                 {dirty && (
                   <button
                     onClick={() => resetRow(asesor.id)}
-                    className="text-[12px] text-[#8f8f8f] hover:text-gray-700 transition-colors flex-shrink-0"
+                    className="text-[12px] text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0"
                   >
                     Restablecer
                   </button>
@@ -284,15 +284,15 @@ export default function EditorVentasMes() {
               <div className="grid grid-cols-3 gap-2">
                 {FIELDS.map(({ field, label, step }) => (
                   <div key={field}>
-                    <label className="block text-[10px] text-[#8f8f8f] mb-1.5 font-medium uppercase tracking-wide">
+                    <label className="block text-[10px] text-gray-400 mb-1.5 font-medium uppercase tracking-wide">
                       {label}
                     </label>
                     <input
                       type="number"
                       value={r[field]}
                       onChange={(e) => updateRow(asesor.id, field, e.target.value)}
-                      className={`w-full px-2.5 py-2 text-sm border rounded-lg outline-none focus:border-gray-900 text-gray-900 bg-white transition-colors ${
-                        dirty ? 'border-indigo-200' : 'border-[#eaeaea]'
+                      className={`w-full px-2.5 py-2 text-sm border rounded-lg outline-none focus:border-gray-900 text-gray-900 bg-surface transition-colors ${
+                        dirty ? 'border-indigo-200' : 'border-gray-200'
                       }`}
                       min={0}
                       step={step}

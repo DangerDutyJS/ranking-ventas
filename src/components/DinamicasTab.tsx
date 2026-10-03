@@ -102,7 +102,7 @@ export default function DinamicasTab() {
         <div className="flex justify-end mb-6">
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-gray-900 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent-hover transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -113,8 +113,8 @@ export default function DinamicasTab() {
       )}
 
       {showForm && (
-        <div className="bg-white border border-gray-100 rounded-2xl p-6 mb-6 shadow-sm">
-          <h3 className="text-base font-semibold text-gray-900 mb-5">Nueva dinámica</h3>
+        <div className="halloween-panel bg-surface border border-gray-100 rounded-2xl p-6 mb-6 shadow-sm">
+          <h3 className="text-base font-semibold text-heading mb-5">Nueva dinámica</h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-500 mb-1.5">Nombre de la dinámica</label>
@@ -191,7 +191,7 @@ export default function DinamicasTab() {
               <button
                 onClick={handleCreate}
                 disabled={saving || !nombre.trim() || !meta || selectedIds.length === 0}
-                className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-gray-700 transition-colors"
+                className="flex-1 px-4 py-3 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-accent-hover transition-colors"
               >
                 {saving ? 'Guardando...' : 'Crear dinámica'}
               </button>
@@ -262,7 +262,7 @@ function DinamicaCard({ dinamica, asesores, onToggle, onDelete }: {
 
   return (
     <div className={`border rounded-2xl overflow-hidden transition-opacity ${
-      dinamica.activa ? 'border-gray-100 bg-white' : 'border-gray-100 bg-gray-50 opacity-60'
+      dinamica.activa ? 'border-gray-100 bg-surface' : 'border-gray-100 bg-gray-50 opacity-60'
     }`}>
       <div className="px-4 py-4">
         <div className="flex items-start gap-2 mb-3">
@@ -283,7 +283,8 @@ function DinamicaCard({ dinamica, asesores, onToggle, onDelete }: {
             <button
               onClick={onToggle}
               title={dinamica.activa ? 'Desactivar' : 'Activar'}
-              className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label={dinamica.activa ? 'Desactivar' : 'Activar'}
+              className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-100 transition-colors"
             >
               {dinamica.activa ? (
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -298,7 +299,7 @@ function DinamicaCard({ dinamica, asesores, onToggle, onDelete }: {
             <button
               onClick={onDelete}
               title="Eliminar"
-              className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+              aria-label="Eliminar" className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-500/10 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

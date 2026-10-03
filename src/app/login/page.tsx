@@ -31,9 +31,9 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#080808]">
       {/* Ambient blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-indigo-600/10 blur-3xl" />
-        <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-emerald-600/8 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-violet-900/5 blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-orange-600/10 blur-3xl" />
+        <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-purple-600/10 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-amber-900/5 blur-3xl" />
       </div>
       {/* Dot grid overlay */}
       <div

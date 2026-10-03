@@ -100,14 +100,14 @@ export default function DinamicaProgressModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+      <div className="halloween-modal bg-surface rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
         {/* Header */}
         <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">
           <div className="flex items-start justify-between gap-2">
             <div>
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0" />
-                <h2 className="text-base font-semibold text-gray-900">
+                <h2 className="text-base font-semibold text-heading">
                   {dinamica.nombre}
                 </h2>
               </div>
@@ -236,7 +236,7 @@ export default function DinamicaProgressModal({
             <button
               onClick={handleSubmit}
               disabled={saving || saved || !cantidad || cantidadNum <= 0}
-              className="flex-1 px-4 py-3 bg-gray-900 text-white rounded-xl text-sm font-semibold disabled:opacity-60 hover:bg-gray-700 transition-colors"
+              className="flex-1 px-4 py-3 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors"
             >
               {saved ? "✓ Registrado" : saving ? "Guardando..." : "Agregar"}
             </button>

@@ -76,8 +76,8 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
   };
 
   return (
-    <div className="bg-white rounded-lg border border-[#eaeaea] p-8 max-w-md w-full">
-      <h2 className="text-base font-semibold text-gray-900 mb-6">Registrar asesor</h2>
+    <div className="halloween-panel bg-surface rounded-lg border border-gray-200 p-8 max-w-md w-full">
+      <h2 className="text-base font-semibold text-heading mb-6">Registrar asesor</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
 
@@ -107,7 +107,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
             placeholder="Ej. Carlos"
           />
         </div>
@@ -119,7 +119,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
             placeholder="Ej. Rodríguez"
           />
         </div>
@@ -131,7 +131,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={cargo}
             onChange={(e) => setCargo(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
             placeholder="Ej. Asesor Senior"
           />
         </div>
@@ -140,11 +140,11 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
 
         <div className="flex gap-2 pt-1">
           <button type="button" onClick={onCancel}
-            className="flex-1 h-9 px-4 text-[13px] text-[#8f8f8f] border border-[#eaeaea] rounded-md hover:bg-[#fafafa] transition-colors">
+            className="flex-1 h-9 px-4 text-[13px] text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
             Cancelar
           </button>
           <button type="submit" disabled={loading}
-            className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40">
+            className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
             {loading ? 'Guardando...' : 'Registrar'}
           </button>
         </div>

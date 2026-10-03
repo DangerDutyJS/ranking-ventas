@@ -281,7 +281,7 @@ export default function MetasDiarias() {
         </div>
 
         {/* Calendario */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5">
+        <div className="bg-surface border border-gray-100 rounded-2xl p-5">
           <div className="grid grid-cols-7 mb-2">
             {CAL_HEADERS.map((h) => (
               <div key={h} className="text-center text-[11px] font-medium text-gray-400 pb-1">{h}</div>
@@ -298,7 +298,7 @@ export default function MetasDiarias() {
                 <div
                   key={i}
                   className={`rounded-xl p-1.5 min-h-[54px] flex flex-col items-center ${
-                    isToday ? 'bg-gray-900' : isPast ? 'bg-gray-50' : 'bg-white border border-gray-100'
+                    isToday ? 'bg-accent' : isPast ? 'bg-gray-50' : 'bg-surface border border-gray-100'
                   }`}
                 >
                   <span className={`text-xs font-semibold ${isToday ? 'text-white' : isPast ? 'text-gray-400' : 'text-gray-900'}`}>
@@ -307,17 +307,17 @@ export default function MetasDiarias() {
                   {targets && (
                     <div className={`mt-0.5 w-full text-center space-y-0.5 ${isPast ? 'opacity-40' : ''}`}>
                       {targets.txn > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-gray-300' : 'text-gray-500'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#ffedd5]' : 'text-gray-500'}`}>
                           {targets.txn}<span className="opacity-60">txn</span>
                         </p>
                       )}
                       {targets.monto && targets.monto > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-gray-400' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#ffedd5]' : 'text-gray-400'}`}>
                           {shortAmount(targets.monto)}
                         </p>
                       )}
                       {targets.uds > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-gray-400' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#ffedd5]' : 'text-gray-400'}`}>
                           {targets.uds}<span className="opacity-60">uds</span>
                         </p>
                       )}
@@ -330,7 +330,7 @@ export default function MetasDiarias() {
         </div>
 
         {/* Meta de hoy */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 space-y-4">
+        <div className="bg-surface border border-gray-100 rounded-2xl p-5 space-y-4">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Meta de hoy</p>
 
           {todayMeta ? (
@@ -440,7 +440,7 @@ export default function MetasDiarias() {
   const hayPreview = montoPorAsesorPreview > 0 || txnPorAsesorPreview > 0 || udsPorAsesorPreview > 0;
 
   return (
-    <div className="space-y-6 max-w-lg">
+    <div className="halloween-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6">
       {!guardado && (
         <p className="text-sm text-gray-500">
           Define el objetivo diario. El calendario se actualizará automáticamente.
@@ -448,7 +448,7 @@ export default function MetasDiarias() {
       )}
 
       {/* Tabla txn / uds */}
-      <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+      <div className="bg-surface border border-gray-100 rounded-xl overflow-hidden">
         <table className="w-full text-xs">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr className="text-gray-400">
@@ -518,7 +518,7 @@ export default function MetasDiarias() {
       </div>
 
       {/* Presupuesto diario + selección de asesores */}
-      <div className="bg-white border border-gray-100 rounded-xl p-4 space-y-4">
+      <div className="bg-surface border border-gray-100 rounded-xl p-4 space-y-4">
         <div>
           <p className="text-xs font-medium text-gray-600 mb-1.5">Presupuesto del día</p>
           <input
@@ -579,7 +579,7 @@ export default function MetasDiarias() {
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border cursor-pointer transition-colors ${
                       selected
                         ? 'border-gray-900 bg-gray-50'
-                        : 'border-gray-100 bg-white hover:bg-gray-50'
+                        : 'border-gray-100 bg-surface hover:bg-gray-50'
                     }`}
                   >
                     <input
@@ -637,7 +637,7 @@ export default function MetasDiarias() {
         <button
           onClick={handleGuardar}
           disabled={saving}
-          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50"
+          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50"
         >
           {saving ? 'Guardando...' : 'Guardar metas diarias'}
         </button>

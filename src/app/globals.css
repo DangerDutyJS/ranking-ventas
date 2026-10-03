@@ -2,8 +2,8 @@
 
 :root {
   /* Vercel Geist light mode tokens */
-  --background: #ffffff;
-  --foreground: #0a0a0a;
+  --background: #0d0a10;
+  --foreground: #f3eef7;
   --ds-surface:  #fafafa;
   --ds-border:   #eaeaea;
   --ds-border-subtle: #f2f2f2;
@@ -12,13 +12,151 @@
   --ds-gray-400: #8f8f8f;
   --ds-gray-900: #171717;
   --ds-blue:     #0070f3;
+  /* Acento del tema estacional (Halloween: naranja oscuro). Cambiar aquí cambia botones y títulos. */
+  --accent:       #c2410c;
+  --accent-hover: #9a3412;
+  --accent-text:  #fb923c; /* acento usado como TEXTO sobre fondo oscuro (7.9:1); #c2410c solo da 3.4 */
+  --heading:      #ece6f1; /* títulos: gris claro cálido sobre fondo oscuro */
+  --accent-muted: #b9a8c9; /* subtítulos: ciruela apagado claro */
+  --surface:      #1c1520; /* tarjetas, modales, paneles */
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-heading: var(--heading);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-text: var(--accent-text);
+  --color-surface: var(--surface);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+/* ── Tema oscuro (opción B: oscuro + acentos naranja) ─────────────────────────
+   Se aplica con la clase .theme-dark en el <main> del dashboard y del panel líder
+   (el login tiene su propio estilo oscuro). En vez de reescribir cientos de clases,
+   reasigna la paleta de Tailwind dentro del scope:
+   - grises invertidos con tinte ciruela (text-gray-900 pasa a ser claro, bg-gray-50 oscuro…)
+   - tonos pastel 50/100/200 de cada color → tintes oscuros; 600/700/800/900 → versiones claras
+   Los 300/400/500 no cambian: las barras de progreso semánticas (400/500) quedan idénticas. */
+.theme-dark {
+  color-scheme: dark;
+  color: var(--foreground);
+  --color-gray-50:  #231a29;
+  --color-gray-100: #2b2132;
+  --color-gray-200: #3a2e43;
+  --color-gray-300: #534661;
+  --color-gray-400: #9b8caa;
+  --color-gray-500: #b0a2bf;
+  --color-gray-600: #c4b8d1;
+  --color-gray-700: #d6ccdf;
+  --color-gray-800: #e6dfec;
+  --color-gray-900: #f3eef7;
+  --color-red-50: color-mix(in oklab, var(--color-red-500) 12%, var(--surface));
+  --color-red-100: color-mix(in oklab, var(--color-red-500) 18%, var(--surface));
+  --color-red-200: color-mix(in oklab, var(--color-red-500) 32%, var(--surface));
+  --color-red-600: var(--color-red-400);
+  --color-red-700: var(--color-red-300);
+  --color-red-800: color-mix(in oklab, var(--color-red-300) 70%, white);
+  --color-red-900: color-mix(in oklab, var(--color-red-300) 60%, white);
+  --color-rose-50: color-mix(in oklab, var(--color-rose-500) 12%, var(--surface));
+  --color-rose-100: color-mix(in oklab, var(--color-rose-500) 18%, var(--surface));
+  --color-rose-200: color-mix(in oklab, var(--color-rose-500) 32%, var(--surface));
+  --color-rose-600: var(--color-rose-400);
+  --color-rose-700: var(--color-rose-300);
+  --color-rose-800: color-mix(in oklab, var(--color-rose-300) 70%, white);
+  --color-rose-900: color-mix(in oklab, var(--color-rose-300) 60%, white);
+  --color-orange-50: color-mix(in oklab, var(--color-orange-500) 12%, var(--surface));
+  --color-orange-100: color-mix(in oklab, var(--color-orange-500) 18%, var(--surface));
+  --color-orange-200: color-mix(in oklab, var(--color-orange-500) 32%, var(--surface));
+  --color-orange-600: var(--color-orange-400);
+  --color-orange-700: var(--color-orange-300);
+  --color-orange-800: color-mix(in oklab, var(--color-orange-300) 70%, white);
+  --color-orange-900: color-mix(in oklab, var(--color-orange-300) 60%, white);
+  --color-amber-50: color-mix(in oklab, var(--color-amber-500) 12%, var(--surface));
+  --color-amber-100: color-mix(in oklab, var(--color-amber-500) 18%, var(--surface));
+  --color-amber-200: color-mix(in oklab, var(--color-amber-500) 32%, var(--surface));
+  --color-amber-600: var(--color-amber-400);
+  --color-amber-700: var(--color-amber-300);
+  --color-amber-800: color-mix(in oklab, var(--color-amber-300) 70%, white);
+  --color-amber-900: color-mix(in oklab, var(--color-amber-300) 60%, white);
+  --color-yellow-50: color-mix(in oklab, var(--color-yellow-500) 12%, var(--surface));
+  --color-yellow-100: color-mix(in oklab, var(--color-yellow-500) 18%, var(--surface));
+  --color-yellow-200: color-mix(in oklab, var(--color-yellow-500) 32%, var(--surface));
+  --color-yellow-600: var(--color-yellow-400);
+  --color-yellow-700: var(--color-yellow-300);
+  --color-yellow-800: color-mix(in oklab, var(--color-yellow-300) 70%, white);
+  --color-yellow-900: color-mix(in oklab, var(--color-yellow-300) 60%, white);
+  --color-green-50: color-mix(in oklab, var(--color-green-500) 12%, var(--surface));
+  --color-green-100: color-mix(in oklab, var(--color-green-500) 18%, var(--surface));
+  --color-green-200: color-mix(in oklab, var(--color-green-500) 32%, var(--surface));
+  --color-green-600: var(--color-green-400);
+  --color-green-700: var(--color-green-300);
+  --color-green-800: color-mix(in oklab, var(--color-green-300) 70%, white);
+  --color-green-900: color-mix(in oklab, var(--color-green-300) 60%, white);
+  --color-emerald-50: color-mix(in oklab, var(--color-emerald-500) 12%, var(--surface));
+  --color-emerald-100: color-mix(in oklab, var(--color-emerald-500) 18%, var(--surface));
+  --color-emerald-200: color-mix(in oklab, var(--color-emerald-500) 32%, var(--surface));
+  --color-emerald-600: var(--color-emerald-400);
+  --color-emerald-700: var(--color-emerald-300);
+  --color-emerald-800: color-mix(in oklab, var(--color-emerald-300) 70%, white);
+  --color-emerald-900: color-mix(in oklab, var(--color-emerald-300) 60%, white);
+  --color-teal-50: color-mix(in oklab, var(--color-teal-500) 12%, var(--surface));
+  --color-teal-100: color-mix(in oklab, var(--color-teal-500) 18%, var(--surface));
+  --color-teal-200: color-mix(in oklab, var(--color-teal-500) 32%, var(--surface));
+  --color-teal-600: var(--color-teal-400);
+  --color-teal-700: var(--color-teal-300);
+  --color-teal-800: color-mix(in oklab, var(--color-teal-300) 70%, white);
+  --color-teal-900: color-mix(in oklab, var(--color-teal-300) 60%, white);
+  --color-cyan-50: color-mix(in oklab, var(--color-cyan-500) 12%, var(--surface));
+  --color-cyan-100: color-mix(in oklab, var(--color-cyan-500) 18%, var(--surface));
+  --color-cyan-200: color-mix(in oklab, var(--color-cyan-500) 32%, var(--surface));
+  --color-cyan-600: var(--color-cyan-400);
+  --color-cyan-700: var(--color-cyan-300);
+  --color-cyan-800: color-mix(in oklab, var(--color-cyan-300) 70%, white);
+  --color-cyan-900: color-mix(in oklab, var(--color-cyan-300) 60%, white);
+  --color-sky-50: color-mix(in oklab, var(--color-sky-500) 12%, var(--surface));
+  --color-sky-100: color-mix(in oklab, var(--color-sky-500) 18%, var(--surface));
+  --color-sky-200: color-mix(in oklab, var(--color-sky-500) 32%, var(--surface));
+  --color-sky-600: var(--color-sky-400);
+  --color-sky-700: var(--color-sky-300);
+  --color-sky-800: color-mix(in oklab, var(--color-sky-300) 70%, white);
+  --color-sky-900: color-mix(in oklab, var(--color-sky-300) 60%, white);
+  --color-blue-50: color-mix(in oklab, var(--color-blue-500) 12%, var(--surface));
+  --color-blue-100: color-mix(in oklab, var(--color-blue-500) 18%, var(--surface));
+  --color-blue-200: color-mix(in oklab, var(--color-blue-500) 32%, var(--surface));
+  --color-blue-600: var(--color-blue-400);
+  --color-blue-700: var(--color-blue-300);
+  --color-blue-800: color-mix(in oklab, var(--color-blue-300) 70%, white);
+  --color-blue-900: color-mix(in oklab, var(--color-blue-300) 60%, white);
+  --color-indigo-50: color-mix(in oklab, var(--color-indigo-500) 12%, var(--surface));
+  --color-indigo-100: color-mix(in oklab, var(--color-indigo-500) 18%, var(--surface));
+  --color-indigo-200: color-mix(in oklab, var(--color-indigo-500) 32%, var(--surface));
+  --color-indigo-600: var(--color-indigo-400);
+  --color-indigo-700: var(--color-indigo-300);
+  --color-indigo-800: color-mix(in oklab, var(--color-indigo-300) 70%, white);
+  --color-indigo-900: color-mix(in oklab, var(--color-indigo-300) 60%, white);
+  --color-violet-50: color-mix(in oklab, var(--color-violet-500) 12%, var(--surface));
+  --color-violet-100: color-mix(in oklab, var(--color-violet-500) 18%, var(--surface));
+  --color-violet-200: color-mix(in oklab, var(--color-violet-500) 32%, var(--surface));
+  --color-violet-600: var(--color-violet-400);
+  --color-violet-700: var(--color-violet-300);
+  --color-violet-800: color-mix(in oklab, var(--color-violet-300) 70%, white);
+  --color-violet-900: color-mix(in oklab, var(--color-violet-300) 60%, white);
+  --color-purple-50: color-mix(in oklab, var(--color-purple-500) 12%, var(--surface));
+  --color-purple-100: color-mix(in oklab, var(--color-purple-500) 18%, var(--surface));
+  --color-purple-200: color-mix(in oklab, var(--color-purple-500) 32%, var(--surface));
+  --color-purple-600: var(--color-purple-400);
+  --color-purple-700: var(--color-purple-300);
+  --color-purple-800: color-mix(in oklab, var(--color-purple-300) 70%, white);
+  --color-purple-900: color-mix(in oklab, var(--color-purple-300) 60%, white);
+}
+
+/* El hueco de ring-offset es blanco por defecto (variable con inherits:false, por eso se fija por elemento). */
+.theme-dark [class*="ring-offset"] {
+  --tw-ring-offset-color: var(--surface);
 }
 
 body {
@@ -37,8 +175,8 @@ input, button, select, textarea {
 
 /* ── Utility backgrounds ─────────────────────────────────────── */
 .bg-dot-grid {
-  background-color: #f8f8f8;
-  background-image: radial-gradient(circle, #e0e0e0 1px, transparent 1px);
+  background-color: #0d0a10;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
@@ -73,6 +211,134 @@ input, button, select, textarea {
 
 .animate-modal {
   animation: slideUpModal 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* ── Tema Halloween ──────────────────────────────────────────── */
+@keyframes spookyFloat {
+  0%, 100% { transform: translate(0, 0) rotate(-6deg);      opacity: 0.12; }
+  50%      { transform: translate(6px, -14px) rotate(6deg); opacity: 0.24; }
+}
+
+@keyframes spookyGlowPulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+.animate-spooky-float {
+  animation-name: spookyFloat;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+/* Solo opacity en el pseudo-elemento: animar box-shadow repinta en cada frame. */
+.animate-spooky-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 10px 32px -10px rgba(249, 115, 22, 0.38), 0 6px 24px -12px rgba(88, 28, 135, 0.3);
+  animation: spookyGlowPulse 3.2s ease-in-out infinite;
+}
+
+/* Decoración Halloween: ::before detrás del contenido (z -1 dentro de isolate), no pisa el fondo ni el ::after del glow. */
+.halloween-card,
+.halloween-modal,
+.halloween-panel {
+  isolation: isolate;
+}
+
+.halloween-modal,
+.halloween-panel {
+  position: relative;
+}
+
+.halloween-card::before,
+.halloween-modal::before,
+.halloween-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background-repeat: no-repeat;
+}
+
+.halloween-card::before {
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g><path d='M0 0L100.0 0.0M0 0L95.1 30.9M0 0L80.9 58.8M0 0L58.8 80.9M0 0L30.9 95.1M0 0L0.0 100.0M28.0 0.0Q22.1 3.5 26.6 8.7Q20.0 10.2 22.7 16.5Q15.8 15.8 16.5 22.7Q10.2 20.0 8.7 26.6Q3.5 22.1 0.0 28.0M52.0 0.0Q41.1 6.5 49.5 16.1Q37.1 18.9 42.1 30.6Q29.4 29.4 30.6 42.1Q18.9 37.1 16.1 49.5Q6.5 41.1 0.0 52.0M76.0 0.0Q60.1 9.5 72.3 23.5Q54.2 27.6 61.5 44.7Q43.0 43.0 44.7 61.5Q27.6 54.2 23.5 72.3Q9.5 60.1 0.0 76.0' fill='none' stroke='%23fb923c' stroke-opacity='0.45' stroke-width='0.9' stroke-linecap='round'/></g></svg>"), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ead9f5' fill-opacity='0.22' fill-rule='evenodd' d='M12 2a9 9 0 0 0-9 9c0 3 1.4 5.3 3.5 6.7V21a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3.3A8.9 8.9 0 0 0 21 11a9 9 0 0 0-9-9zM8.5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 14.6l1.3 2.2h-2.6zM10 19.5h1v2h-1zm3 0h1v2h-1z'/></svg>");
+  background-position: left top, left 3px top 3px;
+  background-size: 64px 64px, 13px 13px;
+}
+
+/* .halloween-panel: mismo marco que los modales, para paneles y formularios que no son modales. */
+.halloween-modal::before,
+.halloween-panel::before {
+  background-image: linear-gradient(90deg, #f97316, #f59e0b 45%, #9333ea), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g transform='translate%28100 0%29 scale%28-1 1%29'><path d='M0 0L100.0 0.0M0 0L95.1 30.9M0 0L80.9 58.8M0 0L58.8 80.9M0 0L30.9 95.1M0 0L0.0 100.0M28.0 0.0Q22.1 3.5 26.6 8.7Q20.0 10.2 22.7 16.5Q15.8 15.8 16.5 22.7Q10.2 20.0 8.7 26.6Q3.5 22.1 0.0 28.0M52.0 0.0Q41.1 6.5 49.5 16.1Q37.1 18.9 42.1 30.6Q29.4 29.4 30.6 42.1Q18.9 37.1 16.1 49.5Q6.5 41.1 0.0 52.0M76.0 0.0Q60.1 9.5 72.3 23.5Q54.2 27.6 61.5 44.7Q43.0 43.0 44.7 61.5Q27.6 54.2 23.5 72.3Q9.5 60.1 0.0 76.0' fill='none' stroke='%23a855f7' stroke-opacity='0.3' stroke-width='0.9' stroke-linecap='round'/></g></svg>"), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g transform='translate%280 100%29 scale%281 -1%29'><path d='M0 0L100.0 0.0M0 0L95.1 30.9M0 0L80.9 58.8M0 0L58.8 80.9M0 0L30.9 95.1M0 0L0.0 100.0M28.0 0.0Q22.1 3.5 26.6 8.7Q20.0 10.2 22.7 16.5Q15.8 15.8 16.5 22.7Q10.2 20.0 8.7 26.6Q3.5 22.1 0.0 28.0M52.0 0.0Q41.1 6.5 49.5 16.1Q37.1 18.9 42.1 30.6Q29.4 29.4 30.6 42.1Q18.9 37.1 16.1 49.5Q6.5 41.1 0.0 52.0M76.0 0.0Q60.1 9.5 72.3 23.5Q54.2 27.6 61.5 44.7Q43.0 43.0 44.7 61.5Q27.6 54.2 23.5 72.3Q9.5 60.1 0.0 76.0' fill='none' stroke='%23fb923c' stroke-opacity='0.3' stroke-width='0.9' stroke-linecap='round'/></g></svg>"), url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%23ead9f5' fill-opacity='0.2' fill-rule='evenodd' d='M12 2a9 9 0 0 0-9 9c0 3 1.4 5.3 3.5 6.7V21a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3.3A8.9 8.9 0 0 0 21 11a9 9 0 0 0-9-9zM8.5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 14.6l1.3 2.2h-2.6zM10 19.5h1v2h-1zm3 0h1v2h-1z'/></svg>");
+  background-position: left top, right top, left bottom, left 5px bottom 5px;
+  background-size: 100% 3px, 80px 80px, 56px 56px, 16px 16px;
+}
+
+/* Guirnalda colgante bajo los headers: módulo de 8 piezas que se repite en X. */
+.halloween-garland {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 24px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 384 24'><path d='M0 2Q24 7 48 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M15 4.2L33 4.2L24 18Z' fill='%23fb923c' fill-opacity='0.7'/><path d='M48 2Q72 7 96 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M63 4.2L81 4.2L72 18Z' fill='%23a855f7' fill-opacity='0.7'/><path d='M96 2Q120 7 144 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M111 4.2L129 4.2L120 18Z' fill='%23fb923c' fill-opacity='0.7'/><path d='M144 2Q168 7 192 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M168 4.5V8' stroke='%23ead9f5' stroke-opacity='0.3' stroke-width='0.6'/><g transform='translate%28168 8%29 scale%280.75%29 translate%28-57.5 -30%29' fill='%23ead9f5' fill-opacity='0.75'><path d='M44 34c3-4 6-5 9-3-1 2 0 4 2 4l3-3 3 3c2 0 3-2 2-4 3-2 6-1 9 3-4 0-6 2-7 5-2-1-4 0-5 2l-2-2-2 2c-1-2-3-3-5-2-1-3-3-5-7-5z'/></g><path d='M192 2Q216 7 240 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M207 4.2L225 4.2L216 18Z' fill='%23a855f7' fill-opacity='0.7'/><path d='M240 2Q264 7 288 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M255 4.2L273 4.2L264 18Z' fill='%23fb923c' fill-opacity='0.7'/><path d='M288 2Q312 7 336 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M303 4.2L321 4.2L312 18Z' fill='%23a855f7' fill-opacity='0.7'/><path d='M336 2Q360 7 384 2' fill='none' stroke='%23ead9f5' stroke-opacity='0.25' stroke-width='0.8'/><path d='M360 4.5V8' stroke='%23ead9f5' stroke-opacity='0.3' stroke-width='0.6'/><g transform='translate%28360 8%29 scale%280.55%29 translate%28-12 -2%29' fill='%23ead9f5' fill-opacity='0.7'><path fill-rule='evenodd' d='M12 2a9 9 0 0 0-9 9c0 3 1.4 5.3 3.5 6.7V21a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3.3A8.9 8.9 0 0 0 21 11a9 9 0 0 0-9-9zM8.5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 14.6l1.3 2.2h-2.6z'/></g></svg>");
+  background-repeat: repeat-x;
+  background-size: 384px 24px;
+}
+
+/* Araña: un solo translateY mueve hilo + araña juntos (el hilo se extiende fuera del viewport). */
+@keyframes spiderDrop {
+  0%   { transform: translateY(-90px); animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
+  24%  { transform: translateY(150px); }
+  78%  { transform: translateY(150px); animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1); }
+  100% { transform: translateY(-120px); }
+}
+
+/* Péndulo con origen en la punta superior del hilo (400px arriba). */
+@keyframes spiderSway {
+  0%, 24%  { transform: rotate(0deg); }
+  38%      { transform: rotate(2.2deg); }
+  52%      { transform: rotate(-1.6deg); }
+  66%      { transform: rotate(0.8deg); }
+  78%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes spiderFade {
+  0%, 100% { opacity: 0; }
+  12%, 85% { opacity: 1; }
+}
+
+.animate-spider-drop {
+  animation: spiderDrop 3.2s both;
+}
+
+.animate-spider-sway {
+  transform-origin: 50% -400px;
+  animation: spiderSway 3.2s ease-in-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spider-drop {
+    transform: translateY(150px);
+    animation: spiderFade 3.2s ease both;
+  }
+  .animate-spider-sway {
+    animation: none;
+  }
+  .animate-spooky-float {
+    animation: none;
+    opacity: 0.16;
+  }
+  .animate-spooky-glow::after {
+    animation: none;
+    opacity: 0.8;
+  }
 }
 
 /* ── Scrollbar sutil ─────────────────────────────────────────── */

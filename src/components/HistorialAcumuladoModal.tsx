@@ -284,7 +284,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
+      <div className="halloween-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
 
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4">
@@ -303,13 +303,13 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
         <div className="flex mx-6 mb-3 bg-gray-100 rounded-xl p-1 gap-1">
           <button
             onClick={() => setTab('diario')}
-            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors ${tab === 'diario' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors ${tab === 'diario' ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Ventas diarias
           </button>
           <button
             onClick={() => setTab('acumulado')}
-            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors ${tab === 'acumulado' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors ${tab === 'acumulado' ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Acumulado del mes
           </button>
@@ -383,7 +383,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                                     Cancelar
                                   </button>
                                   <button onClick={() => handleGuardarEditReg(r)}
-                                    className="flex-1 text-xs text-white bg-gray-900 rounded-lg py-1.5 hover:bg-gray-700">
+                                    className="flex-1 text-xs text-white bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
                                     Guardar
                                   </button>
                                 </div>
@@ -400,11 +400,11 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                                 </div>
                                 <div className="flex items-center gap-0.5">
                                   <button onClick={() => startEditReg(r)}
-                                    className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                                    aria-label="Editar" className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-50 transition-colors">
                                     <EditIcon />
                                   </button>
                                   <button onClick={() => handleEliminarReg(r)}
-                                    className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                                    aria-label="Eliminar" className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-500/10 transition-colors">
                                     <TrashIcon />
                                   </button>
                                 </div>
@@ -445,7 +445,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                           Cancelar
                         </button>
                         <button onClick={() => handleGuardarEdit(entrada)}
-                          className="flex-1 text-xs text-white bg-gray-900 rounded-lg py-1.5 hover:bg-gray-700">
+                          className="flex-1 text-xs text-white bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
                           Guardar
                         </button>
                       </div>
@@ -462,11 +462,11 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                       </div>
                       <div className="flex items-center gap-0.5">
                         <button onClick={() => startEdit(entrada)}
-                          className="p-1.5 text-gray-400 hover:text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                          aria-label="Editar" className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-50 transition-colors">
                           <EditIcon />
                         </button>
                         <button onClick={() => handleEliminar(entrada)}
-                          className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors">
+                          aria-label="Eliminar" className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-500/10 transition-colors">
                           <TrashIcon />
                         </button>
                       </div>
@@ -511,14 +511,14 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                     Cancelar
                   </button>
                   <button onClick={handleAgregar} disabled={saving}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 disabled:opacity-50">
+                    className="flex-1 px-3 py-2 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
                     {saving ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </div>
             ) : (
               <button onClick={() => setShowForm(true)}
-                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors">
+                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
                 + Agregar entrada
               </button>
             )}

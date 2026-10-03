@@ -239,7 +239,7 @@ export default function MetaMes() {
             const txn = txnPorAsesor[a.id];
             const uds = udsPorAsesor[a.id];
             return (
-              <div key={a.id} className="bg-white border border-gray-100 rounded-2xl p-5">
+              <div key={a.id} className="bg-surface border border-gray-100 rounded-2xl p-5">
                 <p className="text-sm font-semibold text-gray-900">{a.nombre} {a.apellido}</p>
                 <p className="text-xs text-gray-400 mb-4">{a.cargo}</p>
                 <div className="space-y-2">
@@ -294,7 +294,7 @@ export default function MetaMes() {
                   ?? (data.metaTransacciones && data.metaTransacciones > 0
                     ? data.montoTotal / data.metaTransacciones : null);
                 return (
-                  <div key={m} className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
+                  <div key={m} className="bg-surface border border-gray-100 rounded-xl px-4 py-3 flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-900 capitalize">{formatMes(m)}</p>
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
@@ -327,7 +327,7 @@ export default function MetaMes() {
   const mesNombreForm = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   return (
-    <form onSubmit={handleGuardar} className="space-y-6 max-w-lg" autoComplete="off">
+    <form onSubmit={handleGuardar} className="halloween-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6" autoComplete="off">
       <p className="text-sm text-gray-500 capitalize">{mesNombreForm}</p>
 
       {/* Monto total */}
@@ -429,7 +429,7 @@ export default function MetaMes() {
           </div>
         </div>
         {asesores.map((a) => (
-          <div key={a.id} className="flex items-center gap-4 bg-white border border-gray-100 rounded-xl px-4 py-3">
+          <div key={a.id} className="flex items-center gap-4 bg-surface border border-gray-100 rounded-xl px-4 py-3">
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{a.nombre} {a.apellido}</p>
               <p className="text-xs text-gray-400">{a.cargo}</p>
@@ -460,7 +460,7 @@ export default function MetaMes() {
           </button>
         )}
         <button type="submit" disabled={saving}
-          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
+          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
           {saving ? 'Guardando...' : 'Guardar meta'}
         </button>
       </div>

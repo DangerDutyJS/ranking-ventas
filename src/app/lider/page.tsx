@@ -10,8 +10,9 @@ import MetaMes from '@/components/MetaMes';
 import MetasDiarias from '@/components/MetasDiarias';
 import DinamicasTab from '@/components/DinamicasTab';
 import EditorVentasMes from '@/components/EditorVentasMes';
+import HistorialTab from '@/components/HistorialTab';
 
-type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas' | 'ventas';
+type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas' | 'ventas' | 'historial';
 
 const TAB_LABELS: Record<Tab, string> = {
   asesores:  'Asesores',
@@ -19,6 +20,7 @@ const TAB_LABELS: Record<Tab, string> = {
   diarias:   'Metas diarias',
   dinamicas: 'Dinámicas',
   ventas:    'Ventas del mes',
+  historial: 'Historial',
 };
 
 export default function LiderPage() {
@@ -49,23 +51,23 @@ export default function LiderPage() {
 
   return (
     <StoreProvider storeId={user.uid}>
-    <main className="min-h-screen bg-dot-grid">
-      <header className="bg-white border-b border-[#eaeaea] px-6 py-4 flex items-center justify-between relative">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-indigo-500 via-violet-500 to-pink-500" />
+    <main className="theme-dark min-h-screen bg-dot-grid">
+      <header className="bg-surface border-b border-gray-200 px-6 py-4 flex items-center justify-between relative">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-orange-500 via-amber-500 to-purple-600" />
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/')}
-            className="text-[#8f8f8f] hover:text-gray-900 transition-colors p-1">
+            className="text-gray-400 hover:text-gray-900 transition-colors p-1">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <span className="font-semibold text-gray-900 text-sm">Dashboard Líder</span>
+          <span className="font-semibold text-heading text-sm">Dashboard Líder</span>
         </div>
-        <span className="text-[11px] text-[#8f8f8f] bg-[#f2f2f2] px-2.5 py-1 rounded-md">Solo líder</span>
+        <span className="text-[11px] text-gray-400 bg-gray-100 px-2.5 py-1 rounded-md">Solo líder</span>
       </header>
 
       {/* Tabs */}
-      <div className="bg-white border-b border-[#eaeaea] px-6 overflow-x-auto">
+      <div className="bg-surface border-b border-gray-200 px-6 overflow-x-auto">
         <div className="flex gap-0 min-w-max">
           {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (
             <button
@@ -73,14 +75,18 @@ export default function LiderPage() {
               onClick={() => { setTab(t); setShowForm(false); }}
               className={`py-3 px-4 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t
-                  ? 'border-black text-black'
-                  : 'border-transparent text-[#8f8f8f] hover:text-gray-700'
+                  ? 'border-orange-400 text-accent-text'
+                  : 'border-transparent text-gray-400 hover:text-gray-700'
               }`}
             >
               {TAB_LABELS[t]}
             </button>
           ))}
         </div>
+      </div>
+      {/* Guirnalda bajo las tabs: el contenedor de tabs tiene overflow-x-auto y la recortaría. */}
+      <div className="relative h-0" aria-hidden="true">
+        <div className="halloween-garland" />
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
@@ -90,12 +96,12 @@ export default function LiderPage() {
           <>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h1 className="text-xl font-semibold text-gray-900">Asesores</h1>
-                <p className="mt-0.5 text-[13px] text-[#8f8f8f]">Equipo de ventas registrado.</p>
+                <h1 className="text-xl font-semibold text-heading">Asesores</h1>
+                <p className="mt-0.5 text-[13px] text-accent-muted">Equipo de ventas registrado.</p>
               </div>
               {!showForm && (
                 <button onClick={() => setShowForm(true)}
-                  className="inline-flex items-center gap-2 px-4 h-9 bg-black text-white text-[13px] font-medium rounded-md hover:bg-gray-800 transition-colors">
+                  className="inline-flex items-center gap-2 px-4 h-9 bg-accent text-white text-[13px] font-medium rounded-md hover:bg-accent-hover transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
@@ -122,8 +128,8 @@ export default function LiderPage() {
         {tab === 'meta' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900">Meta del mes</h1>
-              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
+              <h1 className="text-xl font-semibold text-heading">Meta del mes</h1>
+              <p className="mt-0.5 text-[13px] text-accent-muted">
                 Monto total, días laborados e indicadores de referencia por asesor.
               </p>
             </div>
@@ -135,8 +141,8 @@ export default function LiderPage() {
         {tab === 'diarias' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900">Metas diarias</h1>
-              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
+              <h1 className="text-xl font-semibold text-heading">Metas diarias</h1>
+              <p className="mt-0.5 text-[13px] text-accent-muted">
                 Objetivo por día de semana — UPT, transacciones y unidades según el tráfico esperado.
               </p>
             </div>
@@ -148,8 +154,8 @@ export default function LiderPage() {
         {tab === 'dinamicas' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900">Dinámicas comerciales</h1>
-              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
+              <h1 className="text-xl font-semibold text-heading">Dinámicas comerciales</h1>
+              <p className="mt-0.5 text-[13px] text-accent-muted">
                 Retos del día con meta individual por asesor y seguimiento en tiempo real.
               </p>
             </div>
@@ -161,12 +167,25 @@ export default function LiderPage() {
         {tab === 'ventas' && (
           <>
             <div className="mb-6">
-              <h1 className="text-xl font-semibold text-gray-900">Ventas del mes</h1>
-              <p className="mt-0.5 text-[13px] text-[#8f8f8f]">
+              <h1 className="text-xl font-semibold text-heading">Ventas del mes</h1>
+              <p className="mt-0.5 text-[13px] text-accent-muted">
                 Edita los totales del ranking mensual de todos los asesores a la vez.
               </p>
             </div>
             <EditorVentasMes />
+          </>
+        )}
+
+        {/* Tab Historial */}
+        {tab === 'historial' && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-heading">Historial</h1>
+              <p className="mt-0.5 text-[13px] text-accent-muted">
+                Consulta todos los meses anteriores con filtros por fecha, asesor e indicador. También puedes eliminar historial por rango de fechas.
+              </p>
+            </div>
+            <HistorialTab />
           </>
         )}
       </div>

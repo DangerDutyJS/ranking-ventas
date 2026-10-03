@@ -21,7 +21,7 @@ function MockupBienvenida() {
         { medal: '🥈', color: 'bg-blue-400',  w: 'w-2/3',   badge: '¡Casi lo logras!', bc: 'text-blue-700 bg-blue-100' },
         { medal: '🥉', color: 'bg-amber-400', w: 'w-1/3',   badge: '¡Buen ritmo!',     bc: 'text-amber-700 bg-amber-100' },
       ].map(({ medal, color, w, badge, bc }, i) => (
-        <div key={i} className="bg-white rounded-xl px-3 py-2 border border-gray-100 flex items-center gap-2">
+        <div key={i} className="bg-surface rounded-xl px-3 py-2 border border-gray-100 flex items-center gap-2">
           <span>{medal}</span>
           <div className="w-7 h-7 rounded-full bg-gray-200 flex-shrink-0" />
           <div className="flex-1 min-w-0">
@@ -39,10 +39,10 @@ function MockupBienvenida() {
 
 function MockupLider() {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden w-full">
+    <div className="bg-surface rounded-xl border border-gray-100 overflow-hidden w-full">
       <div className="px-3 py-2.5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded-md bg-gray-900" />
+          <div className="w-5 h-5 rounded-md bg-black ring-1 ring-white/15" />
           <div className="h-2 w-20 bg-gray-200 rounded-full" />
         </div>
         <div className="flex items-center gap-1.5">
@@ -50,7 +50,7 @@ function MockupLider() {
           <div className="h-5 w-14 bg-gray-100 rounded-lg" />
           {/* Botón Líder destacado */}
           <div className="relative">
-            <div className="h-6 px-2.5 bg-white border-2 border-gray-900 rounded-lg flex items-center gap-1 shadow-sm">
+            <div className="h-6 px-2.5 bg-surface border-2 border-gray-900 rounded-lg flex items-center gap-1 shadow-sm">
               <svg className="w-2.5 h-2.5 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5}
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -75,14 +75,14 @@ function MockupLider() {
 
 function MockupAsesores() {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden w-full">
+    <div className="bg-surface rounded-xl border border-gray-100 overflow-hidden w-full">
       {/* Tabs */}
       <div className="flex items-center border-b border-gray-100 px-3">
         <div className="py-2 text-[10px] font-semibold text-gray-900 border-b-2 border-gray-900 mr-4">Asesores</div>
         <div className="py-2 text-[10px] text-gray-400">Meta del mes</div>
         <div className="ml-auto py-1.5">
           <div className="relative">
-            <div className="bg-gray-900 text-white text-[9px] font-medium px-2 py-1 rounded-lg flex items-center gap-1 ring-2 ring-gray-900 ring-offset-1">
+            <div className="bg-accent text-white text-[9px] font-medium px-2 py-1 rounded-lg flex items-center gap-1 ring-2 ring-gray-900 ring-offset-1">
               <span>+</span>
               <span>Nuevo asesor</span>
             </div>
@@ -129,7 +129,7 @@ function MockupPin() {
         { nombre: 'Ana García', cargo: 'Asesora', tienePin: true },
         { nombre: 'Carlos López', cargo: 'Asesor', tienePin: false },
       ].map(({ nombre, cargo, tienePin }, i) => (
-        <div key={i} className="bg-white rounded-xl px-3 py-2 border border-gray-100 flex items-center justify-between gap-2">
+        <div key={i} className="bg-surface rounded-xl px-3 py-2 border border-gray-100 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
               <span className="text-[9px] font-semibold text-gray-400">{nombre[0]}G</span>
@@ -143,7 +143,7 @@ function MockupPin() {
             <div className={`text-[9px] px-2 py-1 rounded-lg border font-medium ${
               tienePin
                 ? 'border-green-200 text-green-700 bg-green-50'
-                : 'border-gray-900 text-gray-900 bg-white ring-2 ring-gray-900 ring-offset-1'
+                : 'border-gray-900 text-gray-900 bg-surface ring-2 ring-gray-900 ring-offset-1'
             }`}>
               {tienePin ? 'PIN ✓' : 'Asignar PIN'}
             </div>
@@ -165,7 +165,7 @@ function MockupPin() {
 
 function MockupMeta() {
   return (
-    <div className="bg-white rounded-xl border border-gray-100 overflow-hidden w-full">
+    <div className="bg-surface rounded-xl border border-gray-100 overflow-hidden w-full">
       {/* Tabs */}
       <div className="flex border-b border-gray-100 px-3">
         <div className="py-2 text-[10px] text-gray-400 mr-4">Asesores</div>
@@ -191,7 +191,7 @@ function MockupMeta() {
                 <span className="text-[9px] text-gray-700">{n}</span>
                 <div className="flex items-center gap-1">
                   <div className="relative">
-                    <div className="h-5 w-8 border-2 border-gray-900 rounded-md bg-white flex items-center justify-center">
+                    <div className="h-5 w-8 border-2 border-gray-900 rounded-md bg-surface flex items-center justify-center">
                       <span className="text-[8px] text-gray-400">{i === 0 ? '22' : ''}</span>
                     </div>
                     {i === 1 && <Ping />}
@@ -234,7 +234,7 @@ function MockupVentas() {
       </svg>
 
       {/* Modal PIN mini */}
-      <div className="flex-1 bg-white rounded-xl border border-gray-200 shadow-sm p-2">
+      <div className="flex-1 bg-surface rounded-xl border border-gray-200 shadow-sm p-2">
         <div className="w-8 h-8 rounded-full bg-gray-100 mx-auto mb-1.5" />
         <div className="text-[8px] text-gray-500 text-center mb-1.5">Ingresa tu PIN</div>
         <div className="h-6 border-2 border-gray-900 rounded-lg flex items-center justify-center mb-1.5">
@@ -314,12 +314,12 @@ export default function TutorialModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="halloween-modal w-full max-w-md bg-surface rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
 
         {/* Barra de progreso */}
         <div className="h-1 bg-gray-100">
           <div
-            className="h-1 bg-gray-900 transition-all duration-300"
+            className="h-1 bg-accent transition-all duration-300"
             style={{ width: `${((paso + 1) / total) * 100}%` }}
           />
         </div>
@@ -332,8 +332,8 @@ export default function TutorialModal({ onClose }: Props) {
         {/* Contenido */}
         <div className="px-6 pt-5 pb-6">
           <p className="text-xs text-gray-400 mb-2">Paso {paso + 1} de {total}</p>
-          <h2 className="text-sm font-semibold text-gray-900 mb-1.5">{titulo}</h2>
-          <p className="text-xs text-gray-500 leading-relaxed">{descripcion}</p>
+          <h2 className="text-sm font-semibold text-heading mb-1.5">{titulo}</h2>
+          <p className="text-xs text-accent-muted leading-relaxed">{descripcion}</p>
 
           {tip && (
             <div className="mt-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5">
@@ -350,7 +350,7 @@ export default function TutorialModal({ onClose }: Props) {
                 key={i}
                 onClick={() => setPaso(i)}
                 className={`rounded-full transition-all duration-200 ${
-                  i === paso ? 'w-5 h-1.5 bg-gray-900' : 'w-1.5 h-1.5 bg-gray-200 hover:bg-gray-300'
+                  i === paso ? 'w-5 h-1.5 bg-accent' : 'w-1.5 h-1.5 bg-gray-200 hover:bg-gray-300'
                 }`}
               />
             ))}
@@ -370,7 +370,7 @@ export default function TutorialModal({ onClose }: Props) {
             )}
             <button
               onClick={esFinal ? handleClose : () => setPaso(paso + 1)}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors">
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
               {esFinal ? '¡Empezar!' : 'Siguiente'}
             </button>
           </div>

@@ -84,8 +84,8 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-2xl border border-gray-100 p-8 w-full max-w-md">
-        <h2 className="text-base font-semibold text-gray-900 mb-6">Editar asesor</h2>
+      <div className="halloween-modal bg-surface rounded-2xl border border-gray-100 p-8 w-full max-w-md">
+        <h2 className="text-base font-semibold text-heading mb-6">Editar asesor</h2>
 
         <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
 
@@ -149,7 +149,7 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
               Cancelar
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-gray-900 rounded-xl hover:bg-gray-700 transition-colors disabled:opacity-50">
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
               {loading ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>

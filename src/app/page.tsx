@@ -3,9 +3,9 @@
 import { useAuth } from '@/context/AuthContext';
 import { StoreProvider } from '@/context/StoreContext';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { collection, deleteDoc, doc, getDoc, getDocs, onSnapshot, orderBy, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import LeaderModal from '@/components/LeaderModal';
 import PinModal from '@/components/PinModal';
@@ -16,6 +16,8 @@ import InstallPWA from '@/components/InstallPWA';
 import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
 import DinamicaProgressModal from '@/components/DinamicaProgressModal';
+import FloatingHalloween from '@/components/FloatingHalloween';
+import SpiderDrop from '@/components/SpiderDrop';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 
 interface Asesor {
@@ -41,6 +43,7 @@ interface VentaMes {
   totalTransacciones: number;
   registros?: RegistroDia[];
   acumuladoMes?: { monto: number; unidades: number; transacciones: number };
+  acumulados?: unknown[];
 }
 
 interface MetaDia {
@@ -83,18 +86,6 @@ function mesActual() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-function mesAnterior() {
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function mesHaceDosMeses() {
-  const now = new Date();
-  const d = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
 function fechaHoy() {
   return new Date().toLocaleDateString('fr-CA');
 }
@@ -105,10 +96,18 @@ function formatCurrency(n: number) {
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 const RANK_COLORS = [
-  'border-amber-200 bg-amber-50/50',
-  'border-slate-200 bg-slate-50/50',
-  'border-orange-200 bg-orange-50/40',
+  'border-orange-500/60 bg-gradient-to-br from-[#2a1a14] via-[#1c1520] to-[#1c1520] ring-1 ring-orange-500/40',
+  'border-purple-400/40 bg-gradient-to-br from-[#241a30] via-[#1c1520] to-[#1c1520]',
+  'border-amber-400/40 bg-gradient-to-br from-[#28200f] via-[#1c1520] to-[#1c1520]',
 ];
+
+function Top1Badge() {
+  return (
+    <span className="absolute -top-2.5 -right-2.5 inline-flex items-center gap-1 pl-2.5 pr-3 py-1 rounded-full text-[11px] font-semibold text-[#fed7aa] bg-[#241733] ring-1 ring-orange-400/40 shadow-[0_4px_12px_rgba(36,23,51,0.3)]">
+      <span aria-hidden="true">🎃</span> Top ventas
+    </span>
+  );
+}
 
 
 function barColor(p: number) {
@@ -189,16 +188,16 @@ function TablaComisionesAsesor({ meta, vendido }: { meta: number; vendido: numbe
   if (meta <= 0) return null;
   const { talento, comision, falta90, falta100, falta110, falta120 } = calcularComision(meta, vendido);
   return (
-    <div className="mt-3 rounded-md border border-[#eaeaea] overflow-hidden">
-      <div className="px-3 pt-2.5 pb-1.5 border-b border-[#eaeaea] bg-[#fafafa]">
-        <p className="text-[11px] font-medium text-[#8f8f8f] uppercase tracking-[0.06em]">Comisiones</p>
+    <div className="mt-3 rounded-md border border-gray-200 overflow-hidden">
+      <div className="px-3 pt-2.5 pb-1.5 border-b border-gray-200 bg-gray-50">
+        <p className="text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Comisiones</p>
       </div>
       <table className="w-full text-[12px] border-collapse">
         <thead>
-          <tr className="bg-[#fafafa] border-b border-[#eaeaea]">
-            <th className="px-3 py-2 text-left font-medium text-[#8f8f8f]">Talento</th>
-            <th className="px-3 py-2 text-center font-medium text-[#8f8f8f]">Cumplimiento</th>
-            <th className="px-3 py-2 text-right font-medium text-[#8f8f8f]">Pago</th>
+          <tr className="bg-gray-50 border-b border-gray-200">
+            <th className="px-3 py-2 text-left font-medium text-gray-400">Talento</th>
+            <th className="px-3 py-2 text-center font-medium text-gray-400">Cumplimiento</th>
+            <th className="px-3 py-2 text-right font-medium text-gray-400">Pago</th>
           </tr>
         </thead>
         <tbody>
@@ -207,57 +206,57 @@ function TablaComisionesAsesor({ meta, vendido }: { meta: number; vendido: numbe
             return (
               <tr
                 key={row.talento}
-                className={`border-b border-[#f2f2f2] last:border-0 transition-colors ${isActive ? `${row.bg} border-l-2 ${row.border}` : 'bg-white'}`}
+                className={`border-b border-gray-100 last:border-0 transition-colors ${isActive ? `${row.bg} border-l-2 ${row.border}` : 'bg-surface'}`}
               >
-                <td className={`px-3 py-2 font-semibold ${isActive ? row.text : 'text-[#8f8f8f]'}`}>
+                <td className={`px-3 py-2 font-semibold ${isActive ? row.text : 'text-gray-400'}`}>
                   {isActive && <span className="mr-1">›</span>}{row.label}
                 </td>
-                <td className={`px-3 py-2 text-center tabular-nums ${isActive ? row.text : 'text-[#8f8f8f]'}`}>{row.rango}</td>
-                <td className={`px-3 py-2 text-right font-bold tabular-nums ${isActive ? row.text : 'text-[#8f8f8f]'}`}>{row.pago}</td>
+                <td className={`px-3 py-2 text-center tabular-nums ${isActive ? row.text : 'text-gray-400'}`}>{row.rango}</td>
+                <td className={`px-3 py-2 text-right font-bold tabular-nums ${isActive ? row.text : 'text-gray-400'}`}>{row.pago}</td>
               </tr>
             );
           })}
         </tbody>
       </table>
       {comision !== null && (
-        <div className="px-3 py-2 bg-[#fafafa] border-t border-[#eaeaea]">
-          <p className="text-[12px] text-[#8f8f8f]">
+        <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
+          <p className="text-[12px] text-gray-400">
             Comisión estimada:{' '}
             <span className="font-semibold text-gray-800">{formatCurrency(vendido * 0.81 * comision / 100)}</span>
-            <span className="text-[#8f8f8f]"> ({comision}% sobre {formatCurrency(vendido * 0.81)} sin IVA)</span>
+            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(vendido * 0.81)} sin IVA)</span>
           </p>
         </div>
       )}
       {(falta90 > 0 || falta100 > 0 || falta110 > 0 || falta120 > 0) && (
-        <div className="px-3 py-2.5 space-y-1.5 border-t border-[#eaeaea]">
+        <div className="px-3 py-2.5 space-y-1.5 border-t border-gray-200">
           {falta90 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#8f8f8f]">Para 90% <span className="text-yellow-600 font-medium">(Amarillo)</span></span>
+              <span className="text-[12px] text-gray-400">Para 90% <span className="text-yellow-600 font-medium">(Amarillo)</span></span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta90)}</span>
             </div>
           )}
           {falta100 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#8f8f8f]">Para 100% <span className="text-green-600 font-medium">(Verde)</span></span>
+              <span className="text-[12px] text-gray-400">Para 100% <span className="text-green-600 font-medium">(Verde)</span></span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta100)}</span>
             </div>
           )}
           {falta110 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#8f8f8f]">Para 110% <span className="text-blue-600 font-medium">(Azul)</span></span>
+              <span className="text-[12px] text-gray-400">Para 110% <span className="text-blue-600 font-medium">(Azul)</span></span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta110)}</span>
             </div>
           )}
           {falta120 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-[#8f8f8f]">Para 120% <span className="text-sky-600 font-medium">(Celeste)</span></span>
+              <span className="text-[12px] text-gray-400">Para 120% <span className="text-sky-600 font-medium">(Celeste)</span></span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta120)}</span>
             </div>
           )}
         </div>
       )}
       {falta90 === 0 && falta100 === 0 && falta120 === 0 && (
-        <div className="px-3 py-2 border-t border-[#eaeaea] bg-sky-50">
+        <div className="px-3 py-2 border-t border-gray-200 bg-sky-50">
           <p className="text-[12px] text-sky-600 font-semibold text-center">🏖️ Nivel máximo alcanzado</p>
         </div>
       )}
@@ -308,9 +307,7 @@ export default function Home() {
 
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [ventasMap, setVentasMap] = useState<Record<string, VentaMes>>({});
-  const [ventasMapAnterior, setVentasMapAnterior] = useState<Record<string, VentaMes>>({});
   const [meta, setMeta] = useState<Meta | null>(null);
-  const [metaAnterior, setMetaAnterior] = useState<Meta | null>(null);
   const [dataLoading, setDataLoading] = useState(true);
 
   const [showLeaderModal, setShowLeaderModal] = useState(false);
@@ -321,10 +318,13 @@ export default function Home() {
   const [showTutorial, setShowTutorial] = useState<boolean | null>(null);
   const [pinDinamicaRef, setPinDinamicaRef] = useState<Dinamica | null>(null);
   const [dinamicaProgressData, setDinamicaProgressData] = useState<{ asesor: Asesor; dinamica: Dinamica } | null>(null);
+  const [spiderEvent, setSpiderEvent] = useState<{ id: number; asesorId: string; label: string } | null>(null);
+  // Conteos del snapshot anterior: el primer snapshot solo fija la línea base (no dispara la araña al cargar).
+  const prevVentasRef = useRef<Record<string, { registros: number; acumulados: number }> | null>(null);
+  const prevDinamicasRef = useRef<Record<string, Record<string, number>> | null>(null);
   const [dinamicas, setDinamicas] = useState<Dinamica[]>([]);
 
   const mes = mesActual();
-  const mesAnt = mesAnterior();
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -357,29 +357,28 @@ export default function Home() {
       collection(db, 'tiendas', user.uid, 'ventasMes'),
       (snap) => {
         const map: Record<string, VentaMes> = {};
-        const mapAnt: Record<string, VentaMes> = {};
         snap.docs.forEach((d) => {
           const data = d.data() as VentaMes & { mes: string };
           if (data.mes === mes) map[data.asesorId] = data;
-          else if (data.mes === mesAnt) mapAnt[data.asesorId] = data;
         });
         setVentasMap(map);
-        setVentasMapAnterior(mapAnt);
+
+        const conteos: Record<string, { registros: number; acumulados: number }> = {};
+        for (const [id, v] of Object.entries(map)) {
+          conteos[id] = { registros: v.registros?.length ?? 0, acumulados: v.acumulados?.length ?? 0 };
+        }
+        const prev = prevVentasRef.current;
+        prevVentasRef.current = conteos;
+        if (!prev) return;
+        for (const [id, c] of Object.entries(conteos)) {
+          const p = prev[id] ?? { registros: 0, acumulados: 0 };
+          if (c.registros > p.registros) setSpiderEvent({ id: Date.now(), asesorId: id, label: 'Nueva venta' });
+          else if (c.acumulados > p.acumulados) setSpiderEvent({ id: Date.now(), asesorId: id, label: 'Acumulado del mes' });
+        }
       },
       (err) => console.error('ventasMes:', err)
     );
-  }, [user, mes, mesAnt]);
-
-  useEffect(() => {
-    if (!user) return;
-    getDoc(doc(db, 'tiendas', user.uid, 'metas', mesAnt)).then((snap) => {
-      if (snap.exists()) setMetaAnterior(snap.data() as Meta);
-    });
-    const mesViejo = mesHaceDosMeses();
-    getDocs(query(collection(db, 'tiendas', user.uid, 'ventasMes'), where('mes', '==', mesViejo)))
-      .then((snap) => snap.docs.forEach((d) => deleteDoc(d.ref)));
-    deleteDoc(doc(db, 'tiendas', user.uid, 'metas', mesViejo)).catch(() => {});
-  }, [user, mesAnt]);
+  }, [user, mes]);
 
   useEffect(() => {
     if (!user) return;
@@ -389,9 +388,21 @@ export default function Home() {
       where('fecha', '==', today)
     );
     return onSnapshot(q, (snap) => {
-      setDinamicas(
-        snap.docs.map((d) => ({ id: d.id, ...d.data() } as Dinamica)).filter((d) => d.activa)
-      );
+      const lista = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Dinamica)).filter((d) => d.activa);
+      setDinamicas(lista);
+
+      const prev = prevDinamicasRef.current;
+      const actual: Record<string, Record<string, number>> = {};
+      for (const din of lista) {
+        actual[din.id] = { ...(din.progreso ?? {}) };
+        if (!prev || !prev[din.id]) continue;
+        for (const [asesorId, valor] of Object.entries(actual[din.id])) {
+          if (valor > (prev[din.id][asesorId] ?? 0)) {
+            setSpiderEvent({ id: Date.now(), asesorId, label: din.nombre });
+          }
+        }
+      }
+      prevDinamicasRef.current = actual;
     });
   }, [user]);
 
@@ -460,41 +471,18 @@ export default function Home() {
   });
 
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
-  const mesAntNombre = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1)
-    .toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   const todayDate = new Date();
   const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
   const diasRestantes = Math.max(1, daysInMonth - todayDate.getDate() + 1);
 
-  const metasMapAnterior = metaAnterior && asesores.length > 0
-    ? calcularMetas(metaAnterior.montoTotal, asesorIds, metaAnterior.asesores)
-    : {};
-  const txnPorAsesorAnterior = metaAnterior?.metaTransacciones && metaAnterior.asesores
-    ? distribuirIndicador(metaAnterior.metaTransacciones, asesorIds, metaAnterior.asesores)
-    : {};
-  const udsPorAsesorAnterior = metaAnterior?.metaUnidades && metaAnterior.asesores
-    ? distribuirIndicador(metaAnterior.metaUnidades, asesorIds, metaAnterior.asesores)
-    : {};
-
-  const rankingAnterior = [...asesores]
-    .filter((a) => {
-      const vm = ventasMapAnterior[a.id];
-      return (vm?.totalVentas ?? 0) + (vm?.acumuladoMes?.monto ?? 0) > 0;
-    })
-    .sort((a, b) => {
-      const vmA = ventasMapAnterior[a.id];
-      const vmB = ventasMapAnterior[b.id];
-      const totalA = (vmA?.totalVentas ?? 0) + (vmA?.acumuladoMes?.monto ?? 0);
-      const totalB = (vmB?.totalVentas ?? 0) + (vmB?.acumuladoMes?.monto ?? 0);
-      return totalB - totalA;
-    });
-
   return (
     <StoreProvider storeId={user.uid}>
-    <main className="min-h-screen bg-dot-grid">
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-[#eaeaea] px-6 py-4 flex items-center justify-between relative">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-indigo-500 via-violet-500 to-pink-500" />
+    <main className="theme-dark min-h-screen bg-dot-grid relative isolate">
+      <FloatingHalloween />
+      <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between relative">
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-orange-500 via-amber-500 to-purple-600" />
+        <div className="halloween-garland" aria-hidden="true" />
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-black flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -502,7 +490,7 @@ export default function Home() {
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <span className="font-semibold text-gray-900 text-sm tracking-tight">Ranking Ventas</span>
+          <span className="font-semibold text-heading text-sm tracking-tight">Ranking Ventas <span aria-hidden="true">🎃</span></span>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -514,22 +502,74 @@ export default function Home() {
           <InstallPWA />
           <NotificacionesPanel />
           <button onClick={() => setShowLeaderModal(true)}
-            className="inline-flex items-center gap-1.5 text-[12px] text-[#8f8f8f] border border-[#eaeaea] px-3 h-8 rounded-md hover:bg-[#fafafa] hover:text-gray-700 transition-colors">
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text border border-orange-400/40 px-3 h-8 rounded-md hover:bg-orange-500/10 hover:border-orange-400/70 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
             Líder
           </button>
-          <button onClick={logout} className="text-[12px] text-[#8f8f8f] hover:text-gray-900 transition-colors">Salir</button>
+          <button onClick={logout} className="text-[12px] text-gray-400 hover:text-gray-900 transition-colors">Salir</button>
         </div>
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
+        <section aria-label="Temporada de Halloween" className="halloween-card relative mb-8 rounded-2xl border border-gray-200 bg-surface px-6 pt-6 pb-11 sm:px-7 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="absolute -right-12 -top-12 w-52 h-52 rounded-full bg-orange-500/15 blur-2xl pointer-events-none" aria-hidden="true" />
+          <svg className="absolute bottom-0 right-0 w-[270px] sm:w-[350px] max-w-[90%] h-auto pointer-events-none" viewBox="0 0 300 40" aria-hidden="true">
+            <defs>
+              <linearGradient id="hw-ground" x1="0" x2="1">
+                <stop offset="0" stopColor="#ead9f5" stopOpacity="0" />
+                <stop offset="0.25" stopColor="#ead9f5" stopOpacity="0.12" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="36" width="300" height="4" fill="url(#hw-ground)" />
+            <g fill="#ead9f5" opacity="0.12">
+              <path d="M8 20h70v2H8zM8 29h70v2H8z" />
+              <path d="M10 36V16l3-4 3 4v20zM22 36V16l3-4 3 4v20zM34 36V16l3-4 3 4v20zM46 36V16l3-4 3 4v20zM58 36V16l3-4 3 4v20zM70 36V16l3-4 3 4v20z" />
+              <path fillRule="evenodd" d="M102 36V18a11 11 0 0 1 22 0v18zM112 19h2v3h3v2h-3v6h-2v-6h-3v-2h3z" />
+              <path d="M234 36V25a7 7 0 0 1 14 0v11z" />
+              <path fillRule="evenodd" transform="translate(196 17) scale(0.8)" d="M12 2a9 9 0 0 0-9 9c0 3 1.4 5.3 3.5 6.7V21a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3.3A8.9 8.9 0 0 0 21 11a9 9 0 0 0-9-9zM8.5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 14.6l1.3 2.2h-2.6z" />
+            </g>
+            <g fill="#fb923c" opacity="0.45">
+              <ellipse cx="150" cy="30" rx="8" ry="6.5" />
+              <ellipse cx="166" cy="30" rx="8" ry="6.5" />
+              <ellipse cx="158" cy="29.5" rx="9" ry="7.5" />
+              <ellipse cx="272" cy="32" rx="6" ry="4.5" />
+            </g>
+            <g fill="#ead9f5" opacity="0.2">
+              <rect x="157" y="19" width="2.5" height="5" rx="1" />
+              <rect x="271" y="25.5" width="2" height="3.5" rx="1" />
+            </g>
+          </svg>
+          <svg className="absolute -right-3 -top-3 w-28 h-28 sm:w-36 sm:h-36 text-[#fed7aa] pointer-events-none" viewBox="0 0 120 120" fill="currentColor" aria-hidden="true">
+            <path d="M78 14a40 40 0 1 0 28 68A34 34 0 1 1 78 14z" opacity="0.7" />
+            <path d="M44 34c3-4 6-5 9-3-1 2 0 4 2 4l3-3 3 3c2 0 3-2 2-4 3-2 6-1 9 3-4 0-6 2-7 5-2-1-4 0-5 2l-2-2-2 2c-1-2-3-3-5-2-1-3-3-5-7-5z" className="text-purple-300" fill="currentColor" opacity="0.8" />
+          </svg>
+          <div className="relative flex items-center gap-4">
+            <span className="hidden sm:flex flex-shrink-0 w-12 h-12 rounded-xl bg-[#241733] ring-1 ring-orange-400/30 items-center justify-center text-2xl shadow-[0_4px_14px_rgba(0,0,0,0.4)]" aria-hidden="true">
+              🎃
+            </span>
+            <div className="min-w-0">
+              <p className="inline-flex items-center gap-2 text-[12px] font-medium text-orange-700 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" aria-hidden="true" />
+                Temporada de Halloween
+              </p>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-heading [text-wrap:balance]">
+                Ranking de Ventas
+              </h1>
+              <p className="text-sm text-accent-muted mt-1">Ventas de miedo, resultados de otro mundo</p>
+            </div>
+          </div>
+          <p className="relative mt-5 pt-4 border-t border-gray-100 max-w-[65ch] text-[13px] sm:text-sm text-gray-600 leading-relaxed [text-wrap:pretty]">
+            Este mes no le tememos a nada: ni a las metas altas ni a los grandes retos. Que cada venta de este equipo sea un resultado de miedo.
+          </p>
+        </section>
+
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight capitalize">{mesNombre}</h1>
+          <h2 className="text-xl font-bold text-heading tracking-tight capitalize">{mesNombre}</h2>
           {meta ? (
-            <p className="text-sm text-gray-400 mt-1">Meta total: {formatCurrency(meta.montoTotal)} · {asesores.length} asesores</p>
+            <p className="text-sm text-accent-muted mt-1">Meta total: {formatCurrency(meta.montoTotal)} · {asesores.length} asesores</p>
           ) : (
             <p className="text-sm text-gray-400 mt-1">No hay meta configurada para este mes.</p>
           )}
@@ -549,7 +589,7 @@ export default function Home() {
                 <div className="mb-6">
                   <div className="flex items-center gap-2.5 mb-1">
                     <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Ranking de hoy</h2>
+                    <h2 className="text-2xl font-bold text-heading tracking-tight">Ranking de hoy</h2>
                   </div>
                   <p className="text-sm text-gray-400 capitalize">{hoy} · {dailyRanking.length} trabajando hoy</p>
                 </div>
@@ -590,9 +630,10 @@ export default function Home() {
                       <button
                         key={asesor.id}
                         onClick={() => { setPinMode('diario'); setPinAsesor(asesor); }}
-                        className={`w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${isTop3 ? RANK_COLORS[index] : 'border-[#eaeaea] bg-white'}`}
+                        className={`halloween-card relative w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${isTop3 ? RANK_COLORS[index] : 'border-gray-200 bg-surface'} ${index === 0 ? 'animate-spooky-glow' : ''}`}
                         style={{ animationDelay: `${index * 60}ms` }}
                       >
+                        {index === 0 && <Top1Badge />}
                         {/* Header */}
                         <div className="flex items-center gap-3 mb-4">
                           <div className="flex-shrink-0 w-8 text-center">
@@ -600,7 +641,7 @@ export default function Home() {
                               ? <span className="text-2xl">{MEDALS[index]}</span>
                               : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
                           </div>
-                          <div className="w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                          <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-orange-400' : ''}`}>
                             {asesor.fotoBase64
                               ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
                               : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
@@ -631,7 +672,7 @@ export default function Home() {
                         )}
 
                         {/* Indicadores individuales — siempre visibles */}
-                        <div className="rounded-xl border border-gray-100 bg-white/70 px-3 py-2.5 space-y-2.5">
+                        <div className="rounded-xl border border-gray-100 bg-surface/70 px-3 py-2.5 space-y-2.5">
                           <IndicatorBar
                             label="Txn"
                             value={String(vh.transacciones)}
@@ -712,107 +753,11 @@ export default function Home() {
               </>
             )}
 
-            {/* ── DINÁMICAS DEL DÍA ── */}
-            {dinamicas.length > 0 && (
-              <div className={showDailySection ? 'mt-8' : ''}>
-                <div className="mb-4">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="flex h-2 w-2 rounded-full bg-violet-400 ring-2 ring-violet-400/30" />
-                    <h2 className="text-xl font-bold text-gray-900 tracking-tight">Dinámicas del día</h2>
-                  </div>
-                  <p className="text-sm text-gray-400 capitalize">
-                    {dinamicas.length} dinámica{dinamicas.length !== 1 ? 's' : ''} activa{dinamicas.length !== 1 ? 's' : ''}
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  {dinamicas.map((din) => {
-                    const participantes = asesores.filter((a) => din.asesoresIds.includes(a.id));
-                    const totalVal  = participantes.reduce((s, a) => s + (din.progreso?.[a.id] ?? 0), 0);
-                    const totalMeta = din.meta * (participantes.length || 1);
-                    const pctGlobal = totalMeta > 0 ? (totalVal / totalMeta) * 100 : 0;
-                    return (
-                      <div key={din.id} className="border border-gray-100 rounded-2xl bg-white shadow-sm overflow-hidden">
-                        <div className="px-5 py-4 border-b border-gray-50">
-                          <div className="flex items-center justify-between gap-3 mb-2.5">
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-900">{din.nombre}</h3>
-                              <p className="text-xs text-gray-400 mt-0.5">
-                                Meta {din.meta} por asesor · {totalVal} / {totalMeta} total
-                              </p>
-                            </div>
-                            <span className={`text-lg font-bold tabular-nums flex-shrink-0 ${
-                              pctGlobal >= 100 ? 'text-emerald-600' : pctGlobal >= 80 ? 'text-amber-600' : 'text-rose-600'
-                            }`}>
-                              {pctGlobal.toFixed(0)}%
-                            </span>
-                          </div>
-                          <div className="w-full bg-gray-100 rounded-full h-1.5">
-                            <div
-                              className={`h-1.5 rounded-full transition-all duration-500 ${
-                                pctGlobal >= 100 ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
-                                pctGlobal >= 80  ? 'bg-gradient-to-r from-amber-400 to-yellow-400' :
-                                                   'bg-gradient-to-r from-rose-400 to-red-400'
-                              }`}
-                              style={{ width: `${Math.min(100, pctGlobal)}%` }}
-                            />
-                          </div>
-                        </div>
-                        <div className="divide-y divide-gray-50">
-                          {participantes.map((asesor) => {
-                            const val = din.progreso?.[asesor.id] ?? 0;
-                            const pct = din.meta > 0 ? Math.min(100, (val / din.meta) * 100) : 0;
-                            const fillC = pct >= 100
-                              ? 'bg-gradient-to-r from-emerald-400 to-green-500'
-                              : pct >= 80
-                              ? 'bg-gradient-to-r from-amber-400 to-yellow-400'
-                              : 'bg-gradient-to-r from-rose-400 to-red-400';
-                            const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-600';
-                            return (
-                              <button
-                                key={asesor.id}
-                                onClick={() => {
-                                  setPinMode('dinamica');
-                                  setPinDinamicaRef(din);
-                                  setPinAsesor(asesor);
-                                }}
-                                className="w-full text-left px-5 py-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-                              >
-                                <div className="flex items-center gap-3 mb-2">
-                                  <div className="w-7 h-7 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                                    {asesor.fotoBase64
-                                      ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={28} height={28} className="w-full h-full object-cover" />
-                                      : <span className="text-xs font-semibold text-gray-400">{asesor.nombre[0]}</span>}
-                                  </div>
-                                  <span className="text-sm text-gray-700 font-medium flex-1 truncate">
-                                    {asesor.nombre} {asesor.apellido}
-                                  </span>
-                                  <span className="text-xs text-gray-400 tabular-nums flex-shrink-0">{val} / {din.meta}</span>
-                                  <span className={`text-xs font-bold tabular-nums w-9 text-right flex-shrink-0 ${textC}`}>
-                                    {pct.toFixed(0)}%
-                                  </span>
-                                </div>
-                                <div className="w-full bg-gray-100 rounded-full h-1.5">
-                                  <div
-                                    className={`h-1.5 rounded-full transition-all duration-300 ${fillC}`}
-                                    style={{ width: `${pct}%` }}
-                                  />
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
             {/* ── RANKING MENSUAL: todos los asesores ── */}
-            <div className={showDailySection || dinamicas.length > 0 ? 'mt-10' : ''}>
+            <div className={showDailySection ? 'mt-10' : ''}>
               <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Ranking mensual</h2>
-                <p className="text-sm text-gray-400 mt-1 capitalize">{mesNombre} · {asesores.length} asesores</p>
+                <h2 className="text-2xl font-bold text-heading tracking-tight">Ranking mensual</h2>
+                <p className="text-sm text-accent-muted mt-1 capitalize">{mesNombre} · {asesores.length} asesores</p>
               </div>
               <div className="space-y-3">
                 {ranking.map((asesor, index) => {
@@ -864,18 +809,19 @@ export default function Home() {
                     <button
                       key={asesor.id}
                       onClick={() => { setPinMode('acumulado'); setPinAsesor(asesor); }}
-                      className={`w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${
-                        isTop3 ? RANK_COLORS[index] : 'border-[#eaeaea] bg-white'
-                      }`}
+                      className={`halloween-card relative w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${
+                        isTop3 ? RANK_COLORS[index] : 'border-gray-200 bg-surface'
+                      } ${index === 0 ? 'animate-spooky-glow' : ''}`}
                       style={{ animationDelay: `${index * 60}ms` }}
                     >
+                      {index === 0 && <Top1Badge />}
                       <div className="flex items-center gap-3 mb-4">
                         <div className="flex-shrink-0 w-8 text-center">
                           {isTop3
                             ? <span className="text-2xl">{MEDALS[index]}</span>
                             : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
                         </div>
-                        <div className="w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                        <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-orange-400' : ''}`}>
                           {asesor.fotoBase64
                             ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
                             : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
@@ -977,7 +923,7 @@ export default function Home() {
                                 <span className={`text-xs font-semibold ${tColor}`}>Siguiente: {label}</span>
                                 <span className={`text-xs tabular-nums font-medium ${tColor}`}>+{falta}% más</span>
                               </div>
-                              <div className="w-full bg-white/60 rounded-full h-1.5">
+                              <div className="w-full bg-surface/60 rounded-full h-1.5">
                                 <div
                                   className={`h-1.5 rounded-full transition-all duration-700 ${fill}`}
                                   style={{ width: `${miniPct}%` }}
@@ -993,12 +939,12 @@ export default function Home() {
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
-                        <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
-                          <p className="text-[11px] text-[#8f8f8f]">Importe</p>
+                        <div className="bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                          <p className="text-[11px] text-gray-400">Importe</p>
                           <p className="text-sm font-semibold text-gray-900">{formatCurrency(totalVentas)}</p>
                         </div>
-                        <div className={`border rounded-md px-3 py-2 ${progreso >= 100 ? 'bg-emerald-50 border-emerald-200' : 'bg-[#fafafa] border-[#eaeaea]'}`}>
-                          <p className="text-[11px] text-[#8f8f8f]">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
+                        <div className={`border rounded-md px-3 py-2 ${progreso >= 100 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
+                          <p className="text-[11px] text-gray-400">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
                           <p className={`text-sm font-semibold ${progreso >= 100 ? 'text-emerald-600' : 'text-red-500'}`}>
                             {formatCurrency(progreso >= 100 ? totalVentas - metaMensual : faltaMes)}
                           </p>
@@ -1006,17 +952,17 @@ export default function Home() {
                       </div>
 
                       {faltaMes > 0 && metaMensual > 0 && (
-                        <div className="mt-2 flex items-center justify-between bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
-                          <span className="text-[11px] text-[#8f8f8f]">Promedio / día</span>
+                        <div className="mt-2 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+                          <span className="text-[11px] text-gray-400">Promedio / día</span>
                           <span className="text-[12px] font-semibold text-gray-700">
                             {formatCurrency(faltaMes / diasRestantes)}
-                            <span className="text-[#8f8f8f] font-normal"> · {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}</span>
+                            <span className="text-gray-400 font-normal"> · {diasRestantes} día{diasRestantes !== 1 ? 's' : ''}</span>
                           </span>
                         </div>
                       )}
 
                       {vm?.acumuladoMes && (vm.acumuladoMes.monto > 0 || vm.acumuladoMes.transacciones > 0 || vm.acumuladoMes.unidades > 0) && (
-                        <div className="mt-2 flex items-center justify-between bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
+                        <div className="mt-2 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
                           <span className="text-[11px] text-indigo-500">Acumulado ingresado</span>
                           <div className="flex items-center gap-2 text-xs text-gray-600 font-medium">
                             {vm.acumuladoMes.monto > 0 && <span>{formatCurrency(vm.acumuladoMes.monto)}</span>}
@@ -1027,7 +973,7 @@ export default function Home() {
                       )}
 
                       {showIndicators && (
-                        <div className="mt-3 rounded-md border border-[#eaeaea] bg-[#fafafa] px-3 py-2.5 space-y-2.5">
+                        <div className="mt-3 rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5 space-y-2.5">
                           {metaMensual > 0 && (
                             <IndicatorBar
                               label="Monto"
@@ -1080,32 +1026,32 @@ export default function Home() {
 
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (
-                        <div className="mt-3 pt-3 border-t border-[#eaeaea]">
+                        <div className="mt-3 pt-3 border-t border-gray-200">
                           <div className="flex items-center justify-between mb-2.5">
-                            <p className="text-[11px] font-medium text-[#8f8f8f] uppercase tracking-[0.06em]">Hoy</p>
-                            <p className="text-[11px] text-[#8f8f8f]">{hoy}</p>
+                            <p className="text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Hoy</p>
+                            <p className="text-[11px] text-gray-400">{hoy}</p>
                           </div>
                           <div className="grid grid-cols-4 gap-1.5">
-                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
-                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">Txn</p>
+                            <div className="bg-gray-50 border border-gray-200 rounded-md p-2 text-center">
+                              <p className="text-[10px] text-gray-400 mb-0.5">Txn</p>
                               <p className="text-sm font-semibold leading-tight text-gray-900">
                                 {ventaHoy.transacciones}
                               </p>
                             </div>
-                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
-                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">UPT</p>
+                            <div className="bg-gray-50 border border-gray-200 rounded-md p-2 text-center">
+                              <p className="text-[10px] text-gray-400 mb-0.5">UPT</p>
                               <p className="text-sm font-semibold leading-tight text-gray-900">
                                 {uptHoy !== null ? uptHoy.toFixed(1) : '—'}
                               </p>
                             </div>
-                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
-                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">Uds</p>
+                            <div className="bg-gray-50 border border-gray-200 rounded-md p-2 text-center">
+                              <p className="text-[10px] text-gray-400 mb-0.5">Uds</p>
                               <p className="text-sm font-semibold leading-tight text-gray-900">
                                 {ventaHoy.unidades}
                               </p>
                             </div>
-                            <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md p-2 text-center">
-                              <p className="text-[10px] text-[#8f8f8f] mb-0.5">Importe</p>
+                            <div className="bg-gray-50 border border-gray-200 rounded-md p-2 text-center">
+                              <p className="text-[10px] text-gray-400 mb-0.5">Importe</p>
                               <p className="text-sm font-semibold text-gray-900 leading-tight">
                                 {ventaHoy.monto > 0 ? formatCurrency(ventaHoy.monto) : '—'}
                               </p>
@@ -1119,186 +1065,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── HISTORIAL MES ANTERIOR ── */}
-            {rankingAnterior.length > 0 && (
-              <div className="mt-10">
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-1">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8l1 13h12l1-13M10 12h4" />
-                    </svg>
-                    <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Mes anterior</h2>
-                  </div>
-                  <p className="text-sm text-gray-400 mt-1 capitalize">
-                    {mesAntNombre} · {rankingAnterior.length} asesor{rankingAnterior.length !== 1 ? 'es' : ''}
-                  </p>
-                </div>
-                <div className="space-y-3">
-                  {rankingAnterior.map((asesor, index) => {
-                    const vm = ventasMapAnterior[asesor.id];
-                    const totalVentas        = (vm?.totalVentas        ?? 0) + (vm?.acumuladoMes?.monto         ?? 0);
-                    const totalUnidades      = (vm?.totalUnidades      ?? 0) + (vm?.acumuladoMes?.unidades      ?? 0);
-                    const totalTransacciones = (vm?.totalTransacciones ?? 0) + (vm?.acumuladoMes?.transacciones ?? 0);
-
-                    const mc          = metasMapAnterior[asesor.id];
-                    const metaMensual = mc?.metaMensual ?? 0;
-                    const progreso    = metaMensual > 0 ? (totalVentas / metaMensual) * 100 : 0;
-
-                    const avt    = totalTransacciones > 0 ? totalVentas   / totalTransacciones : null;
-                    const upt    = totalTransacciones > 0 ? totalUnidades / totalTransacciones : null;
-                    const derivedMetaAVT_ant = metaAnterior?.metaTransacciones && metaAnterior.metaTransacciones > 0
-                      ? metaAnterior.montoTotal / metaAnterior.metaTransacciones : null;
-                    const derivedMetaUPT_ant = metaAnterior?.metaTransacciones && metaAnterior.metaTransacciones > 0 && metaAnterior?.metaUnidades
-                      ? metaAnterior.metaUnidades / metaAnterior.metaTransacciones : null;
-                    const targetAVT_ant = metaAnterior?.metaAVT ?? derivedMetaAVT_ant ?? null;
-                    const targetUPT_ant = metaAnterior?.metaUPT ?? derivedMetaUPT_ant ?? null;
-                    const pctAVT = avt !== null && targetAVT_ant !== null ? (avt / targetAVT_ant) * 100 : null;
-                    const pctUPT = upt !== null && targetUPT_ant !== null ? (upt / targetUPT_ant) * 100 : null;
-
-                    const metaTxnAsesor: number | null = (() => {
-                      const v = txnPorAsesorAnterior[asesor.id];
-                      if (v !== undefined && v > 0) return v;
-                      return metaAnterior?.metaTransacciones && asesorIds.length > 0
-                        ? metaAnterior.metaTransacciones / asesorIds.length : null;
-                    })();
-                    const metaUdsAsesor: number | null = (() => {
-                      const v = udsPorAsesorAnterior[asesor.id];
-                      if (v !== undefined && v > 0) return v;
-                      return metaAnterior?.metaUnidades && asesorIds.length > 0
-                        ? metaAnterior.metaUnidades / asesorIds.length : null;
-                    })();
-                    const pctTxn = metaTxnAsesor !== null ? (totalTransacciones / metaTxnAsesor) * 100 : null;
-                    const pctUds = metaUdsAsesor !== null ? (totalUnidades / metaUdsAsesor) * 100 : null;
-
-                    const showIndicators = metaMensual > 0 || avt !== null || upt !== null || pctTxn !== null || pctUds !== null;
-                    const isTop3 = index < 3;
-                    const { text: mot, color: motColor } = motivacion(progreso);
-
-                    return (
-                      <div
-                        key={asesor.id}
-                        className={`border rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.05)] opacity-85 ${
-                          isTop3 ? RANK_COLORS[index] : 'border-[#eaeaea] bg-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="flex-shrink-0 w-8 text-center">
-                            {isTop3
-                              ? <span className="text-2xl">{MEDALS[index]}</span>
-                              : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
-                          </div>
-                          <div className="w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
-                            {asesor.fotoBase64
-                              ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
-                              : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{asesor.nombre} {asesor.apellido}</p>
-                            <p className="text-xs text-gray-400 truncate">{asesor.cargo}</p>
-                          </div>
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${motColor}`}>{mot}</span>
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-2">
-                          <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Meta mensual</p>
-                          <div className="flex-1 h-px bg-gray-100" />
-                        </div>
-
-                        <div className="mb-3">
-                          <div className="flex justify-between text-xs mb-1.5">
-                            <span className="text-gray-500">Progreso mensual</span>
-                            <span className={`font-semibold ${
-                              progreso >= 120 ? 'text-sky-600' : progreso >= 110 ? 'text-blue-700' :
-                              progreso >= 100 ? 'text-green-600' : 'text-gray-900'
-                            }`}>{progreso.toFixed(1)}%</span>
-                          </div>
-                          <div className="relative w-full bg-gray-100 rounded-full h-2.5 overflow-visible">
-                            <div
-                              className={`h-2.5 rounded-full transition-all duration-700 ease-out ${barColor(progreso)}`}
-                              style={{ width: `${Math.min(120, progreso) / 120 * 100}%` }}
-                            />
-                            {([
-                              { pct: 100, achieved: progreso >= 100, dot: 'bg-emerald-500', glow: 'shadow-[0_0_8px_rgba(52,211,153,0.7)]' },
-                              { pct: 110, achieved: progreso >= 110, dot: 'bg-indigo-500',  glow: 'shadow-[0_0_8px_rgba(99,102,241,0.7)]' },
-                              { pct: 120, achieved: progreso >= 120, dot: 'bg-sky-400',     glow: 'shadow-[0_0_8px_rgba(56,189,248,0.7)]' },
-                            ] as const).map(({ pct, achieved, dot, glow }) => (
-                              <span
-                                key={pct}
-                                className={`absolute top-1/2 w-3 h-3 rounded-full border-2 border-white transition-all duration-500 ${achieved ? `${dot} ${glow}` : 'bg-gray-300'}`}
-                                style={{ left: `${(pct / 120) * 100}%`, transform: 'translate(-50%, -50%)' }}
-                              />
-                            ))}
-                          </div>
-                          <div className="relative w-full mt-1 h-3.5">
-                            {([
-                              { pct: 100, label: '100%', color: 'text-green-600' },
-                              { pct: 110, label: '110%', color: 'text-blue-700'  },
-                              { pct: 120, label: '120%', color: 'text-sky-600'   },
-                            ] as const).map(({ pct, label, color }) => (
-                              <span
-                                key={pct}
-                                className={`absolute text-[10px] font-medium leading-none ${progreso >= pct ? color : 'text-gray-400'}`}
-                                style={{ left: `${(pct / 120) * 100}%`, transform: 'translateX(-50%)' }}
-                              >{label}</span>
-                            ))}
-                          </div>
-                          {progreso >= 100 && (
-                            <div className="mt-2">
-                              <p className="text-xs text-gray-400 mb-1.5">Beneficios alcanzados</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">📌 Pin</span>
-                                {progreso >= 110 && (
-                                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-indigo-700 font-medium border border-indigo-200">🎁 Bono corral</span>
-                                )}
-                                {progreso >= 120 && (
-                                  <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-medium border border-sky-200">🏖️ Día libre</span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="bg-[#fafafa] border border-[#eaeaea] rounded-md px-3 py-2">
-                            <p className="text-[11px] text-[#8f8f8f]">Importe</p>
-                            <p className="text-sm font-semibold text-gray-900">{formatCurrency(totalVentas)}</p>
-                          </div>
-                          <div className={`border rounded-md px-3 py-2 ${progreso >= 100 ? 'bg-emerald-50 border-emerald-200' : 'bg-[#fafafa] border-[#eaeaea]'}`}>
-                            <p className="text-[11px] text-[#8f8f8f]">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
-                            <p className={`text-sm font-semibold ${progreso >= 100 ? 'text-emerald-600' : 'text-red-500'}`}>
-                              {formatCurrency(progreso >= 100 ? totalVentas - metaMensual : Math.max(0, metaMensual - totalVentas))}
-                            </p>
-                          </div>
-                        </div>
-
-                        {showIndicators && (
-                          <div className="mt-3 rounded-md border border-[#eaeaea] bg-[#fafafa] px-3 py-2.5 space-y-2.5">
-                            {metaMensual > 0 && (
-                              <IndicatorBar label="Monto" value={formatCurrency(totalVentas)} meta={formatCurrency(metaMensual)} pct={progreso} barColor="bg-gradient-to-r from-emerald-400 to-green-500" />
-                            )}
-                            {avt !== null && (
-                              <IndicatorBar label="AVT" value={formatCurrency(avt)} meta={targetAVT_ant !== null ? formatCurrency(targetAVT_ant) : null} pct={pctAVT} barColor="bg-gradient-to-r from-blue-400 to-indigo-500" />
-                            )}
-                            {upt !== null && (
-                              <IndicatorBar label="UPT" value={upt.toFixed(2)} meta={targetUPT_ant !== null ? targetUPT_ant.toFixed(2) : null} pct={pctUPT} barColor="bg-gradient-to-r from-teal-400 to-cyan-500" />
-                            )}
-                            {pctTxn !== null && (
-                              <IndicatorBar label="Transacc." value={String(totalTransacciones)} meta={String(Math.round(metaTxnAsesor!))} pct={pctTxn} barColor="bg-gradient-to-r from-violet-400 to-purple-500" />
-                            )}
-                            {(totalUnidades > 0 || metaUdsAsesor !== null) && (
-                              <IndicatorBar label="Unidades" value={String(totalUnidades)} meta={metaUdsAsesor !== null ? String(Math.round(metaUdsAsesor)) : null} pct={pctUds} barColor="bg-gradient-to-r from-orange-400 to-amber-500" />
-                            )}
-                          </div>
-                        )}
-
-                        <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} />
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </>
         )}
       </div>
@@ -1344,6 +1110,15 @@ export default function Home() {
           dinamica={dinamicaProgressData.dinamica}
           asesor={dinamicaProgressData.asesor}
           onClose={() => setDinamicaProgressData(null)}
+        />
+      )}
+
+      {spiderEvent && (
+        <SpiderDrop
+          key={spiderEvent.id}
+          nombre={(() => { const a = asesores.find((x) => x.id === spiderEvent.asesorId); return a ? `${a.nombre} ${a.apellido ?? ''}`.trim() : ''; })()}
+          label={spiderEvent.label}
+          onDone={() => setSpiderEvent(null)}
         />
       )}
     </main>

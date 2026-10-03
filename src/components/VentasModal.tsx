@@ -88,16 +88,16 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
   if (guardado) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-        <div className="w-full max-w-xs mx-4 bg-white rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[#eaeaea] p-8 text-center">
+        <div className="w-full max-w-xs mx-4 bg-surface rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200 p-8 text-center">
           <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto mb-4">
             <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
           <p className="text-sm font-semibold text-gray-900">¡Venta registrada!</p>
-          <p className="text-[12px] text-[#8f8f8f] mt-1 mb-6">Se guardó correctamente.</p>
+          <p className="text-[12px] text-gray-400 mt-1 mb-6">Se guardó correctamente.</p>
           <button onClick={onClose}
-            className="w-full h-9 px-4 text-[13px] font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors">
+            className="w-full h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors">
             Cerrar
           </button>
         </div>
@@ -107,7 +107,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-      <div className="w-full max-w-sm mx-4 bg-white rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-[#eaeaea] p-7">
+      <div className="w-full max-w-sm mx-4 bg-surface rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200 p-7">
 
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
@@ -129,7 +129,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
             <span className="font-medium text-gray-900">{progreso.toFixed(1)}%</span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2">
-            <div className="bg-gray-900 h-2 rounded-full transition-all" style={{ width: `${progreso}%` }} />
+            <div className="bg-accent h-2 rounded-full transition-all" style={{ width: `${progreso}%` }} />
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-gray-400">Vendido: <span className="font-medium text-gray-700">{formatCurrency(totalVentas)}</span></span>
@@ -144,7 +144,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
               type="number"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
+              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
               placeholder="Ej. 2500000"
               min={1}
               autoFocus
@@ -158,7 +158,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
                 type="number"
                 value={unidades}
                 onChange={(e) => setUnidades(e.target.value)}
-                className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
+                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
                 placeholder="Ej. 12"
                 min={1}
                 step={1}
@@ -170,7 +170,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
                 type="number"
                 value={transacciones}
                 onChange={(e) => setTransacciones(e.target.value)}
-                className="w-full px-3 h-9 text-[13px] border border-[#eaeaea] rounded-md outline-none focus:border-black focus:ring-1 focus:ring-black/10 transition-colors text-gray-900"
+                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
                 placeholder="Ej. 5"
                 min={1}
                 step={1}
@@ -182,11 +182,11 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
 
           <div className="flex gap-2 pt-1">
             <button type="button" onClick={onClose}
-              className="flex-1 h-9 px-4 text-[13px] text-[#8f8f8f] border border-[#eaeaea] rounded-md hover:bg-[#fafafa] transition-colors">
+              className="flex-1 h-9 px-4 text-[13px] text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">
               Cancelar
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors disabled:opacity-40">
+              className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
               {loading ? 'Guardando...' : 'Registrar'}
             </button>
           </div>
