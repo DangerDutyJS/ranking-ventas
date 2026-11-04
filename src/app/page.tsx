@@ -1178,6 +1178,7 @@ export default function Home() {
         <HistorialVentasDiaModal
           asesor={ventasAsesor}
           dinamicas={dinamicas.filter((d) => d.asesoresIds.includes(ventasAsesor.id))}
+          rankingMes={asesores.map((a) => ({ id: a.id, nombre: a.nombre, total: totalReal(ventasMap[a.id]) }))}
           onClose={() => setVentasAsesor(null)}
         />
       )}

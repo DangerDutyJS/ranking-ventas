@@ -125,6 +125,11 @@ service cloud.firestore {
   - **5º en adelante — comisión:** "💰 Te faltan $X para la comisión [Amarilla/Verde/Azul/Celeste] (tasa%) · tu comisión sería $Y" usando `SIGUIENTE_NIVEL` (90/100/110/120% → 0.65/1.10/1.20/1.30%, mismos tramos que `calcularComision`); `Y = monto del umbral × tasa`. También es el fallback del 2º–4º si no hubiera asesor arriba. Sin meta o ≥120% no se muestra.
   - Regla de tono: nunca mensajes negativos ("vas último"), y nunca la distancia al 1º para puestos bajos.
 - **Aviso de adelantamiento:** el `onSnapshot` de `ventasMes` calcula posiciones por `totalReal()` (`prevPosicionesRef`); si un asesor mejora su puesto, `CelebracionVenta` muestra "¡Subió al Nº lugar!" en lugar de "Nueva venta". Primer snapshot = línea base. `totalReal(vm)` = `totalVentas + acumuladoMes.monto`, compartido con el sort del ranking mensual.
+- **Aviso post-venta** (`AvisoPostVenta` en `HistorialVentasDiaModal.tsx`, agregado 2026-11-04): al registrar una venta del día, sobre el botón "+ Registrar venta" aparece "Venta guardada." + mensaje según la posición mensual **ya con la venta sumada** (`calcularResultado`, se calcula al instante con el prop `rankingMes` que pasa `page.tsx` — `{id, nombre, total: totalReal()}` de todos los asesores — sin esperar al snapshot):
+  - 1º: "¡Llegaste al / Sigues en el 1º lugar! Le llevas $X a [2º]".
+  - 2º–4º: "¡Subiste al Nº lugar! / Vas en el Nº lugar. Ahora estás a $X de [el de arriba]".
+  - 5º+: "(¡Subiste al Nº lugar!) Llevas $X este mes" — sin distancia (regla de tono).
+  - Posición = asesores con total estrictamente mayor + 1 (empates comparten puesto). Ícono 🏆 si subió o es 1º, ✅ si no. Se oculta al abrir de nuevo el formulario. `role="status"`.
 - `asesoresHoy`: array vacío si no hay `asesoresIds` configurados. `showDailySection = asesoresHoy.length > 0`.
 - Clic en tarjeta **ranking de hoy** → PIN → VentasModal (registra venta del día con `increment()` + `arrayUnion()`)
 - Clic en tarjeta **ranking mensual** → PIN → `HistorialAcumuladoModal` con dos tabs:

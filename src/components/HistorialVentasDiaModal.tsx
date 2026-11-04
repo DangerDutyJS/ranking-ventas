@@ -30,10 +30,62 @@ interface Dinamica {
   progreso: Record<string, number>;
 }
 
+interface PosicionMes {
+  id: string;
+  nombre: string;
+  total: number;
+}
+
 interface Props {
   asesor: Asesor;
   dinamicas?: Dinamica[];
+  rankingMes?: PosicionMes[];
   onClose: () => void;
+}
+
+interface Resultado {
+  posicion: number;
+  subio: boolean;
+  total: number;
+  arriba: { nombre: string; gap: number } | null;
+  abajo: { nombre: string; ventaja: number } | null;
+}
+
+// Posición = cuántos tienen más que yo + 1 (los empates comparten el puesto).
+function calcularResultado(ranking: PosicionMes[], asesorId: string, monto: number): Resultado {
+  const otros = ranking.filter((r) => r.id !== asesorId);
+  const antes = ranking.find((r) => r.id === asesorId)?.total ?? 0;
+  const despues = antes + monto;
+  const posAntes = otros.filter((r) => r.total > antes).length + 1;
+  const posicion = otros.filter((r) => r.total > despues).length + 1;
+  const encima = otros.filter((r) => r.total > despues).sort((a, b) => a.total - b.total)[0];
+  const debajo = otros.filter((r) => r.total <= despues).sort((a, b) => b.total - a.total)[0];
+  return {
+    posicion,
+    subio: posicion < posAntes,
+    total: despues,
+    arriba: encima ? { nombre: encima.nombre, gap: encima.total - despues } : null,
+    abajo: debajo ? { nombre: debajo.nombre, ventaja: despues - debajo.total } : null,
+  };
+}
+
+function AvisoPostVenta({ r }: { r: Resultado }) {
+  let mensaje: React.ReactNode;
+  if (r.posicion === 1) {
+    mensaje = r.abajo && r.abajo.ventaja > 0
+      ? <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Sigues en el 1º lugar!'} Le llevas <b className="tabular-nums">{formatCurrency(r.abajo.ventaja)}</b> a {r.abajo.nombre}</>
+      : <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Vas en el 1º lugar!'}</>;
+  } else if (r.posicion <= 4 && r.arriba) {
+    mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar!` : `Vas en el ${r.posicion}º lugar.`} Ahora estás a <b className="tabular-nums">{formatCurrency(r.arriba.gap)}</b> de {r.arriba.nombre}</>;
+  } else {
+    mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar! ` : ''}Llevas <b className="tabular-nums">{formatCurrency(r.total)}</b> este mes</>;
+  }
+  return (
+    <div role="status" className="animate-slide-up flex items-start gap-2.5 rounded-xl border border-emerald-200/60 bg-emerald-50 px-3.5 py-3 text-[12.5px] leading-snug text-gray-700 [text-wrap:pretty]">
+      <span aria-hidden="true" className="text-base leading-none">{r.subio || r.posicion === 1 ? '🏆' : '✅'}</span>
+      <p className="min-w-0"><span className="font-semibold text-emerald-700">Venta guardada.</span> {mensaje}</p>
+    </div>
+  );
 }
 
 function mesActual() {
@@ -59,7 +111,7 @@ function entryKey(r: Registro) {
   return r.id ?? r.creadoEn;
 }
 
-export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: Props) {
+export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes, onClose }: Props) {
   const storeId = useStoreId();
   const mes = mesActual();
   const hoy = fechaHoy();
@@ -75,6 +127,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
   const [txn, setTxn] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [resultado, setResultado] = useState<Resultado | null>(null);
 
   const [editEntry, setEditEntry] = useState<Registro | null>(null);
   const [editMonto, setEditMonto] = useState('');
@@ -135,6 +188,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
           registros: [registro],
         });
       }
+      if (rankingMes?.length) setResultado(calcularResultado(rankingMes, asesor.id, m));
       setMonto(''); setUnidades(''); setTxn('');
       setShowForm(false);
       crearNotificacion(storeId, asesor.id, `${asesor.nombre} ${asesor.apellido}`,
@@ -361,10 +415,13 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, onClose }: 
               </div>
             </div>
           ) : (
-            <button onClick={() => { setShowForm(true); setEditEntry(null); }}
+            <>
+            {resultado && <AvisoPostVenta r={resultado} />}
+            <button onClick={() => { setShowForm(true); setEditEntry(null); setResultado(null); }}
               className="w-full px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
               + Registrar venta
             </button>
+            </>
           )}
 
           {dinamicas && dinamicas.length > 0 && (
