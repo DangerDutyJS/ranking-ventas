@@ -53,7 +53,7 @@ export default function LiderPage() {
     <StoreProvider storeId={user.uid}>
     <main className="theme-dark min-h-screen bg-dot-grid">
       <header className="bg-surface border-b border-gray-200 px-6 py-4 flex items-center justify-between relative">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-orange-500 via-amber-500 to-purple-600" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400" />
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/')}
             className="text-gray-400 hover:text-gray-900 transition-colors p-1">
@@ -75,7 +75,7 @@ export default function LiderPage() {
               onClick={() => { setTab(t); setShowForm(false); }}
               className={`py-3 px-4 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t
-                  ? 'border-orange-400 text-accent-text'
+                  ? 'border-emerald-400 text-accent-text'
                   : 'border-transparent text-gray-400 hover:text-gray-700'
               }`}
             >
@@ -83,10 +83,6 @@ export default function LiderPage() {
             </button>
           ))}
         </div>
-      </div>
-      {/* Guirnalda bajo las tabs: el contenedor de tabs tiene overflow-x-auto y la recortaría. */}
-      <div className="relative h-0" aria-hidden="true">
-        <div className="halloween-garland" />
       </div>
 
       <div className="max-w-4xl mx-auto px-6 py-10">

@@ -113,7 +113,7 @@ export default function DinamicasTab() {
       )}
 
       {showForm && (
-        <div className="halloween-panel bg-surface border border-gray-100 rounded-2xl p-6 mb-6 shadow-sm">
+        <div className="theme-panel bg-surface border border-gray-100 rounded-2xl p-6 mb-6 shadow-sm">
           <h3 className="text-base font-semibold text-heading mb-5">Nueva dinámica</h3>
           <div className="space-y-4">
             <div>

@@ -41,7 +41,7 @@ export default function AsignarPinModal({ asesorId, nombre, tienePin, onClose }:
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="halloween-modal w-full max-w-xs mx-4 bg-surface rounded-2xl shadow-lg border border-gray-100 p-7">
+      <div className="theme-modal w-full max-w-xs mx-4 bg-surface rounded-2xl shadow-lg border border-gray-100 p-7">
         <h2 className="text-base font-semibold text-heading mb-1">
           {tienePin ? 'Cambiar PIN' : 'Asignar PIN'}
         </h2>

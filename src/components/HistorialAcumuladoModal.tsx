@@ -284,7 +284,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="halloween-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
+      <div className="theme-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
 
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4">

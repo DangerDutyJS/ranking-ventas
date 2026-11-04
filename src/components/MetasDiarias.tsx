@@ -307,17 +307,17 @@ export default function MetasDiarias() {
                   {targets && (
                     <div className={`mt-0.5 w-full text-center space-y-0.5 ${isPast ? 'opacity-40' : ''}`}>
                       {targets.txn > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#ffedd5]' : 'text-gray-500'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#d1fae5]' : 'text-gray-500'}`}>
                           {targets.txn}<span className="opacity-60">txn</span>
                         </p>
                       )}
                       {targets.monto && targets.monto > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#ffedd5]' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#d1fae5]' : 'text-gray-400'}`}>
                           {shortAmount(targets.monto)}
                         </p>
                       )}
                       {targets.uds > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#ffedd5]' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#d1fae5]' : 'text-gray-400'}`}>
                           {targets.uds}<span className="opacity-60">uds</span>
                         </p>
                       )}
@@ -440,7 +440,7 @@ export default function MetasDiarias() {
   const hayPreview = montoPorAsesorPreview > 0 || txnPorAsesorPreview > 0 || udsPorAsesorPreview > 0;
 
   return (
-    <div className="halloween-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6">
+    <div className="theme-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6">
       {!guardado && (
         <p className="text-sm text-gray-500">
           Define el objetivo diario. El calendario se actualizará automáticamente.

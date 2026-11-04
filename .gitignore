@@ -42,3 +42,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# herramientas locales de Claude Code / Impeccable (skills se restauran con skills-lock.json)
+/.claude/
+/.impeccable/
+
+# capturas y scripts de verificación locales
+/ss*.png
+/verify*.mjs

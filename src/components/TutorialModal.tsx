@@ -314,7 +314,7 @@ export default function TutorialModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm p-4">
-      <div className="halloween-modal w-full max-w-md bg-surface rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="theme-modal w-full max-w-md bg-surface rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
 
         {/* Barra de progreso */}
         <div className="h-1 bg-gray-100">

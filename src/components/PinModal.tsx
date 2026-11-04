@@ -107,7 +107,7 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-      <div className="halloween-modal w-full max-w-xs mx-4 bg-surface rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] border border-gray-200 p-7 animate-modal">
+      <div className="theme-modal w-full max-w-xs mx-4 bg-surface rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.14),0_2px_8px_rgba(0,0,0,0.06)] border border-gray-200 p-7 animate-modal">
         <div className="flex flex-col items-center mb-6">
           <div className="w-16 h-16 rounded-full bg-gray-100 overflow-hidden flex items-center justify-center mb-3">
             {asesor.fotoBase64 ? (
@@ -139,7 +139,7 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              className="w-full px-3 py-3 text-center text-lg tracking-[0.5em] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+              className="w-full px-3 py-3 text-center text-lg tracking-[0.5em] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
               placeholder="••••"
               autoFocus
             />

@@ -327,7 +327,7 @@ export default function MetaMes() {
   const mesNombreForm = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   return (
-    <form onSubmit={handleGuardar} className="halloween-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6" autoComplete="off">
+    <form onSubmit={handleGuardar} className="theme-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6" autoComplete="off">
       <p className="text-sm text-gray-500 capitalize">{mesNombreForm}</p>
 
       {/* Monto total */}

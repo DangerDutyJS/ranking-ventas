@@ -76,7 +76,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
   };
 
   return (
-    <div className="halloween-panel bg-surface rounded-lg border border-gray-200 p-8 max-w-md w-full">
+    <div className="theme-panel bg-surface rounded-lg border border-gray-200 p-8 max-w-md w-full">
       <h2 className="text-base font-semibold text-heading mb-6">Registrar asesor</h2>
 
       <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
@@ -107,7 +107,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
             placeholder="Ej. Carlos"
           />
         </div>
@@ -119,7 +119,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
             placeholder="Ej. Rodríguez"
           />
         </div>
@@ -131,7 +131,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={cargo}
             onChange={(e) => setCargo(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
             placeholder="Ej. Asesor Senior"
           />
         </div>

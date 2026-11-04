@@ -16,8 +16,7 @@ import InstallPWA from '@/components/InstallPWA';
 import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
 import DinamicaProgressModal from '@/components/DinamicaProgressModal';
-import FloatingHalloween from '@/components/FloatingHalloween';
-import SpiderDrop from '@/components/SpiderDrop';
+import CelebracionVenta from '@/components/CelebracionVenta';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 
 interface Asesor {
@@ -90,21 +89,34 @@ function fechaHoy() {
   return new Date().toLocaleDateString('fr-CA');
 }
 
+function totalReal(vm: VentaMes | undefined) {
+  return (vm?.totalVentas ?? 0) + (vm?.acumuladoMes?.monto ?? 0);
+}
+
 function formatCurrency(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
 }
 
 const MEDALS = ['🥇', '🥈', '🥉'];
+const FRASES = [
+  'Cada venta te acerca al siguiente nivel',
+  'El cliente de hoy es el récord de mañana',
+  'Constancia diaria, resultados de mes',
+  'Una venta más marca la diferencia',
+  'El ranking se gana venta a venta',
+  'Hoy es un buen día para superar tu marca',
+  'Las metas grandes se logran en equipo',
+];
 const RANK_COLORS = [
-  'border-orange-500/60 bg-gradient-to-br from-[#2a1a14] via-[#1c1520] to-[#1c1520] ring-1 ring-orange-500/40',
-  'border-purple-400/40 bg-gradient-to-br from-[#241a30] via-[#1c1520] to-[#1c1520]',
-  'border-amber-400/40 bg-gradient-to-br from-[#28200f] via-[#1c1520] to-[#1c1520]',
+  'border-amber-400/60 bg-gradient-to-br from-[#2a2410] via-[#121a17] to-[#121a17] ring-1 ring-amber-400/40',
+  'border-slate-300/40 bg-gradient-to-br from-[#1f2826] via-[#121a17] to-[#121a17]',
+  'border-orange-400/40 bg-gradient-to-br from-[#2a1d12] via-[#121a17] to-[#121a17]',
 ];
 
 function Top1Badge() {
   return (
-    <span className="absolute -top-2.5 -right-2.5 inline-flex items-center gap-1 pl-2.5 pr-3 py-1 rounded-full text-[11px] font-semibold text-[#fed7aa] bg-[#241733] ring-1 ring-orange-400/40 shadow-[0_4px_12px_rgba(36,23,51,0.3)]">
-      <span aria-hidden="true">🎃</span> Top ventas
+    <span className="absolute -top-2.5 -right-2.5 inline-flex items-center gap-1 pl-2.5 pr-3 py-1 rounded-full text-[11px] font-semibold text-[#fde68a] bg-[#1d1a0c] ring-1 ring-amber-400/50 shadow-[0_4px_12px_rgba(0,0,0,0.35)]">
+      <span aria-hidden="true">🏆</span> Top ventas
     </span>
   );
 }
@@ -175,6 +187,62 @@ function calcularComision(metaAsignada: number, montoVendido: number): ComisionR
     falta110: Math.max(0, meta110 - montoVendido),
     falta120: Math.max(0, meta120 - montoVendido),
   };
+}
+
+const SIGUIENTE_NIVEL = [
+  { pct: 90,  label: 'Amarilla', tasa: 0.65 },
+  { pct: 100, label: 'Verde',    tasa: 1.10 },
+  { pct: 110, label: 'Azul',     tasa: 1.20 },
+  { pct: 120, label: 'Celeste',  tasa: 1.30 },
+];
+
+function ordinal(n: number) {
+  return `${n}º`;
+}
+
+// Un solo mensaje por tarjeta: del 2º al 4º persiguen al de arriba (meta alcanzable);
+// del 5º en adelante la distancia al de arriba suele desmotivar, así que se muestra lo que ganan subiendo de comisión.
+function AvisoMotivador({ index, vendido, avt, metaMensual, arriba }: {
+  index: number;
+  vendido: number;
+  avt: number | null;
+  metaMensual: number;
+  arriba: { nombre: string; total: number } | null;
+}) {
+  if (index === 0) return null;
+
+  const persecucion = arriba && index <= 3 ? (() => {
+    const gap = arriba.total - vendido;
+    const ventas = avt && avt > 0 && gap > 0 ? Math.ceil(gap / avt) : null;
+    return { gap, ventas, nombre: arriba.nombre };
+  })() : null;
+
+  const pct = metaMensual > 0 ? (vendido / metaMensual) * 100 : 0;
+  const nivel = metaMensual > 0 ? SIGUIENTE_NIVEL.find((n) => pct < n.pct) : undefined;
+  const comision = nivel ? (() => {
+    const objetivo = metaMensual * (nivel.pct / 100);
+    return { falta: objetivo - vendido, label: nivel.label, tasa: nivel.tasa, gana: objetivo * (nivel.tasa / 100) };
+  })() : null;
+
+  let contenido: React.ReactNode = null;
+  if (persecucion) {
+    contenido = persecucion.gap <= 0 ? (
+      <><span aria-hidden="true">🔥</span> <span>¡Empatado con <b className="text-heading">{persecucion.nombre}</b>! Una venta más y pasas al {ordinal(index)} lugar</span></>
+    ) : (
+      <><span aria-hidden="true">🎯</span> <span>Te faltan <b className="text-heading tabular-nums">{formatCurrency(persecucion.gap)}</b> para pasar a <b className="text-heading">{persecucion.nombre}</b>{persecucion.ventas !== null && <> · unas <b className="text-heading tabular-nums">{persecucion.ventas} {persecucion.ventas === 1 ? 'venta' : 'ventas'}</b> de tu ticket promedio</>}</span></>
+    );
+  } else if (comision) {
+    contenido = (
+      <><span aria-hidden="true">💰</span> <span>Te faltan <b className="text-heading tabular-nums">{formatCurrency(comision.falta)}</b> para la comisión {comision.label} ({comision.tasa.toLocaleString('es-CO')}%) · tu comisión sería <b className="text-accent-text tabular-nums">{formatCurrency(comision.gana)}</b></span></>
+    );
+  }
+  if (!contenido) return null;
+
+  return (
+    <p className="flex items-start gap-2 mb-4 -mt-1 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 text-[12px] leading-snug text-gray-600 [text-wrap:pretty]">
+      {contenido}
+    </p>
+  );
 }
 
 const COMISION_ROWS: { talento: ComisionResult['talento']; label: string; rango: string; pago: string; bg: string; text: string; border: string }[] = [
@@ -318,9 +386,10 @@ export default function Home() {
   const [showTutorial, setShowTutorial] = useState<boolean | null>(null);
   const [pinDinamicaRef, setPinDinamicaRef] = useState<Dinamica | null>(null);
   const [dinamicaProgressData, setDinamicaProgressData] = useState<{ asesor: Asesor; dinamica: Dinamica } | null>(null);
-  const [spiderEvent, setSpiderEvent] = useState<{ id: number; asesorId: string; label: string } | null>(null);
-  // Conteos del snapshot anterior: el primer snapshot solo fija la línea base (no dispara la araña al cargar).
+  const [celebracion, setCelebracion] = useState<{ id: number; asesorId: string; label: string } | null>(null);
+  // Conteos del snapshot anterior: el primer snapshot solo fija la línea base (no dispara la celebración al cargar).
   const prevVentasRef = useRef<Record<string, { registros: number; acumulados: number }> | null>(null);
+  const prevPosicionesRef = useRef<Record<string, number> | null>(null);
   const prevDinamicasRef = useRef<Record<string, Record<string, number>> | null>(null);
   const [dinamicas, setDinamicas] = useState<Dinamica[]>([]);
 
@@ -367,13 +436,22 @@ export default function Home() {
         for (const [id, v] of Object.entries(map)) {
           conteos[id] = { registros: v.registros?.length ?? 0, acumulados: v.acumulados?.length ?? 0 };
         }
+        const posiciones: Record<string, number> = {};
+        Object.keys(map)
+          .sort((a, b) => totalReal(map[b]) - totalReal(map[a]))
+          .forEach((id, i) => { posiciones[id] = i; });
+
         const prev = prevVentasRef.current;
+        const prevPos = prevPosicionesRef.current;
         prevVentasRef.current = conteos;
-        if (!prev) return;
+        prevPosicionesRef.current = posiciones;
+        if (!prev || !prevPos) return;
         for (const [id, c] of Object.entries(conteos)) {
           const p = prev[id] ?? { registros: 0, acumulados: 0 };
-          if (c.registros > p.registros) setSpiderEvent({ id: Date.now(), asesorId: id, label: 'Nueva venta' });
-          else if (c.acumulados > p.acumulados) setSpiderEvent({ id: Date.now(), asesorId: id, label: 'Acumulado del mes' });
+          const subio = prevPos[id] !== undefined && posiciones[id] < prevPos[id];
+          if (subio) setCelebracion({ id: Date.now(), asesorId: id, label: `¡Subió al ${ordinal(posiciones[id] + 1)} lugar!` });
+          else if (c.registros > p.registros) setCelebracion({ id: Date.now(), asesorId: id, label: 'Nueva venta' });
+          else if (c.acumulados > p.acumulados) setCelebracion({ id: Date.now(), asesorId: id, label: 'Acumulado del mes' });
         }
       },
       (err) => console.error('ventasMes:', err)
@@ -398,7 +476,7 @@ export default function Home() {
         if (!prev || !prev[din.id]) continue;
         for (const [asesorId, valor] of Object.entries(actual[din.id])) {
           if (valor > (prev[din.id][asesorId] ?? 0)) {
-            setSpiderEvent({ id: Date.now(), asesorId, label: din.nombre });
+            setCelebracion({ id: Date.now(), asesorId, label: din.nombre });
           }
         }
       }
@@ -462,13 +540,7 @@ export default function Home() {
     : [];
 
   // Ranking mensual: TODOS los asesores, ordenados por total real (incluye acumuladoMes)
-  const ranking = [...asesores].sort((a, b) => {
-    const vmA = ventasMap[a.id];
-    const vmB = ventasMap[b.id];
-    const totalA = (vmA?.totalVentas ?? 0) + (vmA?.acumuladoMes?.monto ?? 0);
-    const totalB = (vmB?.totalVentas ?? 0) + (vmB?.acumuladoMes?.monto ?? 0);
-    return totalB - totalA;
-  });
+  const ranking = [...asesores].sort((a, b) => totalReal(ventasMap[b.id]) - totalReal(ventasMap[a.id]));
 
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
@@ -476,13 +548,16 @@ export default function Home() {
   const daysInMonth = new Date(todayDate.getFullYear(), todayDate.getMonth() + 1, 0).getDate();
   const diasRestantes = Math.max(1, daysInMonth - todayDate.getDate() + 1);
 
+  const totalEquipo = asesores.reduce((acc, a) => acc + (ventasMap[a.id]?.totalVentas ?? 0) + (ventasMap[a.id]?.acumuladoMes?.monto ?? 0), 0);
+  const pctEquipo = meta && meta.montoTotal > 0 ? (totalEquipo / meta.montoTotal) * 100 : 0;
+  const faltaEquipo = meta ? Math.max(0, meta.montoTotal - totalEquipo) : 0;
+  const fraseDelDia = FRASES[(todayDate.getDate() - 1) % FRASES.length];
+
   return (
     <StoreProvider storeId={user.uid}>
     <main className="theme-dark min-h-screen bg-dot-grid relative isolate">
-      <FloatingHalloween />
       <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between relative">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-orange-500 via-amber-500 to-purple-600" />
-        <div className="halloween-garland" aria-hidden="true" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400" />
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-black flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -490,7 +565,7 @@ export default function Home() {
                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <span className="font-semibold text-heading text-sm tracking-tight">Ranking Ventas <span aria-hidden="true">🎃</span></span>
+          <span className="font-semibold text-heading text-sm tracking-tight">Ranking Ventas <span aria-hidden="true">🏆</span></span>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
@@ -502,7 +577,7 @@ export default function Home() {
           <InstallPWA />
           <NotificacionesPanel />
           <button onClick={() => setShowLeaderModal(true)}
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text border border-orange-400/40 px-3 h-8 rounded-md hover:bg-orange-500/10 hover:border-orange-400/70 transition-colors">
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text border border-emerald-400/40 px-3 h-8 rounded-md hover:bg-emerald-500/10 hover:border-emerald-400/70 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -514,56 +589,54 @@ export default function Home() {
       </header>
 
       <div className="max-w-4xl mx-auto px-6 py-10">
-        <section aria-label="Temporada de Halloween" className="halloween-card relative mb-8 rounded-2xl border border-gray-200 bg-surface px-6 pt-6 pb-11 sm:px-7 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="absolute -right-12 -top-12 w-52 h-52 rounded-full bg-orange-500/15 blur-2xl pointer-events-none" aria-hidden="true" />
-          <svg className="absolute bottom-0 right-0 w-[270px] sm:w-[350px] max-w-[90%] h-auto pointer-events-none" viewBox="0 0 300 40" aria-hidden="true">
-            <defs>
-              <linearGradient id="hw-ground" x1="0" x2="1">
-                <stop offset="0" stopColor="#ead9f5" stopOpacity="0" />
-                <stop offset="0.25" stopColor="#ead9f5" stopOpacity="0.12" />
-              </linearGradient>
-            </defs>
-            <rect x="0" y="36" width="300" height="4" fill="url(#hw-ground)" />
-            <g fill="#ead9f5" opacity="0.12">
-              <path d="M8 20h70v2H8zM8 29h70v2H8z" />
-              <path d="M10 36V16l3-4 3 4v20zM22 36V16l3-4 3 4v20zM34 36V16l3-4 3 4v20zM46 36V16l3-4 3 4v20zM58 36V16l3-4 3 4v20zM70 36V16l3-4 3 4v20z" />
-              <path fillRule="evenodd" d="M102 36V18a11 11 0 0 1 22 0v18zM112 19h2v3h3v2h-3v6h-2v-6h-3v-2h3z" />
-              <path d="M234 36V25a7 7 0 0 1 14 0v11z" />
-              <path fillRule="evenodd" transform="translate(196 17) scale(0.8)" d="M12 2a9 9 0 0 0-9 9c0 3 1.4 5.3 3.5 6.7V21a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-3.3A8.9 8.9 0 0 0 21 11a9 9 0 0 0-9-9zM8.5 10a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm7 0a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM12 14.6l1.3 2.2h-2.6z" />
+        <section aria-label="Motivación del equipo" className="relative mb-8 rounded-2xl border border-gray-200 bg-surface px-6 py-6 sm:px-7 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" aria-hidden="true" />
+          <svg className="absolute right-5 top-5 w-24 sm:w-32 h-auto pointer-events-none" viewBox="0 0 120 64" aria-hidden="true">
+            <g fill="#34d399" opacity="0.14">
+              <rect x="4" y="44" width="16" height="20" rx="3" />
+              <rect x="28" y="34" width="16" height="30" rx="3" />
+              <rect x="52" y="24" width="16" height="40" rx="3" />
+              <rect x="76" y="12" width="16" height="52" rx="3" />
             </g>
-            <g fill="#fb923c" opacity="0.45">
-              <ellipse cx="150" cy="30" rx="8" ry="6.5" />
-              <ellipse cx="166" cy="30" rx="8" ry="6.5" />
-              <ellipse cx="158" cy="29.5" rx="9" ry="7.5" />
-              <ellipse cx="272" cy="32" rx="6" ry="4.5" />
+            <g fill="none" stroke="#fbbf24" strokeOpacity="0.55" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 40 36 28l24-8 30-14" />
+              <path d="M82 4h10v10" />
             </g>
-            <g fill="#ead9f5" opacity="0.2">
-              <rect x="157" y="19" width="2.5" height="5" rx="1" />
-              <rect x="271" y="25.5" width="2" height="3.5" rx="1" />
-            </g>
-          </svg>
-          <svg className="absolute -right-3 -top-3 w-28 h-28 sm:w-36 sm:h-36 text-[#fed7aa] pointer-events-none" viewBox="0 0 120 120" fill="currentColor" aria-hidden="true">
-            <path d="M78 14a40 40 0 1 0 28 68A34 34 0 1 1 78 14z" opacity="0.7" />
-            <path d="M44 34c3-4 6-5 9-3-1 2 0 4 2 4l3-3 3 3c2 0 3-2 2-4 3-2 6-1 9 3-4 0-6 2-7 5-2-1-4 0-5 2l-2-2-2 2c-1-2-3-3-5-2-1-3-3-5-7-5z" className="text-purple-300" fill="currentColor" opacity="0.8" />
           </svg>
           <div className="relative flex items-center gap-4">
-            <span className="hidden sm:flex flex-shrink-0 w-12 h-12 rounded-xl bg-[#241733] ring-1 ring-orange-400/30 items-center justify-center text-2xl shadow-[0_4px_14px_rgba(0,0,0,0.4)]" aria-hidden="true">
-              🎃
+            <span className="hidden sm:flex flex-shrink-0 w-12 h-12 rounded-xl bg-[#14261e] ring-1 ring-emerald-400/30 items-center justify-center text-2xl shadow-[0_4px_14px_rgba(0,0,0,0.4)]" aria-hidden="true">
+              🏆
             </span>
-            <div className="min-w-0">
-              <p className="inline-flex items-center gap-2 text-[12px] font-medium text-orange-700 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" aria-hidden="true" />
-                Temporada de Halloween
+            <div className="min-w-0 pr-24 sm:pr-32">
+              <p className="inline-flex items-center gap-2 text-[12px] font-medium text-emerald-700 mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+                Vamos por la meta
               </p>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-heading [text-wrap:balance]">
                 Ranking de Ventas
               </h1>
-              <p className="text-sm text-accent-muted mt-1">Ventas de miedo, resultados de otro mundo</p>
+              <p className="text-sm text-accent-muted mt-1 [text-wrap:pretty]">{fraseDelDia}</p>
             </div>
           </div>
-          <p className="relative mt-5 pt-4 border-t border-gray-100 max-w-[65ch] text-[13px] sm:text-sm text-gray-600 leading-relaxed [text-wrap:pretty]">
-            Este mes no le tememos a nada: ni a las metas altas ni a los grandes retos. Que cada venta de este equipo sea un resultado de miedo.
-          </p>
+          {meta && meta.montoTotal > 0 && (
+            <div className="relative mt-5 pt-4 border-t border-gray-100">
+              <div className="flex items-baseline justify-between gap-3 mb-2">
+                <p className="text-[13px] text-gray-600 min-w-0">
+                  Equipo: <span className="font-semibold text-heading tabular-nums">{formatCurrency(totalEquipo)}</span>
+                  <span className="text-gray-400"> de {formatCurrency(meta.montoTotal)}</span>
+                </p>
+                <span className="text-sm font-bold text-heading tabular-nums">{Math.round(pctEquipo)}%</span>
+              </div>
+              <div className="h-2 rounded-full bg-gray-100 overflow-hidden" role="progressbar" aria-label="Avance del equipo hacia la meta del mes" aria-valuenow={Math.round(pctEquipo)} aria-valuemin={0} aria-valuemax={100}>
+                <div className={`h-full rounded-full transition-[width] duration-700 ease-out ${barColor(pctEquipo)}`} style={{ width: `${Math.min(100, pctEquipo)}%` }} />
+              </div>
+              <p className="mt-2 text-[12px] text-gray-400">
+                {faltaEquipo > 0
+                  ? <>Faltan <span className="text-gray-600 font-medium tabular-nums">{formatCurrency(faltaEquipo)}</span> · {diasRestantes} {diasRestantes === 1 ? 'día' : 'días'} · <span className="text-gray-600 font-medium tabular-nums">{formatCurrency(faltaEquipo / diasRestantes)}</span> por día</>
+                  : <span className="text-emerald-700 font-medium">¡Meta del equipo cumplida! Vamos por el 120%</span>}
+              </p>
+            </div>
+          )}
         </section>
 
         <div className="mb-8">
@@ -630,7 +703,7 @@ export default function Home() {
                       <button
                         key={asesor.id}
                         onClick={() => { setPinMode('diario'); setPinAsesor(asesor); }}
-                        className={`halloween-card relative w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${isTop3 ? RANK_COLORS[index] : 'border-gray-200 bg-surface'} ${index === 0 ? 'animate-spooky-glow' : ''}`}
+                        className={`theme-card relative w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${isTop3 ? RANK_COLORS[index] : 'border-gray-200 bg-surface'} ${index === 0 ? 'animate-top-glow' : ''}`}
                         style={{ animationDelay: `${index * 60}ms` }}
                       >
                         {index === 0 && <Top1Badge />}
@@ -641,7 +714,7 @@ export default function Home() {
                               ? <span className="text-2xl">{MEDALS[index]}</span>
                               : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
                           </div>
-                          <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-orange-400' : ''}`}>
+                          <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-amber-400' : ''}`}>
                             {asesor.fotoBase64
                               ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
                               : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
@@ -809,9 +882,9 @@ export default function Home() {
                     <button
                       key={asesor.id}
                       onClick={() => { setPinMode('acumulado'); setPinAsesor(asesor); }}
-                      className={`halloween-card relative w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${
+                      className={`theme-card relative w-full text-left border rounded-xl p-5 transition-all duration-200 shadow-[0_1px_3px_rgba(0,0,0,0.05)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.09)] hover:-translate-y-0.5 active:scale-[0.99] animate-slide-up ${
                         isTop3 ? RANK_COLORS[index] : 'border-gray-200 bg-surface'
-                      } ${index === 0 ? 'animate-spooky-glow' : ''}`}
+                      } ${index === 0 ? 'animate-top-glow' : ''}`}
                       style={{ animationDelay: `${index * 60}ms` }}
                     >
                       {index === 0 && <Top1Badge />}
@@ -821,7 +894,7 @@ export default function Home() {
                             ? <span className="text-2xl">{MEDALS[index]}</span>
                             : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
                         </div>
-                        <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-orange-400' : ''}`}>
+                        <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-amber-400' : ''}`}>
                           {asesor.fotoBase64
                             ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
                             : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
@@ -834,6 +907,17 @@ export default function Home() {
                           {mot}
                         </span>
                       </div>
+
+                      <AvisoMotivador
+                        index={index}
+                        vendido={totalVentas}
+                        avt={avt}
+                        metaMensual={metaMensual}
+                        arriba={index > 0 ? (() => {
+                          const a = ranking[index - 1];
+                          return { nombre: a.nombre, total: totalReal(ventasMap[a.id]) };
+                        })() : null}
+                      />
 
                       <div className="flex items-center gap-2 mb-2">
                         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Meta mensual</p>
@@ -1113,12 +1197,12 @@ export default function Home() {
         />
       )}
 
-      {spiderEvent && (
-        <SpiderDrop
-          key={spiderEvent.id}
-          nombre={(() => { const a = asesores.find((x) => x.id === spiderEvent.asesorId); return a ? `${a.nombre} ${a.apellido ?? ''}`.trim() : ''; })()}
-          label={spiderEvent.label}
-          onDone={() => setSpiderEvent(null)}
+      {celebracion && (
+        <CelebracionVenta
+          key={celebracion.id}
+          nombre={(() => { const a = asesores.find((x) => x.id === celebracion.asesorId); return a ? `${a.nombre} ${a.apellido ?? ''}`.trim() : ''; })()}
+          label={celebracion.label}
+          onDone={() => setCelebracion(null)}
         />
       )}
     </main>

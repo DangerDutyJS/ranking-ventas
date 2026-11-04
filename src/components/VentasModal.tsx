@@ -144,7 +144,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
               type="number"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
               placeholder="Ej. 2500000"
               min={1}
               autoFocus
@@ -158,7 +158,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
                 type="number"
                 value={unidades}
                 onChange={(e) => setUnidades(e.target.value)}
-                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                 placeholder="Ej. 12"
                 min={1}
                 step={1}
@@ -170,7 +170,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
                 type="number"
                 value={transacciones}
                 onChange={(e) => setTransacciones(e.target.value)}
-                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                 placeholder="Ej. 5"
                 min={1}
                 step={1}

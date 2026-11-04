@@ -84,7 +84,7 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
-      <div className="halloween-modal bg-surface rounded-2xl border border-gray-100 p-8 w-full max-w-md">
+      <div className="theme-modal bg-surface rounded-2xl border border-gray-100 p-8 w-full max-w-md">
         <h2 className="text-base font-semibold text-heading mb-6">Editar asesor</h2>
 
         <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">

@@ -95,7 +95,7 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-      <div className="halloween-modal w-full max-w-sm mx-4 bg-surface rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200 p-8">
+      <div className="theme-modal w-full max-w-sm mx-4 bg-surface rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.12)] border border-gray-200 p-8">
 
         {mode === 'loading' && (
           <div className="flex justify-center py-8">
@@ -114,14 +114,14 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
                 <input type="password" autoComplete="new-password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                   placeholder="Mínimo 4 caracteres" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
                 <input type="password" autoComplete="new-password" value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                   placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
@@ -144,7 +144,7 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
                 <input type="password" autoComplete="new-password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                   placeholder="••••••••" autoFocus />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
@@ -207,14 +207,14 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
                 <input type="password" autoComplete="new-password" value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                   placeholder="Mínimo 4 caracteres" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
                 <input type="password" autoComplete="new-password" value={newConfirm}
                   onChange={(e) => setNewConfirm(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-orange-400 focus:ring-1 focus:ring-orange-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
                   placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
