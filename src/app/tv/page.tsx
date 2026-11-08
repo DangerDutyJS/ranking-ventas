@@ -11,7 +11,7 @@ import { totalReal, barColor, type ConfigRanking } from '@/lib/reglas';
 import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking, type TotalesAsesor } from '@/lib/ranking';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
 import {
-  calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, hitoEquipoCruzado,
+  calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, minimoRecord, hitoEquipoCruzado,
   minutosRestantes, formatoRestante, restarDias, diaSemana, type DocVentas,
 } from '@/lib/motivacion';
 
@@ -223,7 +223,7 @@ export default function TvPage() {
       const ids = meta?.metasPorDia?.[String(diaSemana(f))]?.asesoresIds;
       return !!ids?.length && !ids.includes(a.id);
     };
-    const mejor = mejorMesAnterior(docs, a.id, mes);
+    const mejor = mejorMesAnterior(docs, a.id, mes, minimoRecord(metasMap[a.id]?.metaMensual ?? 0));
     const total = totalReal(ventasMap[a.id]);
     return {
       asesor: a,

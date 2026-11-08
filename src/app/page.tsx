@@ -21,7 +21,7 @@ import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking }
 import PuntajeRanking from '@/components/PuntajeRanking';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
 import {
-  calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, hitoEquipoCruzado,
+  calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, minimoRecord, hitoEquipoCruzado,
   minutosRestantes, formatoRestante, restarDias, diaSemana, type DocVentas, type Racha,
 } from '@/lib/motivacion';
 import type { ContextoMotivacion } from '@/components/HistorialVentasDiaModal';
@@ -614,7 +614,7 @@ export default function Home() {
       const ids = meta?.metasPorDia?.[String(diaSemana(f))]?.asesoresIds;
       return !!ids?.length && !ids.includes(a.id);
     };
-    const mejorMes = mejorMesAnterior(docsVentas, a.id, mes);
+    const mejorMes = mejorMesAnterior(docsVentas, a.id, mes, minimoRecord(metasMap[a.id]?.metaMensual ?? 0));
     const total = totalReal(ventasMap[a.id]);
     logrosMap[a.id] = {
       racha: calcularRacha(a.id, docsVentas, hoy, noTrabaja),

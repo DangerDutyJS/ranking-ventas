@@ -7,12 +7,13 @@ import { useStoreId } from '@/context/StoreContext';
 import { useConfigRanking } from '@/lib/ranking';
 import { CONFIG_RANKING_DEFAULT, normalizarConfigRanking, type ConfigRanking } from '@/lib/reglas';
 
-type Campo = 'topeUPT' | 'topeAVT' | 'umbralRescate';
+type Campo = 'topeUPT' | 'topeAVT' | 'umbralRescate' | 'minTxnIndicadores';
 
-const CAMPOS: { k: Campo; label: string; ayuda: string; min: number; max: number }[] = [
-  { k: 'topeUPT', label: 'Tope UPT', ayuda: 'Máximo % de UPT que cuenta (130 = hasta 13 pts)', min: 100, max: 300 },
-  { k: 'topeAVT', label: 'Tope AVT', ayuda: 'Máximo % de AVT que cuenta (130 = hasta 13 pts)', min: 100, max: 300 },
-  { k: 'umbralRescate', label: 'Umbral de rescate', ayuda: '% de venta desde el que UPT/AVT suman extra', min: 50, max: 100 },
+const CAMPOS: { k: Campo; label: string; ayuda: string; min: number; max: number; unidad: string }[] = [
+  { k: 'topeUPT', label: 'Tope UPT', ayuda: 'Máximo % de UPT que cuenta (130 = hasta 13 pts)', min: 100, max: 300, unidad: '%' },
+  { k: 'topeAVT', label: 'Tope AVT', ayuda: 'Máximo % de AVT que cuenta (130 = hasta 13 pts)', min: 100, max: 300, unidad: '%' },
+  { k: 'umbralRescate', label: 'Umbral de rescate', ayuda: '% de venta desde el que UPT/AVT suman extra', min: 50, max: 100, unidad: '%' },
+  { k: 'minTxnIndicadores', label: 'Mínimo de ventas', ayuda: 'Transacciones en el mes para que UPT/AVT empiecen a sumar', min: 0, max: 500, unidad: 'txn' },
 ];
 
 export default function ConfigRankingPanel() {
@@ -67,8 +68,8 @@ export default function ConfigRankingPanel() {
         Un buen UPT y AVT pueden &quot;rescatar&quot; a quien está cerca de su meta.
       </p>
 
-      <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
-        {CAMPOS.map(({ k, label, ayuda, min, max }) => (
+      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {CAMPOS.map(({ k, label, ayuda, min, max, unidad }) => (
           <div key={k}>
             <label htmlFor={`cfg-${k}`} className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
             <div className="relative">
@@ -80,10 +81,10 @@ export default function ConfigRankingPanel() {
                 max={max}
                 value={valor(k)}
                 onChange={(e) => setBorrador((b) => ({ ...b, [k]: e.target.value }))}
-                className="w-full pl-3 pr-7 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors text-gray-900 tabular-nums"
+                className="w-full pl-3 pr-10 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors text-gray-900 tabular-nums"
                 autoComplete="off"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" aria-hidden="true">%</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400" aria-hidden="true">{unidad}</span>
             </div>
             <p className="mt-1 text-[11px] leading-snug text-gray-400">{ayuda}</p>
           </div>

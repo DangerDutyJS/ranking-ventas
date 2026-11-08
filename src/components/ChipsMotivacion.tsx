@@ -28,7 +28,8 @@ export default function ChipsMotivacion({ racha, sobreRecord, insignias, mayorPr
   if (sobreRecord !== null && sobreRecord > 0) {
     chips.push({
       key: 'record',
-      text: `📈 Récord personal +${Math.round(sobreRecord)}%`,
+      // Nunca un porcentaje exagerado: desde +100% se dice en palabras.
+      text: sobreRecord >= 100 ? '📈 Más del doble de tu mejor mes' : `📈 Récord personal +${Math.max(1, Math.round(sobreRecord))}%`,
       cls: 'bg-gold-light text-gold-text border-gold/50',
       title: 'Por encima de su mejor mes anterior',
     });

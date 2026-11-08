@@ -78,14 +78,22 @@ export function mensajeRacha(dias: number, diaNuevo: boolean): string {
 
 // ── Récord personal ───────────────────────────────────────────────────────
 
-export function mejorMesAnterior(docs: DocVentas[], asesorId: string, mesActual: string) {
+// Solo cuentan meses REPRESENTATIVOS (total ≥ minimo, p. ej. 50% de la meta actual del asesor): un mes casi
+// vacío o de pruebas no puede convertirse en "récord" y producir porcentajes absurdos (+3900%).
+export function mejorMesAnterior(docs: DocVentas[], asesorId: string, mesActual: string, minimo = 0) {
   let mejor: { total: number; mes: string } | null = null;
   for (const d of docs) {
     if (d.asesorId !== asesorId || d.mes >= mesActual) continue;
     const t = totalReal(d);
-    if (t > 0 && (!mejor || t > mejor.total)) mejor = { total: t, mes: d.mes };
+    if (t > 0 && t >= minimo && (!mejor || t > mejor.total)) mejor = { total: t, mes: d.mes };
   }
   return mejor;
+}
+
+// Un mes previo es representativo si llegó al 50% de la meta mensual actual del asesor. Sin meta no hay
+// referencia confiable y no se calcula récord.
+export function minimoRecord(metaMensual: number) {
+  return metaMensual > 0 ? metaMensual * 0.5 : Infinity;
 }
 
 export function nombreMes(mes: string) {

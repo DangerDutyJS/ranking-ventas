@@ -72,6 +72,8 @@ export const SIGUIENTE_NIVEL = [
 //   score = %Venta·0.80 + %UPT·0.10 + %AVT·0.10
 // - "Rescate": UPT/AVT sobre 100% suman puntos extra solo si %Venta ≥ umbralRescate (85 por defecto),
 //   y como máximo hasta topeUPT/topeAVT (130%). Si no se alcanza el umbral, UPT/AVT cuentan máx. 100%.
+// - Mínimo de transacciones: UPT/AVT no suman nada hasta que el asesor lleve minTxnIndicadores (10)
+//   transacciones en el mes; una venta suelta no puede regalar 20 puntos de "calidad".
 // - Piso de protección: si %Venta ≥ 100, UPT/AVT nunca cuentan menos de 100% (no le quitan el 100%
 //   a quien ya trajo toda la plata).
 // - Si la tienda no tiene meta de UPT/AVT, su peso pasa a la venta.
@@ -85,6 +87,7 @@ export interface ConfigRanking {
   topeUPT: number;
   topeAVT: number;
   umbralRescate: number;
+  minTxnIndicadores: number;
 }
 
 export const CONFIG_RANKING_DEFAULT: ConfigRanking = {
@@ -94,6 +97,7 @@ export const CONFIG_RANKING_DEFAULT: ConfigRanking = {
   topeUPT: 130,
   topeAVT: 130,
   umbralRescate: 85,
+  minTxnIndicadores: 10,
 };
 
 function numeroValido(v: unknown, min: number, max: number): number | null {
@@ -111,6 +115,7 @@ export function normalizarConfigRanking(raw: Partial<Record<keyof ConfigRanking,
     topeUPT: numeroValido(r.topeUPT, 100, 300) ?? d.topeUPT,
     topeAVT: numeroValido(r.topeAVT, 100, 300) ?? d.topeAVT,
     umbralRescate: numeroValido(r.umbralRescate, 0, 100) ?? d.umbralRescate,
+    minTxnIndicadores: numeroValido(r.minTxnIndicadores, 0, 500) ?? d.minTxnIndicadores,
   };
   const suma = cfg.pesoVenta + cfg.pesoUPT + cfg.pesoAVT;
   if (Math.abs(suma - 1) > 0.001) {
@@ -137,7 +142,7 @@ export function metasUptAvt(meta: MetaIndicadores | null | undefined): { upt: nu
   };
 }
 
-export type LimiteKpi = 'tope' | 'umbral' | 'piso' | null;
+export type LimiteKpi = 'tope' | 'umbral' | 'piso' | 'minimo' | null;
 
 export interface AporteKpi {
   real: number | null;
@@ -156,6 +161,9 @@ export interface ScoreRanking {
   upt: AporteKpi;
   avt: AporteKpi;
   rescate: { habilitado: boolean; puntos: number };
+  // false mientras el asesor no llegue a cfg.minTxnIndicadores transacciones en el mes.
+  indicadoresActivos: boolean;
+  transacciones: number;
   meta100: boolean;
   meta100PorRescate: boolean;
   faltaPara100: number;
@@ -172,12 +180,19 @@ export interface DatosScore {
 
 function aporteIndicador(
   real: number | null, meta: number | null, peso: number,
-  rescateHabilitado: boolean, tope: number, piso: boolean,
+  rescateHabilitado: boolean, tope: number, piso: boolean, activo: boolean,
 ): AporteKpi {
   if (!meta || meta <= 0 || peso <= 0) {
     return { real, meta, peso: 0, pct: null, pctAplicado: 0, puntos: 0, limitadoPor: null };
   }
   const pct = real !== null ? (real / meta) * 100 : null;
+  // Bajo el mínimo de ventas el UPT/AVT no es confiable: no suma nada, salvo el piso (exactamente 100%,
+  // sin extra) para no quitarle el 100 a quien ya cumplió en dinero.
+  if (!activo) {
+    return piso
+      ? { real, meta, peso, pct, pctAplicado: 100, puntos: 100 * peso, limitadoPor: 'piso' }
+      : { real, meta, peso, pct, pctAplicado: 0, puntos: 0, limitadoPor: 'minimo' };
+  }
   const techo = rescateHabilitado ? tope : 100;
   let pctAplicado = Math.min(pct ?? 0, techo);
   let limitadoPor: LimiteKpi = pct !== null && pct > techo ? (rescateHabilitado ? 'tope' : 'umbral') : null;
@@ -199,12 +214,13 @@ export function calcularScoreRanking(d: DatosScore, cfg: ConfigRanking = CONFIG_
 
   const rescateHabilitado = pctVenta !== null && pctVenta >= cfg.umbralRescate;
   const piso = pctVenta !== null && pctVenta >= 100;
+  const indicadoresActivos = d.transacciones >= cfg.minTxnIndicadores;
 
   const venta: AporteKpi = pctVenta === null
     ? { real: d.ventaReal, meta: null, peso: pesoVenta, pct: null, pctAplicado: 0, puntos: 0, limitadoPor: null }
     : { real: d.ventaReal, meta: d.metaVenta, peso: pesoVenta, pct: pctVenta, pctAplicado: pctVenta, puntos: pctVenta * pesoVenta, limitadoPor: null };
-  const upt = aporteIndicador(uptReal, d.metaUPT, pesoUPT, rescateHabilitado, cfg.topeUPT, piso);
-  const avt = aporteIndicador(avtReal, d.metaAVT, pesoAVT, rescateHabilitado, cfg.topeAVT, piso);
+  const upt = aporteIndicador(uptReal, d.metaUPT, pesoUPT, rescateHabilitado, cfg.topeUPT, piso, indicadoresActivos);
+  const avt = aporteIndicador(avtReal, d.metaAVT, pesoAVT, rescateHabilitado, cfg.topeAVT, piso, indicadoresActivos);
 
   // Redondeo a 4 decimales para que 95/120/120 dé exactamente 100 (evita 99.99999999).
   const score = pctVenta === null ? null : Math.round((venta.puntos + upt.puntos + avt.puntos) * 10000) / 10000;
@@ -217,6 +233,8 @@ export function calcularScoreRanking(d: DatosScore, cfg: ConfigRanking = CONFIG_
     upt,
     avt,
     rescate: { habilitado: rescateHabilitado, puntos: Math.round(rescatePts * 10000) / 10000 },
+    indicadoresActivos,
+    transacciones: d.transacciones,
     meta100,
     meta100PorRescate: meta100 && (pctVenta ?? 0) < 100,
     faltaPara100: score === null ? 0 : Math.max(0, 100 - score),

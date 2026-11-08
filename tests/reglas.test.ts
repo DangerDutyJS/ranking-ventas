@@ -158,3 +158,38 @@ test('metasUptAvt: manual tiene prioridad sobre la derivada', () => {
   assert.deepEqual(metasUptAvt({ montoTotal: 100, metaTransacciones: 10, metaUnidades: 30, metaUPT: 2.5, metaAVT: 12 }), { upt: 2.5, avt: 12 });
   assert.deepEqual(metasUptAvt({ montoTotal: 100 }), { upt: null, avt: null });
 });
+
+test('mínimo de ventas: con 2 transacciones UPT/AVT no suman (no regalan 20 pts)', () => {
+  const r = calcularScoreRanking({ ventaReal: 250_000, metaVenta: 10_000_000, unidades: 6, transacciones: 2, metaUPT: 2.5, metaAVT: 100_000 });
+  assert.equal(r.indicadoresActivos, false);
+  assert.equal(r.upt.limitadoPor, 'minimo');
+  assert.equal(r.avt.limitadoPor, 'minimo');
+  assert.equal(r.upt.puntos, 0);
+  cerca(r.upt.pct, 120);
+  cerca(r.score, 2);
+  assert.equal(r.transacciones, 2);
+});
+
+test('mínimo de ventas: desde la transacción 10 UPT/AVT ya cuentan', () => {
+  const r = calcularScoreRanking({ ventaReal: 1_000_000, metaVenta: 10_000_000, unidades: 25, transacciones: 10, metaUPT: 2.5, metaAVT: 100_000 });
+  assert.equal(r.indicadoresActivos, true);
+  cerca(r.score, 8 + 10 + 10);
+});
+
+test('mínimo de ventas: con minTxnIndicadores 0 vuelve al comportamiento sin mínimo', () => {
+  const cfg = { ...CONFIG_RANKING_DEFAULT, minTxnIndicadores: 0 };
+  const r = calcularScoreRanking({ ventaReal: 250_000, metaVenta: 10_000_000, unidades: 6, transacciones: 2, metaUPT: 2.5, metaAVT: 100_000 }, cfg);
+  cerca(r.score, 22);
+});
+
+test('mínimo de ventas no rompe el piso: 100% de venta con pocas transacciones sigue en 100', () => {
+  const r = calcularScoreRanking({ ventaReal: 10_000_000, metaVenta: 10_000_000, unidades: 5, transacciones: 4, metaUPT: 2.5, metaAVT: 100_000 });
+  assert.equal(r.score, 100);
+  assert.equal(r.upt.limitadoPor, 'piso');
+});
+
+test('normalizarConfigRanking: minTxnIndicadores por defecto 10 y validado', () => {
+  assert.equal(normalizarConfigRanking(undefined).minTxnIndicadores, 10);
+  assert.equal(normalizarConfigRanking({ minTxnIndicadores: 25 }).minTxnIndicadores, 25);
+  assert.equal(normalizarConfigRanking({ minTxnIndicadores: -3 }).minTxnIndicadores, 10);
+});
