@@ -379,6 +379,9 @@ export default function Home() {
   const [pinDinamicaRef, setPinDinamicaRef] = useState<Dinamica | null>(null);
   const [dinamicaProgressData, setDinamicaProgressData] = useState<{ asesor: Asesor; dinamica: Dinamica } | null>(null);
   const [celebracion, setCelebracion] = useState<{ id: number; asesorId: string; label: string; nombre?: string } | null>(null);
+  // Pestañas del dashboard: null = automático (Hoy si la líder eligió quién trabaja hoy; si no, Mensual).
+  const [vistaRanking, setVistaRanking] = useState<'hoy' | 'mensual' | null>(null);
+  const anclaPestanasRef = useRef<HTMLDivElement>(null);
   const [docsVentas, setDocsVentas] = useState<DocVentas[]>([]);
   const [aplausos, setAplausos] = useState<Aplauso[]>([]);
   const metaTotalRef = useRef(0);
@@ -570,6 +573,19 @@ export default function Home() {
 
   // Ranking de hoy: solo cuando el líder seleccionó asesores para hoy
   const showDailySection = asesoresHoy.length > 0;
+  const vista: 'hoy' | 'mensual' = vistaRanking ?? (showDailySection ? 'hoy' : 'mensual');
+
+  // Al cambiar de pestaña estando más abajo, sube hasta las pestañas para ver el ranking desde el 1º.
+  function elegirVista(v: 'hoy' | 'mensual') {
+    setVistaRanking(v);
+    const ancla = anclaPestanasRef.current;
+    if (!ancla) return;
+    const top = ancla.getBoundingClientRect().top;
+    if (top < 0) {
+      const suave = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: window.scrollY + top, behavior: suave ? 'smooth' : 'auto' });
+    }
+  }
 
   function pctCombinadoHoy(asesorId: string): number {
     const vh = ventaHoyMap[asesorId] ?? { monto: 0, unidades: 0, transacciones: 0 };
@@ -790,9 +806,68 @@ export default function Home() {
           <p className="text-sm text-gray-400 text-center py-16">No hay asesores registrados aún.</p>
         ) : (
           <>
+            {/* ── Pestañas: Ranking de hoy / Ranking mensual (fijas al hacer scroll) ── */}
+            <div ref={anclaPestanasRef} className="scroll-mt-[65px]" aria-hidden="true" />
+            <div className="sticky top-[65px] z-20 -mx-6 px-6 pt-2 pb-3 mb-4 bg-background/90 backdrop-blur-sm">
+              <div
+                role="tablist"
+                aria-label="Rankings"
+                className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-gray-100 border border-gray-200"
+                onKeyDown={(e) => {
+                  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+                  e.preventDefault();
+                  const otra = vista === 'hoy' ? 'mensual' : 'hoy';
+                  elegirVista(otra);
+                  document.getElementById(`tab-${otra}`)?.focus();
+                }}
+              >
+                {([
+                  { id: 'hoy', label: 'Ranking de hoy', cuenta: showDailySection ? dailyRanking.length : null },
+                  { id: 'mensual', label: 'Ranking mensual', cuenta: asesores.length },
+                ] as const).map((t) => {
+                  const activo = vista === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      id={`tab-${t.id}`}
+                      type="button"
+                      role="tab"
+                      aria-selected={activo}
+                      aria-controls={`panel-${t.id}`}
+                      tabIndex={activo ? 0 : -1}
+                      onClick={() => elegirVista(t.id)}
+                      className={`flex items-center justify-center gap-2 h-11 rounded-lg text-[13px] sm:text-sm font-semibold transition-[background-color,color,box-shadow] duration-150 ${
+                        activo ? 'bg-surface text-heading shadow-[0_1px_3px_rgba(0,0,0,0.08)]' : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      {t.id === 'hoy' && (
+                        <span className={`h-2 w-2 rounded-full ${showDailySection ? 'bg-emerald-400' : 'bg-gray-300'}`} aria-hidden="true" />
+                      )}
+                      {t.label}
+                      {t.cuenta !== null && (
+                        <span className={`text-[11px] tabular-nums px-1.5 rounded-md ${activo ? 'bg-gold-light text-gold-text' : 'bg-gray-200 text-gray-500'}`}>
+                          {t.cuenta}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {vista === 'hoy' && !showDailySection && (
+              <div id="panel-hoy" role="tabpanel" aria-labelledby="tab-hoy" className="animate-fade-in text-center py-16 px-4">
+                <p className="text-sm text-gray-600">Hoy todavía no hay asesores asignados.</p>
+                <p className="text-sm text-gray-400 mt-1">La líder los elige en <b className="text-gray-600">Panel líder → Metas diarias</b>.</p>
+                <button type="button" onClick={() => elegirVista('mensual')} className="mt-4 text-sm font-medium text-accent-text hover:underline">
+                  Ver ranking mensual
+                </button>
+              </div>
+            )}
+
             {/* ── RANKING DE HOY: solo asesores trabajando hoy ── */}
-            {showDailySection && (
-              <>
+            {vista === 'hoy' && showDailySection && (
+              <div id="panel-hoy" role="tabpanel" aria-labelledby="tab-hoy" className="animate-fade-in">
                 <div className="mb-6">
                   <div className="flex items-center gap-2.5 mb-1">
                     <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)] animate-pulse" />
@@ -967,11 +1042,12 @@ export default function Home() {
                     );
                   })}
                 </div>
-              </>
+              </div>
             )}
 
             {/* ── RANKING MENSUAL: todos los asesores ── */}
-            <div className={showDailySection ? 'mt-10' : ''}>
+            {vista === 'mensual' && (
+            <div id="panel-mensual" role="tabpanel" aria-labelledby="tab-mensual" className="animate-fade-in">
               <div className="mb-6">
                 <h2 className="text-2xl font-bold text-heading tracking-tight">Ranking mensual</h2>
                 <p className="text-sm text-accent-muted mt-1 capitalize">{mesNombre} · {asesores.length} asesores</p>
@@ -1302,7 +1378,7 @@ export default function Home() {
                 })}
               </div>
             </div>
-
+            )}
           </>
         )}
       </div>
