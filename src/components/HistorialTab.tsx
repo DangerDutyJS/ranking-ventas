@@ -7,11 +7,15 @@ import { useStoreId } from '@/context/StoreContext';
 import { calcularMetas } from '@/lib/calcularMetas';
 import { calcularScoreRanking, metasUptAvt } from '@/lib/reglas';
 import { useConfigRanking } from '@/lib/ranking';
+import { construirReporte, nombreMesLargo } from '@/lib/reporte';
 
 interface Asesor {
   id: string;
   nombre: string;
   apellido: string;
+  cargo?: string;
+  codigoSap?: string;
+  horasTrabajo?: number;
 }
 
 interface VentaMesDoc {
@@ -93,6 +97,8 @@ export default function HistorialTab() {
   const [borrando, setBorrando] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [exportando, setExportando] = useState<null | 'excel' | 'pdf'>(null);
+  const [errorExport, setErrorExport] = useState('');
 
   useEffect(() => {
     if (!storeId) return;
@@ -196,6 +202,23 @@ export default function HistorialTab() {
     : [];
   const registrosEnRango = ventas.filter((v) => mesesEnRango.includes(v.mes));
 
+  // El reporte se exporta por mes, como la hoja de la empresa: el mes filtrado o, con "Todos", el mes en curso.
+  const mesExport = filtroMes !== 'todos' ? filtroMes : mesEnCurso;
+
+  async function exportar(tipo: 'excel' | 'pdf') {
+    setExportando(tipo);
+    setErrorExport('');
+    try {
+      const reporte = construirReporte(mesExport, asesores, ventas.filter((v) => v.mes === mesExport), metas[mesExport] ?? null, cfgRanking);
+      const m = await import('@/lib/exportarReporte');
+      await (tipo === 'excel' ? m.exportarExcel(reporte) : m.exportarPDF(reporte));
+    } catch (e) {
+      console.error('exportar:', e);
+      setErrorExport('No se pudo generar el archivo. Intenta de nuevo.');
+    }
+    setExportando(null);
+  }
+
   async function handleBorrar() {
     if (mesesEnRango.length === 0 || borrando) return;
     setBorrando(true);
@@ -278,6 +301,39 @@ export default function HistorialTab() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Exportar en el formato de la hoja de la empresa */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-surface px-4 py-3">
+        <p className="text-[13px] text-gray-600">
+          Exportar <b className="text-heading capitalize">{nombreMesLargo(mesExport)}</b>
+          <span className="text-gray-400"> · formato de la hoja de la empresa</span>
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => exportar('excel')}
+            disabled={exportando !== null}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-[13px] font-medium text-on-accent bg-accent hover:bg-accent-hover transition-colors disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /><path d="M8 13l4 5M12 13l-4 5" />
+            </svg>
+            {exportando === 'excel' ? 'Generando…' : 'Excel'}
+          </button>
+          <button
+            type="button"
+            onClick={() => exportar('pdf')}
+            disabled={exportando !== null}
+            className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg text-[13px] font-medium text-primary border border-primary/30 hover:bg-primary-light transition-colors disabled:opacity-50"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><path d="M14 3v6h6" /><path d="M9 15h6M9 18h4" />
+            </svg>
+            {exportando === 'pdf' ? 'Generando…' : 'PDF'}
+          </button>
+        </div>
+        {errorExport && <p role="alert" className="w-full text-xs text-red-500">{errorExport}</p>}
       </div>
 
       {/* Tabla */}

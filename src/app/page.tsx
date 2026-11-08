@@ -610,6 +610,19 @@ export default function Home() {
   const scores = calcularScores(asesorIds, ventasMap, meta, cfgRanking);
   const ranking = ordenarPorScore(asesorIds, scores).map((id) => asesores.find((a) => a.id === id)!);
 
+  // Resumen del mes = fila TOTAL de la hoja de la empresa (mismas reglas que las tarjetas).
+  const resumenMes = asesorIds.reduce((acc, id) => {
+    const sc = scores[id];
+    if (!sc) return acc;
+    const c = calcularComisionPorPuntaje(sc.metaVenta, sc.ventaReal, sc.score, sc.venta.peso);
+    return {
+      meta: acc.meta + sc.metaVenta,
+      venta: acc.venta + sc.ventaReal,
+      comision: acc.comision + c.pago,
+      enComision: acc.enComision + (c.talento ? 1 : 0),
+    };
+  }, { meta: 0, venta: 0, comision: 0, enComision: 0 });
+
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   const todayDate = new Date();
@@ -1052,6 +1065,25 @@ export default function Home() {
                 <h2 className="text-2xl font-bold text-heading tracking-tight">Ranking mensual</h2>
                 <p className="text-sm text-accent-muted mt-1 capitalize">{mesNombre} · {asesores.length} asesores</p>
               </div>
+              {resumenMes.meta > 0 && (
+                <section aria-label="Resumen del mes" className="mb-6 rounded-xl border border-gray-200 bg-surface overflow-hidden">
+                  <p className="px-4 pt-3 text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Acumulado del mes · todos los asesores</p>
+                  <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-100 mt-2">
+                    {[
+                      { t: 'Meta total', v: formatCurrency(resumenMes.meta), cls: 'text-heading' },
+                      { t: 'Venta real', v: formatCurrency(resumenMes.venta), cls: 'text-heading', sub: `${Math.round(resumenMes.venta / resumenMes.meta * 100)}% de la meta` },
+                      { t: 'Comisiones del mes', v: formatCurrency(resumenMes.comision), cls: 'text-gold-text' },
+                      { t: 'En comisión', v: `${resumenMes.enComision} de ${asesores.length}`, cls: 'text-heading', sub: 'cumplimiento ≥ 90%' },
+                    ].map((d) => (
+                      <div key={d.t} className="bg-surface px-4 py-3 min-w-0">
+                        <dt className="text-[11px] text-gray-400">{d.t}</dt>
+                        <dd className={`text-sm sm:text-base font-semibold tabular-nums truncate ${d.cls}`}>{d.v}</dd>
+                        {d.sub && <dd className="text-[11px] text-gray-400">{d.sub}</dd>}
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              )}
               <div className="space-y-3">
                 {ranking.map((asesor, index) => {
                   const vm = ventasMap[asesor.id];
@@ -1277,7 +1309,7 @@ export default function Home() {
 
                       {vm?.acumuladoMes && (vm.acumuladoMes.monto > 0 || vm.acumuladoMes.transacciones > 0 || vm.acumuladoMes.unidades > 0) && (
                         <div className="mt-2 flex items-center justify-between bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
-                          <span className="text-[11px] text-indigo-500">Acumulado ingresado</span>
+                          <span className="text-[11px] text-indigo-500" title="Ventas del mes que la líder cargó sin registro diario. Ya están incluidas en el Importe.">Cargado por la líder (incluido en el importe)</span>
                           <div className="flex items-center gap-2 text-xs text-gray-600 font-medium">
                             {vm.acumuladoMes.monto > 0 && <span>{formatCurrency(vm.acumuladoMes.monto)}</span>}
                             {vm.acumuladoMes.transacciones > 0 && <span className="text-gray-400">· {vm.acumuladoMes.transacciones} txn</span>}

@@ -41,6 +41,8 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [cargo, setCargo] = useState('');
+  const [codigoSap, setCodigoSap] = useState('');
+  const [horasTrabajo, setHorasTrabajo] = useState('48');
   const [fotoBase64, setFotoBase64] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -65,6 +67,8 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         cargo: cargo.trim(),
+        codigoSap: codigoSap.trim(),
+        horasTrabajo: Number(horasTrabajo) > 0 ? Number(horasTrabajo) : 48,
         fotoBase64: fotoBase64 ?? '',
         creadoEn: serverTimestamp(),
       });
@@ -134,6 +138,33 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
             placeholder="Ej. Asesor Senior"
           />
+        </div>
+
+        {/* Código SAP y horas de trabajo (para el reporte de la empresa) */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Código SAP <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={codigoSap}
+              onChange={(e) => setCodigoSap(e.target.value)}
+              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
+              placeholder="Ej. 3010"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Horas de trabajo</label>
+            <input
+              type="number"
+              min={1}
+              max={84}
+              value={horasTrabajo}
+              onChange={(e) => setHorasTrabajo(e.target.value)}
+              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
+              placeholder="48"
+            />
+          </div>
         </div>
 
         {error && <p className="text-xs text-red-500">{error}</p>}

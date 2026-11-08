@@ -12,6 +12,8 @@ interface Asesor {
   apellido: string;
   cargo: string;
   fotoBase64: string;
+  codigoSap?: string;
+  horasTrabajo?: number;
 }
 
 interface EditAsesorModalProps {
@@ -49,6 +51,8 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
   const [nombre, setNombre] = useState(asesor.nombre);
   const [apellido, setApellido] = useState(asesor.apellido);
   const [cargo, setCargo] = useState(asesor.cargo);
+  const [codigoSap, setCodigoSap] = useState(asesor.codigoSap ?? '');
+  const [horasTrabajo, setHorasTrabajo] = useState(String(asesor.horasTrabajo ?? 48));
   const [fotoBase64, setFotoBase64] = useState<string>(asesor.fotoBase64);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,6 +77,8 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
         nombre: nombre.trim(),
         apellido: apellido.trim(),
         cargo: cargo.trim(),
+        codigoSap: codigoSap.trim(),
+        horasTrabajo: Number(horasTrabajo) > 0 ? Number(horasTrabajo) : 48,
         fotoBase64,
       });
       onClose();
@@ -139,6 +145,33 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
               onChange={(e) => setCargo(e.target.value)}
               className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             />
+          </div>
+
+          {/* Código SAP y horas de trabajo (para el reporte de la empresa) */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Código SAP <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={codigoSap}
+                onChange={(e) => setCodigoSap(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
+                placeholder="Ej. 3010"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Horas de trabajo</label>
+              <input
+                type="number"
+                min={1}
+                max={84}
+                value={horasTrabajo}
+                onChange={(e) => setHorasTrabajo(e.target.value)}
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
+                placeholder="48"
+              />
+            </div>
           </div>
 
           {error && <p className="text-xs text-red-500">{error}</p>}
