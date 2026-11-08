@@ -107,7 +107,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
             placeholder="Ej. Carlos"
           />
         </div>
@@ -119,7 +119,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={apellido}
             onChange={(e) => setApellido(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
             placeholder="Ej. Rodríguez"
           />
         </div>
@@ -131,7 +131,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             type="text"
             value={cargo}
             onChange={(e) => setCargo(e.target.value)}
-            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+            className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
             placeholder="Ej. Asesor Senior"
           />
         </div>
@@ -144,7 +144,7 @@ export default function AsesorForm({ onSuccess, onCancel }: AsesorFormProps) {
             Cancelar
           </button>
           <button type="submit" disabled={loading}
-            className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
+            className="flex-1 h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
             {loading ? 'Guardando...' : 'Registrar'}
           </button>
         </div>

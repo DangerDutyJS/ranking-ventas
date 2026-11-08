@@ -5,6 +5,8 @@ import { collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 import { calcularMetas } from '@/lib/calcularMetas';
+import { calcularScoreRanking, metasUptAvt } from '@/lib/reglas';
+import { useConfigRanking } from '@/lib/ranking';
 
 interface Asesor {
   id: string;
@@ -24,12 +26,17 @@ interface VentaMesDoc {
 interface Meta {
   montoTotal: number;
   asesores?: Record<string, { diasLaborados: number }>;
+  metaTransacciones?: number;
+  metaUnidades?: number;
+  metaUPT?: number;
+  metaAVT?: number;
 }
 
-type Indicador = 'todos' | 'monto' | 'txn' | 'uds' | 'upt' | 'avt' | 'pct';
+type Indicador = 'todos' | 'score' | 'monto' | 'txn' | 'uds' | 'upt' | 'avt' | 'pct';
 
 const INDICADOR_LABELS: Record<Indicador, string> = {
   todos: 'Todos',
+  score: 'Puntaje ranking',
   monto: 'Monto',
   txn: 'Transacciones',
   uds: 'Unidades',
@@ -62,6 +69,7 @@ interface Row {
   upt: number | null;
   metaMensual: number;
   pctMeta: number | null;
+  score: number | null;
 }
 
 export default function HistorialTab() {
@@ -72,6 +80,8 @@ export default function HistorialTab() {
   const [ventas, setVentas] = useState<VentaMesDoc[]>([]);
   const [metas, setMetas] = useState<Record<string, Meta>>({});
   const [loading, setLoading] = useState(true);
+  // Se aplican los parámetros ACTUALES del algoritmo a todos los meses (no se guardan por mes).
+  const cfgRanking = useConfigRanking(storeId);
 
   const [filtroMes, setFiltroMes] = useState('todos');
   const [filtroAsesor, setFiltroAsesor] = useState('todos');
@@ -136,6 +146,10 @@ export default function HistorialTab() {
         : {};
       const metaMensual = metasMap[v.asesorId]?.metaMensual ?? 0;
       const pctMeta = metaMensual > 0 ? (totalVentas / metaMensual) * 100 : null;
+      const { upt: metaUPT, avt: metaAVT } = metasUptAvt(metaMes);
+      const { score } = calcularScoreRanking({
+        ventaReal: totalVentas, metaVenta: metaMensual, unidades: totalUnidades, transacciones: totalTransacciones, metaUPT, metaAVT,
+      }, cfgRanking);
 
       return {
         mes: v.mes,
@@ -147,9 +161,10 @@ export default function HistorialTab() {
         upt,
         metaMensual,
         pctMeta,
+        score,
       };
     });
-  }, [ventas, metas, asesorIds]);
+  }, [ventas, metas, asesorIds, cfgRanking]);
 
   const filteredRows = useMemo(() => {
     const sortKey: keyof Row | null = indicador === 'todos' ? null : indicador === 'pct' ? 'pctMeta' : indicador;
@@ -228,7 +243,7 @@ export default function HistorialTab() {
           <select
             value={filtroMes}
             onChange={(e) => setFiltroMes(e.target.value)}
-            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-gray-900 text-gray-900 bg-surface capitalize"
+            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900 bg-surface capitalize"
           >
             <option value="todos">Todos los meses</option>
             {mesesDisponibles.map((m) => (
@@ -243,7 +258,7 @@ export default function HistorialTab() {
           <select
             value={filtroAsesor}
             onChange={(e) => setFiltroAsesor(e.target.value)}
-            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-gray-900 text-gray-900 bg-surface"
+            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900 bg-surface"
           >
             <option value="todos">Todos</option>
             {asesores.map((a) => (
@@ -256,7 +271,7 @@ export default function HistorialTab() {
           <select
             value={indicador}
             onChange={(e) => setIndicador(e.target.value as Indicador)}
-            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-gray-900 text-gray-900 bg-surface"
+            className="w-full px-2.5 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900 bg-surface"
           >
             {(Object.keys(INDICADOR_LABELS) as Indicador[]).map((i) => (
               <option key={i} value={i}>{INDICADOR_LABELS[i]}</option>
@@ -283,6 +298,7 @@ export default function HistorialTab() {
                   <th className="px-3 py-2 text-right font-medium text-gray-400">AVT</th>
                   <th className="px-3 py-2 text-right font-medium text-gray-400">Meta</th>
                   <th className="px-3 py-2 text-right font-medium text-gray-400">% Cumpl.</th>
+                  <th className="px-3 py-2 text-right font-medium text-gray-400">Puntaje</th>
                 </tr>
               </thead>
               <tbody>
@@ -301,6 +317,9 @@ export default function HistorialTab() {
                     }`}>
                       {r.pctMeta !== null ? `${r.pctMeta.toFixed(0)}%` : '—'}
                     </td>
+                    <td className="px-3 py-2 text-right font-semibold tabular-nums text-gray-900">
+                      {r.score !== null ? r.score.toFixed(1) : '—'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -311,6 +330,7 @@ export default function HistorialTab() {
                   <td className="px-3 py-2 text-right text-gray-900 tabular-nums">{totales.txn}</td>
                   <td className="px-3 py-2 text-right text-gray-900 tabular-nums">{totales.uds}</td>
                   <td colSpan={3} />
+                  <td />
                   <td />
                 </tr>
               </tfoot>

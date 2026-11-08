@@ -70,13 +70,13 @@ export default function DinamicaProgressModal({
       ? "bg-gradient-to-r from-emerald-400 to-green-500"
       : pct >= 80
         ? "bg-gradient-to-r from-amber-400 to-yellow-400"
-        : "bg-gradient-to-r from-rose-400 to-red-400";
+        : "bg-gradient-to-r from-orange-400 to-orange-500";
   const pctColor =
     pct >= 100
       ? "text-emerald-600"
       : pct >= 80
         ? "text-amber-600"
-        : "text-rose-600";
+        : "text-orange-600";
 
   async function handleSubmit() {
     const v = parseInt(cantidad, 10);
@@ -218,7 +218,7 @@ export default function DinamicaProgressModal({
               value={cantidad}
               onChange={(e) => setCantidad(e.target.value)}
               placeholder="0"
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-3xl font-bold text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-gray-900/20 tabular-nums"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-3xl font-bold text-gray-900 text-center focus:outline-none focus:ring-2 focus:ring-accent/20 tabular-nums"
               autoFocus
               onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             />
@@ -236,7 +236,7 @@ export default function DinamicaProgressModal({
             <button
               onClick={handleSubmit}
               disabled={saving || saved || !cantidad || cantidadNum <= 0}
-              className="flex-1 px-4 py-3 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors"
+              className="flex-1 px-4 py-3 bg-accent text-on-accent rounded-xl text-sm font-semibold disabled:opacity-60 hover:bg-accent-hover transition-colors"
             >
               {saved ? "✓ Registrado" : saving ? "Guardando..." : "Agregar"}
             </button>

@@ -57,7 +57,7 @@ export default function AsignarPinModal({ asesorId, nombre, tienePin, onClose }:
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900 tracking-widest text-center"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900 tracking-widest text-center"
               placeholder="••••"
               autoFocus
             />
@@ -71,7 +71,7 @@ export default function AsignarPinModal({ asesorId, nombre, tienePin, onClose }:
               maxLength={4}
               value={confirm}
               onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900 tracking-widest text-center"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900 tracking-widest text-center"
               placeholder="••••"
             />
           </div>
@@ -84,7 +84,7 @@ export default function AsignarPinModal({ asesorId, nombre, tienePin, onClose }:
               Cancelar
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
               {loading ? 'Guardando...' : 'Guardar'}
             </button>
           </div>

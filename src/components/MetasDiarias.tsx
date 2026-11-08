@@ -301,23 +301,23 @@ export default function MetasDiarias() {
                     isToday ? 'bg-accent' : isPast ? 'bg-gray-50' : 'bg-surface border border-gray-100'
                   }`}
                 >
-                  <span className={`text-xs font-semibold ${isToday ? 'text-white' : isPast ? 'text-gray-400' : 'text-gray-900'}`}>
+                  <span className={`text-xs font-semibold ${isToday ? 'text-on-accent' : isPast ? 'text-gray-400' : 'text-gray-900'}`}>
                     {date.getDate()}
                   </span>
                   {targets && (
                     <div className={`mt-0.5 w-full text-center space-y-0.5 ${isPast ? 'opacity-40' : ''}`}>
                       {targets.txn > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#d1fae5]' : 'text-gray-500'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-on-accent/80' : 'text-gray-500'}`}>
                           {targets.txn}<span className="opacity-60">txn</span>
                         </p>
                       )}
                       {targets.monto && targets.monto > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#d1fae5]' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-on-accent/80' : 'text-gray-400'}`}>
                           {shortAmount(targets.monto)}
                         </p>
                       )}
                       {targets.uds > 0 && (
-                        <p className={`text-[9px] leading-none ${isToday ? 'text-[#d1fae5]' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] leading-none ${isToday ? 'text-on-accent/80' : 'text-gray-400'}`}>
                           {targets.uds}<span className="opacity-60">uds</span>
                         </p>
                       )}
@@ -473,7 +473,7 @@ export default function MetasDiarias() {
                           [key]: { ...prev[key], [field]: e.target.value },
                         }))
                       }
-                      className="w-16 px-1.5 py-1.5 text-xs text-center border border-gray-200 rounded-lg outline-none focus:border-gray-900 transition-colors text-gray-900"
+                      className="w-16 px-1.5 py-1.5 text-xs text-center border border-gray-200 rounded-lg outline-none focus:border-accent transition-colors text-gray-900"
                       placeholder="—"
                       min={0}
                     />
@@ -530,7 +530,7 @@ export default function MetasDiarias() {
                 [todayKey]: { ...prev[todayKey], monto: e.target.value },
               }))
             }
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             placeholder="Ej. 5000000"
             min={0}
           />
@@ -586,7 +586,7 @@ export default function MetasDiarias() {
                       type="checkbox"
                       checked={selected}
                       onChange={() => toggleAsesor(a.id)}
-                      className="w-4 h-4 accent-gray-900 flex-shrink-0"
+                      className="w-4 h-4 accent-[#003B6D] flex-shrink-0"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">{a.nombre} {a.apellido}</p>
@@ -637,7 +637,7 @@ export default function MetasDiarias() {
         <button
           onClick={handleGuardar}
           disabled={saving}
-          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50"
+          className="flex-1 px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50"
         >
           {saving ? 'Guardando...' : 'Guardar metas diarias'}
         </button>

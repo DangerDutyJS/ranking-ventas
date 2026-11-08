@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { collection, doc, getDocs, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp, deleteDoc, deleteField } from 'firebase/firestore';
+import ConfigRankingPanel from '@/components/ConfigRankingPanel';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
@@ -120,7 +121,12 @@ export default function MetaMes() {
     try {
       await setDoc(
         doc(db, 'tiendas', storeId, 'metas', mes),
-        { ...metaObj, actualizadoEn: serverTimestamp() },
+        {
+          ...metaObj,
+          ...(Number(metaUPT) > 0 ? {} : { metaUPT: deleteField() }),
+          ...(Number(metaAVT) > 0 ? {} : { metaAVT: deleteField() }),
+          actualizadoEn: serverTimestamp(),
+        },
         { merge: true }
       );
       setMetaGuardada(metaObj);
@@ -281,6 +287,8 @@ export default function MetaMes() {
           })}
         </div>
 
+        <ConfigRankingPanel />
+
         {/* Historial de meses anteriores */}
         {pastMonths.length > 0 && (
           <div>
@@ -327,6 +335,7 @@ export default function MetaMes() {
   const mesNombreForm = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
   return (
+    <div className="space-y-6">
     <form onSubmit={handleGuardar} className="theme-panel space-y-6 max-w-lg bg-surface border border-gray-200 rounded-2xl p-6" autoComplete="off">
       <p className="text-sm text-gray-500 capitalize">{mesNombreForm}</p>
 
@@ -337,7 +346,7 @@ export default function MetaMes() {
           type="number"
           value={montoTotal}
           onChange={(e) => setMontoTotal(e.target.value)}
-          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+          className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
           placeholder="Ej. 50000000"
           min={1}
         />
@@ -351,7 +360,7 @@ export default function MetaMes() {
             type="number"
             value={metaTransacciones}
             onChange={(e) => setMetaTransacciones(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             placeholder="Ej. 120"
             min={0}
           />
@@ -362,7 +371,7 @@ export default function MetaMes() {
             type="number"
             value={metaUnidades}
             onChange={(e) => setMetaUnidades(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             placeholder="Ej. 400"
             min={0}
           />
@@ -380,7 +389,7 @@ export default function MetaMes() {
             type="number"
             value={metaUPT}
             onChange={(e) => setMetaUPT(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             placeholder="Dejar vacío = auto"
             min={0}
             step={0.01}
@@ -399,7 +408,7 @@ export default function MetaMes() {
             type="number"
             value={metaAVT}
             onChange={(e) => setMetaAVT(e.target.value)}
-            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+            className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             placeholder="Dejar vacío = auto"
             min={0}
           />
@@ -416,7 +425,7 @@ export default function MetaMes() {
               placeholder="Igual para todos"
               min={1}
               max={31}
-              className="w-32 px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-gray-900 transition-colors text-gray-900 text-center"
+              className="w-32 px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent transition-colors text-gray-900 text-center"
               onChange={(e) => {
                 const val = e.target.value;
                 if (!val) return;
@@ -439,7 +448,7 @@ export default function MetaMes() {
                 type="number"
                 value={dias[a.id] ?? ''}
                 onChange={(e) => setDias((prev) => ({ ...prev, [a.id]: e.target.value }))}
-                className="w-16 px-2 py-1.5 text-sm text-center border border-gray-200 rounded-lg outline-none focus:border-gray-900 transition-colors text-gray-900"
+                className="w-16 px-2 py-1.5 text-sm text-center border border-gray-200 rounded-lg outline-none focus:border-accent transition-colors text-gray-900"
                 placeholder="0"
                 min={1}
                 max={31}
@@ -460,10 +469,12 @@ export default function MetaMes() {
           </button>
         )}
         <button type="submit" disabled={saving}
-          className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
+          className="flex-1 px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
           {saving ? 'Guardando...' : 'Guardar meta'}
         </button>
       </div>
     </form>
+    <ConfigRankingPanel />
+    </div>
   );
 }

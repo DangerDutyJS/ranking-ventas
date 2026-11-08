@@ -9,7 +9,6 @@ import { collection, doc, getDoc, onSnapshot, orderBy, query, where } from 'fire
 import { db } from '@/lib/firebase';
 import LeaderModal from '@/components/LeaderModal';
 import PinModal from '@/components/PinModal';
-import VentasModal from '@/components/VentasModal';
 import HistorialVentasDiaModal from '@/components/HistorialVentasDiaModal';
 import NotificacionesPanel from '@/components/NotificacionesPanel';
 import InstallPWA from '@/components/InstallPWA';
@@ -17,6 +16,15 @@ import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
 import DinamicaProgressModal from '@/components/DinamicaProgressModal';
 import CelebracionVenta from '@/components/CelebracionVenta';
+import { totalReal, barColor, calcularComisionConRescate, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
+import { calcularScores, ordenarPorScore, useConfigRanking } from '@/lib/ranking';
+import PuntajeRanking from '@/components/PuntajeRanking';
+import ChipsMotivacion from '@/components/ChipsMotivacion';
+import {
+  calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, hitoEquipoCruzado,
+  minutosRestantes, formatoRestante, restarDias, diaSemana, type DocVentas, type Racha,
+} from '@/lib/motivacion';
+import type { ContextoMotivacion } from '@/components/HistorialVentasDiaModal';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 
 interface Asesor {
@@ -33,6 +41,7 @@ interface RegistroDia {
   unidades: number;
   transacciones: number;
   fecha: string;
+  creadoEn?: string;
 }
 
 interface VentaMes {
@@ -78,6 +87,24 @@ interface Dinamica {
   asesoresIds: string[];
   progreso: Record<string, number>;
   registros?: Record<string, RegistroDinamica[]>;
+  horaLimite?: string;
+}
+
+interface Aplauso {
+  id: string;
+  asesorId: string;
+  mensaje: string;
+  fecha: string;
+  creadoEn?: { seconds: number } | null;
+}
+
+function useAhora(intervaloMs: number) {
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(new Date()), intervaloMs);
+    return () => clearInterval(t);
+  }, [intervaloMs]);
+  return ahora;
 }
 
 function mesActual() {
@@ -89,9 +116,6 @@ function fechaHoy() {
   return new Date().toLocaleDateString('fr-CA');
 }
 
-function totalReal(vm: VentaMes | undefined) {
-  return (vm?.totalVentas ?? 0) + (vm?.acumuladoMes?.monto ?? 0);
-}
 
 function formatCurrency(n: number) {
   return new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n);
@@ -108,29 +132,20 @@ const FRASES = [
   'Las metas grandes se logran en equipo',
 ];
 const RANK_COLORS = [
-  'border-amber-400/60 bg-gradient-to-br from-[#2a2410] via-[#121a17] to-[#121a17] ring-1 ring-amber-400/40',
-  'border-slate-300/40 bg-gradient-to-br from-[#1f2826] via-[#121a17] to-[#121a17]',
-  'border-orange-400/40 bg-gradient-to-br from-[#2a1d12] via-[#121a17] to-[#121a17]',
+  'border-gold/70 bg-gradient-to-br from-[#F9F4E8] via-white to-white ring-1 ring-gold/40',
+  'border-[#C3CAD3] bg-gradient-to-br from-[#F1F3F6] via-white to-white',
+  'border-[#D9B48C] bg-gradient-to-br from-[#FBF1E6] via-white to-white',
 ];
 
 function Top1Badge() {
   return (
-    <span className="absolute -top-2.5 -right-2.5 inline-flex items-center gap-1 pl-2.5 pr-3 py-1 rounded-full text-[11px] font-semibold text-[#fde68a] bg-[#1d1a0c] ring-1 ring-amber-400/50 shadow-[0_4px_12px_rgba(0,0,0,0.35)]">
+    <span className="absolute -top-2.5 -right-2.5 inline-flex items-center gap-1 pl-2.5 pr-3 py-1 rounded-full text-[11px] font-semibold text-gold-text bg-gold-light ring-1 ring-gold/60 shadow-[0_4px_12px_rgba(0,59,109,0.12)]">
       <span aria-hidden="true">🏆</span> Top ventas
     </span>
   );
 }
 
 
-function barColor(p: number) {
-  if (p >= 120) return 'bg-gradient-to-r from-sky-400 to-cyan-400';
-  if (p >= 110) return 'bg-gradient-to-r from-blue-500 to-indigo-500';
-  if (p >= 100) return 'bg-gradient-to-r from-emerald-400 to-green-500';
-  if (p >= 75)  return 'bg-gradient-to-r from-teal-400 to-emerald-400';
-  if (p >= 50)  return 'bg-gradient-to-r from-amber-400 to-yellow-400';
-  if (p >= 25)  return 'bg-gradient-to-r from-orange-400 to-amber-400';
-  return 'bg-gradient-to-r from-red-400 to-rose-400';
-}
 
 function motivacion(p: number) {
   if (p >= 120) return { text: '¡Top absoluto!',   color: 'text-sky-700 bg-gradient-to-r from-sky-50 to-cyan-50 border border-sky-200/60' };
@@ -139,86 +154,53 @@ function motivacion(p: number) {
   if (p >= 75)  return { text: '¡Casi lo logras!', color: 'text-teal-700 bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200/60' };
   if (p >= 50)  return { text: '¡Buen ritmo!',     color: 'text-amber-700 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200/60' };
   if (p >= 25)  return { text: '¡Sigue adelante!', color: 'text-orange-700 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/60' };
-  return { text: '¡Empieza hoy!', color: 'text-rose-700 bg-gradient-to-r from-rose-50 to-red-50 border border-rose-200/60' };
+  return { text: '¡Empieza hoy!', color: 'text-orange-700 bg-orange-50 border border-orange-300/60' };
 }
 
 function pctColor(pct: number): string {
   if (pct >= 100) return 'text-green-600';
   if (pct >= 80)  return 'text-amber-600';
-  return 'text-red-500';
+  return 'text-orange-600';
 }
 
 function indicatorBarFill(pct: number): string {
   if (pct >= 100) return 'bg-gradient-to-r from-emerald-400 to-green-500';
   if (pct >= 80)  return 'bg-gradient-to-r from-amber-400 to-yellow-400';
-  return 'bg-gradient-to-r from-rose-400 to-red-400';
+  return 'bg-gradient-to-r from-orange-400 to-orange-500';
 }
 
-interface ComisionResult {
-  pct: number;
-  talento: 'amarillo' | 'verde' | 'azul' | 'celeste' | null;
-  comision: number | null;
-  falta90: number;
-  falta100: number;
-  falta110: number;
-  falta120: number;
-}
-
-function calcularComision(metaAsignada: number, montoVendido: number): ComisionResult {
-  const pct = metaAsignada > 0 ? (montoVendido / metaAsignada) * 100 : 0;
-  const meta90  = metaAsignada * 0.90;
-  const meta100 = metaAsignada * 1.00;
-  const meta110 = metaAsignada * 1.10;
-  const meta120 = metaAsignada * 1.20;
-
-  let talento: ComisionResult['talento'] = null;
-  let comision: number | null = null;
-  if (pct >= 120)       { talento = 'celeste';  comision = 1.30; }
-  else if (pct >= 110)  { talento = 'azul';     comision = 1.20; }
-  else if (pct >= 100)  { talento = 'verde';    comision = 1.10; }
-  else if (pct >= 90)   { talento = 'amarillo'; comision = 0.65; }
-
-  return {
-    pct,
-    talento,
-    comision,
-    falta90:  Math.max(0, meta90  - montoVendido),
-    falta100: Math.max(0, meta100 - montoVendido),
-    falta110: Math.max(0, meta110 - montoVendido),
-    falta120: Math.max(0, meta120 - montoVendido),
-  };
-}
-
-const SIGUIENTE_NIVEL = [
-  { pct: 90,  label: 'Amarilla', tasa: 0.65 },
-  { pct: 100, label: 'Verde',    tasa: 1.10 },
-  { pct: 110, label: 'Azul',     tasa: 1.20 },
-  { pct: 120, label: 'Celeste',  tasa: 1.30 },
-];
 
 function ordinal(n: number) {
   return `${n}º`;
 }
 
-// Un solo mensaje por tarjeta: del 2º al 4º persiguen al de arriba (meta alcanzable);
-// del 5º en adelante la distancia al de arriba suele desmotivar, así que se muestra lo que ganan subiendo de comisión.
-function AvisoMotivador({ index, vendido, avt, metaMensual, arriba }: {
+// Un solo mensaje por tarjeta: del 2º al 4º persiguen al de arriba en PUNTOS del ranking (con su
+// equivalente aproximado en dinero); del 5º en adelante, lo que ganan subiendo de comisión.
+function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, rescate100, arriba }: {
   index: number;
   vendido: number;
   avt: number | null;
   metaMensual: number;
-  arriba: { nombre: string; total: number } | null;
+  score: number | null;
+  pesoVenta: number;
+  rescate100: boolean;
+  arriba: { nombre: string; total: number; score: number | null } | null;
 }) {
   if (index === 0) return null;
 
   const persecucion = arriba && index <= 3 ? (() => {
-    const gap = arriba.total - vendido;
-    const ventas = avt && avt > 0 && gap > 0 ? Math.ceil(gap / avt) : null;
-    return { gap, ventas, nombre: arriba.nombre };
+    if (score !== null && arriba.score !== null) {
+      const gapPts = arriba.score - score;
+      // 1 punto de venta ≈ metaMensual / (100 · pesoVenta) en dinero (aprox.: no cuenta el efecto en UPT/AVT).
+      const gapDinero = metaMensual > 0 && pesoVenta > 0 ? (gapPts * metaMensual) / (100 * pesoVenta) : null;
+      return { gapPts, gapDinero, nombre: arriba.nombre };
+    }
+    return { gapPts: null, gapDinero: arriba.total - vendido, nombre: arriba.nombre };
   })() : null;
 
   const pct = metaMensual > 0 ? (vendido / metaMensual) * 100 : 0;
-  const nivel = metaMensual > 0 ? SIGUIENTE_NIVEL.find((n) => pct < n.pct) : undefined;
+  // Con rescate ya tiene el escalón del 100%: el siguiente objetivo es 110% (exige venta real).
+  const nivel = metaMensual > 0 ? SIGUIENTE_NIVEL.find((n) => pct < n.pct && !(rescate100 && n.pct <= 100)) : undefined;
   const comision = nivel ? (() => {
     const objetivo = metaMensual * (nivel.pct / 100);
     return { falta: objetivo - vendido, label: nivel.label, tasa: nivel.tasa, gana: objetivo * (nivel.tasa / 100) };
@@ -226,10 +208,14 @@ function AvisoMotivador({ index, vendido, avt, metaMensual, arriba }: {
 
   let contenido: React.ReactNode = null;
   if (persecucion) {
-    contenido = persecucion.gap <= 0 ? (
+    const empate = persecucion.gapPts !== null ? persecucion.gapPts <= 0.05 : (persecucion.gapDinero ?? 0) <= 0;
+    const ventas = avt && avt > 0 && persecucion.gapDinero && persecucion.gapDinero > 0 ? Math.ceil(persecucion.gapDinero / avt) : null;
+    contenido = empate ? (
       <><span aria-hidden="true">🔥</span> <span>¡Empatado con <b className="text-heading">{persecucion.nombre}</b>! Una venta más y pasas al {ordinal(index)} lugar</span></>
+    ) : persecucion.gapPts !== null ? (
+      <><span aria-hidden="true">🎯</span> <span>Te faltan <b className="text-heading tabular-nums">{persecucion.gapPts.toFixed(1)} pts</b> para pasar a <b className="text-heading">{persecucion.nombre}</b>{persecucion.gapDinero !== null && <> · ≈ <b className="text-heading tabular-nums">{formatCurrency(persecucion.gapDinero)}</b> en ventas{ventas !== null && <> (unas {ventas} de tu ticket promedio)</>}</>}</span></>
     ) : (
-      <><span aria-hidden="true">🎯</span> <span>Te faltan <b className="text-heading tabular-nums">{formatCurrency(persecucion.gap)}</b> para pasar a <b className="text-heading">{persecucion.nombre}</b>{persecucion.ventas !== null && <> · unas <b className="text-heading tabular-nums">{persecucion.ventas} {persecucion.ventas === 1 ? 'venta' : 'ventas'}</b> de tu ticket promedio</>}</span></>
+      <><span aria-hidden="true">🎯</span> <span>Te faltan <b className="text-heading tabular-nums">{formatCurrency(persecucion.gapDinero ?? 0)}</b> para pasar a <b className="text-heading">{persecucion.nombre}</b>{ventas !== null && <> · unas <b className="text-heading tabular-nums">{ventas} {ventas === 1 ? 'venta' : 'ventas'}</b> de tu ticket promedio</>}</span></>
     );
   } else if (comision) {
     contenido = (
@@ -252,9 +238,9 @@ const COMISION_ROWS: { talento: ComisionResult['talento']; label: string; rango:
   { talento: 'celeste',  label: 'Celeste',  rango: '≥ 120%',         pago: '1.30%', bg: 'bg-sky-50',     text: 'text-sky-800',    border: 'border-sky-300'    },
 ];
 
-function TablaComisionesAsesor({ meta, vendido }: { meta: number; vendido: number }) {
+function TablaComisionesAsesor({ meta, vendido, score }: { meta: number; vendido: number; score: number | null }) {
   if (meta <= 0) return null;
-  const { talento, comision, falta90, falta100, falta110, falta120 } = calcularComision(meta, vendido);
+  const { talento, comision, falta90, falta100, falta110, falta120, porRescate } = calcularComisionConRescate(meta, vendido, score);
   return (
     <div className="mt-3 rounded-md border border-gray-200 overflow-hidden">
       <div className="px-3 pt-2.5 pb-1.5 border-b border-gray-200 bg-gray-50">
@@ -286,6 +272,11 @@ function TablaComisionesAsesor({ meta, vendido }: { meta: number; vendido: numbe
           })}
         </tbody>
       </table>
+      {porRescate && (
+        <div className="px-3 py-2 border-t border-gray-200 bg-gold-light">
+          <p className="text-[12px] text-gold-text">🛟 Verde alcanzado por rescate (puntaje ≥ 100). Bono corral y Día libre se ganan con venta real.</p>
+        </div>
+      )}
       {comision !== null && (
         <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
           <p className="text-[12px] text-gray-400">
@@ -335,7 +326,7 @@ function TablaComisionesAsesor({ meta, vendido }: { meta: number; vendido: numbe
 function IndicatorBar({ label, value, meta, pct, barColor }: {
   label: string; value: string; meta: string | null; pct: number | null; barColor?: string;
 }) {
-  const textColor = pct === null ? 'text-gray-500' : pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-600';
+  const textColor = pct === null ? 'text-gray-500' : pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-orange-600';
   const fill = barColor ?? indicatorBarFill(pct ?? 0);
   return (
     <div className="space-y-1">
@@ -386,7 +377,19 @@ export default function Home() {
   const [showTutorial, setShowTutorial] = useState<boolean | null>(null);
   const [pinDinamicaRef, setPinDinamicaRef] = useState<Dinamica | null>(null);
   const [dinamicaProgressData, setDinamicaProgressData] = useState<{ asesor: Asesor; dinamica: Dinamica } | null>(null);
-  const [celebracion, setCelebracion] = useState<{ id: number; asesorId: string; label: string } | null>(null);
+  const [celebracion, setCelebracion] = useState<{ id: number; asesorId: string; label: string; nombre?: string } | null>(null);
+  const [docsVentas, setDocsVentas] = useState<DocVentas[]>([]);
+  const [aplausos, setAplausos] = useState<Aplauso[]>([]);
+  const metaTotalRef = useRef(0);
+  const prevPctEquipoRef = useRef<number | null>(null);
+  const prevAplausosRef = useRef<Set<string> | null>(null);
+  const ahora = useAhora(30000);
+  const cfgRanking = useConfigRanking(user?.uid);
+  // El onSnapshot de ventas calcula posiciones por puntaje: necesita meta/config/asesores actuales sin re-suscribirse.
+  const scoreCtxRef = useRef<{ ids: string[]; meta: Meta | null; cfg: ConfigRanking }>({ ids: [], meta: null, cfg: cfgRanking });
+  useEffect(() => {
+    scoreCtxRef.current = { ids: asesores.map((a) => a.id), meta, cfg: cfgRanking };
+  }, [asesores, meta, cfgRanking]);
   // Conteos del snapshot anterior: el primer snapshot solo fija la línea base (no dispara la celebración al cargar).
   const prevVentasRef = useRef<Record<string, { registros: number; acumulados: number }> | null>(null);
   const prevPosicionesRef = useRef<Record<string, number> | null>(null);
@@ -415,7 +418,10 @@ export default function Home() {
   useEffect(() => {
     if (!user) return;
     getDoc(doc(db, 'tiendas', user.uid, 'metas', mes)).then((snap) => {
-      if (snap.exists()) setMeta(snap.data() as Meta);
+      if (snap.exists()) {
+        setMeta(snap.data() as Meta);
+        metaTotalRef.current = (snap.data() as Meta).montoTotal ?? 0;
+      }
       setDataLoading(false);
     });
   }, [user, mes]);
@@ -426,20 +432,31 @@ export default function Home() {
       collection(db, 'tiendas', user.uid, 'ventasMes'),
       (snap) => {
         const map: Record<string, VentaMes> = {};
+        const todos: DocVentas[] = [];
         snap.docs.forEach((d) => {
           const data = d.data() as VentaMes & { mes: string };
+          todos.push(data);
           if (data.mes === mes) map[data.asesorId] = data;
         });
         setVentasMap(map);
+        setDocsVentas(todos);
+
+        const metaTotal = metaTotalRef.current;
+        const pctEquipoAhora = metaTotal > 0
+          ? (Object.values(map).reduce((acc, v) => acc + totalReal(v), 0) / metaTotal) * 100
+          : null;
+        const pctEquipoAntes = prevPctEquipoRef.current;
+        if (pctEquipoAhora !== null) prevPctEquipoRef.current = pctEquipoAhora;
 
         const conteos: Record<string, { registros: number; acumulados: number }> = {};
         for (const [id, v] of Object.entries(map)) {
           conteos[id] = { registros: v.registros?.length ?? 0, acumulados: v.acumulados?.length ?? 0 };
         }
         const posiciones: Record<string, number> = {};
-        Object.keys(map)
-          .sort((a, b) => totalReal(map[b]) - totalReal(map[a]))
-          .forEach((id, i) => { posiciones[id] = i; });
+        const ctx = scoreCtxRef.current;
+        const idsPos = Array.from(new Set([...ctx.ids, ...Object.keys(map)]));
+        const scoresPos = calcularScores(idsPos, map, ctx.meta, ctx.cfg);
+        ordenarPorScore(idsPos, scoresPos).forEach((id, i) => { posiciones[id] = i; });
 
         const prev = prevVentasRef.current;
         const prevPos = prevPosicionesRef.current;
@@ -452,6 +469,15 @@ export default function Home() {
           if (subio) setCelebracion({ id: Date.now(), asesorId: id, label: `¡Subió al ${ordinal(posiciones[id] + 1)} lugar!` });
           else if (c.registros > p.registros) setCelebracion({ id: Date.now(), asesorId: id, label: 'Nueva venta' });
           else if (c.acumulados > p.acumulados) setCelebracion({ id: Date.now(), asesorId: id, label: 'Acumulado del mes' });
+        }
+        if (pctEquipoAntes !== null && pctEquipoAhora !== null) {
+          const hito = hitoEquipoCruzado(pctEquipoAntes, pctEquipoAhora);
+          if (hito !== null) {
+            setCelebracion({
+              id: Date.now(), asesorId: '', nombre: 'Todo el equipo',
+              label: hito >= 100 ? '¡Meta del equipo cumplida! 🎉' : `¡El equipo llegó al ${hito}% de la meta!`,
+            });
+          }
         }
       },
       (err) => console.error('ventasMes:', err)
@@ -482,6 +508,23 @@ export default function Home() {
       }
       prevDinamicasRef.current = actual;
     });
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const desde = restarDias(new Date().toLocaleDateString('fr-CA'), 6);
+    const q = query(collection(db, 'tiendas', user.uid, 'aplausos'), where('fecha', '>=', desde));
+    return onSnapshot(q, (snap) => {
+      const lista = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() } as Aplauso))
+        .sort((a, b) => (b.creadoEn?.seconds ?? Number.MAX_SAFE_INTEGER) - (a.creadoEn?.seconds ?? Number.MAX_SAFE_INTEGER));
+      setAplausos(lista);
+      const prev = prevAplausosRef.current;
+      prevAplausosRef.current = new Set(lista.map((a) => a.id));
+      if (!prev) return;
+      const nuevo = lista.find((a) => !prev.has(a.id));
+      if (nuevo) setCelebracion({ id: Date.now(), asesorId: nuevo.asesorId, label: '👏 Reconocimiento de la líder' });
+    }, (err) => console.error('aplausos:', err));
   }, [user]);
 
   if (authLoading || !user) return null;
@@ -540,7 +583,9 @@ export default function Home() {
     : [];
 
   // Ranking mensual: TODOS los asesores, ordenados por total real (incluye acumuladoMes)
-  const ranking = [...asesores].sort((a, b) => totalReal(ventasMap[b.id]) - totalReal(ventasMap[a.id]));
+  // Ranking mensual: puntaje ponderado (Venta 80 · UPT 10 · AVT 10, ver reglas.ts); desempate por dinero real.
+  const scores = calcularScores(asesorIds, ventasMap, meta, cfgRanking);
+  const ranking = ordenarPorScore(asesorIds, scores).map((id) => asesores.find((a) => a.id === id)!);
 
   const mesNombre = new Date().toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
 
@@ -553,11 +598,68 @@ export default function Home() {
   const faltaEquipo = meta ? Math.max(0, meta.montoTotal - totalEquipo) : 0;
   const fraseDelDia = FRASES[(todayDate.getDate() - 1) % FRASES.length];
 
+  // ── Capa de motivación (solo lectura: no altera orden ni beneficios) ──
+  const insigniasMap = calcularInsignias(docsVentas.filter((d) => d.mes === mes), hoy);
+  const progresoSemana = mayorProgresoSemana(docsVentas, hoy);
+  const logrosMap: Record<string, { racha: Racha; mejorMes: ReturnType<typeof mejorMesAnterior>; sobreRecord: number | null }> = {};
+  for (const a of asesores) {
+    const noTrabaja = (f: string) => {
+      if (f.slice(0, 7) !== mes) return false;
+      const ids = meta?.metasPorDia?.[String(diaSemana(f))]?.asesoresIds;
+      return !!ids?.length && !ids.includes(a.id);
+    };
+    const mejorMes = mejorMesAnterior(docsVentas, a.id, mes);
+    const total = totalReal(ventasMap[a.id]);
+    logrosMap[a.id] = {
+      racha: calcularRacha(a.id, docsVentas, hoy, noTrabaja),
+      mejorMes,
+      sobreRecord: mejorMes && total > mejorMes.total ? (total / mejorMes.total - 1) * 100 : null,
+    };
+  }
+  const chipsDe = (id: string, className = '') => (
+    <ChipsMotivacion
+      className={className}
+      max={3}
+      racha={logrosMap[id]?.racha ?? { dias: 0, hoyRegistrado: false }}
+      sobreRecord={logrosMap[id]?.sobreRecord ?? null}
+      insignias={insigniasMap[id] ?? []}
+      mayorProgreso={progresoSemana?.asesorId === id ? progresoSemana.pct : null}
+    />
+  );
+
+  function contextoMotivacion(asesorId: string): ContextoMotivacion {
+    const vm = ventasMap[asesorId];
+    const metaTxnRepartida = txnPorAsesor[asesorId];
+    const derivedAVT = meta?.metaTransacciones && meta.metaTransacciones > 0 ? meta.montoTotal / meta.metaTransacciones : null;
+    const derivedUPT = meta?.metaTransacciones && meta.metaTransacciones > 0 && meta?.metaUnidades ? meta.metaUnidades / meta.metaTransacciones : null;
+    return {
+      racha: logrosMap[asesorId]?.racha ?? { dias: 0, hoyRegistrado: false },
+      mejorMes: logrosMap[asesorId]?.mejorMes ?? null,
+      cfg: cfgRanking,
+      metaMensual: metasMap[asesorId]?.metaMensual ?? 0,
+      diasRestantes,
+      avanceMes: todayDate.getDate() / daysInMonth,
+      totales: {
+        unidades: (vm?.totalUnidades ?? 0) + (vm?.acumuladoMes?.unidades ?? 0),
+        transacciones: (vm?.totalTransacciones ?? 0) + (vm?.acumuladoMes?.transacciones ?? 0),
+      },
+      metas: {
+        avt: meta?.metaAVT ?? derivedAVT,
+        upt: meta?.metaUPT ?? derivedUPT,
+        txn: metaTxnRepartida !== undefined && metaTxnRepartida > 0
+          ? metaTxnRepartida
+          : meta?.metaTransacciones && asesorIds.length > 0 ? meta.metaTransacciones / asesorIds.length : null,
+      },
+    };
+  }
+
+  const aplausosVisibles = aplausos.filter((ap) => asesores.some((a) => a.id === ap.asesorId)).slice(0, 3);
+
   return (
     <StoreProvider storeId={user.uid}>
-    <main className="theme-dark min-h-screen bg-dot-grid relative isolate">
+    <main className="theme-light min-h-screen bg-dot-grid relative isolate">
       <header className="sticky top-0 z-30 bg-surface/95 backdrop-blur-sm border-b border-gray-200 px-6 py-4 flex items-center justify-between relative">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#003B6D] via-[#003B6D] to-[#C79F4B]" />
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-md bg-black flex items-center justify-center">
             <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -577,7 +679,7 @@ export default function Home() {
           <InstallPWA />
           <NotificacionesPanel />
           <button onClick={() => setShowLeaderModal(true)}
-            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text border border-emerald-400/40 px-3 h-8 rounded-md hover:bg-emerald-500/10 hover:border-emerald-400/70 transition-colors">
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text border border-accent/50 px-3 h-8 rounded-md hover:bg-gold-light hover:border-accent transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -590,26 +692,26 @@ export default function Home() {
 
       <div className="max-w-4xl mx-auto px-6 py-10">
         <section aria-label="Motivación del equipo" className="relative mb-8 rounded-2xl border border-gray-200 bg-surface px-6 py-6 sm:px-7 overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-emerald-500/10 blur-2xl pointer-events-none" aria-hidden="true" />
+          <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-gold/15 blur-2xl pointer-events-none" aria-hidden="true" />
           <svg className="absolute right-5 top-5 w-24 sm:w-32 h-auto pointer-events-none" viewBox="0 0 120 64" aria-hidden="true">
-            <g fill="#34d399" opacity="0.14">
+            <g fill="#003B6D" opacity="0.08">
               <rect x="4" y="44" width="16" height="20" rx="3" />
               <rect x="28" y="34" width="16" height="30" rx="3" />
               <rect x="52" y="24" width="16" height="40" rx="3" />
               <rect x="76" y="12" width="16" height="52" rx="3" />
             </g>
-            <g fill="none" stroke="#fbbf24" strokeOpacity="0.55" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <g fill="none" stroke="#C79F4B" strokeOpacity="0.8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M8 40 36 28l24-8 30-14" />
               <path d="M82 4h10v10" />
             </g>
           </svg>
           <div className="relative flex items-center gap-4">
-            <span className="hidden sm:flex flex-shrink-0 w-12 h-12 rounded-xl bg-[#14261e] ring-1 ring-emerald-400/30 items-center justify-center text-2xl shadow-[0_4px_14px_rgba(0,0,0,0.4)]" aria-hidden="true">
+            <span className="hidden sm:flex flex-shrink-0 w-12 h-12 rounded-xl bg-gold-light ring-1 ring-gold/50 items-center justify-center text-2xl shadow-[0_4px_14px_rgba(0,59,109,0.10)]" aria-hidden="true">
               🏆
             </span>
             <div className="min-w-0 pr-24 sm:pr-32">
-              <p className="inline-flex items-center gap-2 text-[12px] font-medium text-emerald-700 mb-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+              <p className="inline-flex items-center gap-2 text-[12px] font-medium text-gold-text mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-gold" aria-hidden="true" />
                 Vamos por la meta
               </p>
               <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-heading [text-wrap:balance]">
@@ -638,6 +740,31 @@ export default function Home() {
             </div>
           )}
         </section>
+
+        {aplausosVisibles.length > 0 && (
+          <section aria-label="Reconocimientos de la líder" className="mb-8 rounded-2xl border border-gold/50 bg-surface px-5 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <p className="text-[12px] font-semibold text-gold-text mb-3"><span aria-hidden="true">👏</span> Reconocimientos de la líder</p>
+            <ul className="space-y-2.5">
+              {aplausosVisibles.map((ap) => {
+                const a = asesores.find((x) => x.id === ap.asesorId)!;
+                const cuando = ap.fecha === hoy ? 'Hoy' : ap.fecha === restarDias(hoy, 1) ? 'Ayer' : ap.fecha;
+                return (
+                  <li key={ap.id} className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                      {a.fotoBase64
+                        ? <Image src={a.fotoBase64} alt="" width={32} height={32} className="w-full h-full object-cover" />
+                        : <span className="text-[11px] font-semibold text-gray-400">{a.nombre[0]}{a.apellido?.[0]}</span>}
+                    </div>
+                    <p className="min-w-0 text-[13px] leading-snug text-gray-600 [text-wrap:pretty]">
+                      <b className="text-heading">{a.nombre}</b> · {ap.mensaje}
+                      <span className="block text-[11px] text-gray-400 mt-0.5">{cuando}</span>
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         <div className="mb-8">
           <h2 className="text-xl font-bold text-heading tracking-tight capitalize">{mesNombre}</h2>
@@ -694,10 +821,10 @@ export default function Home() {
                     const badgeColor = pctCombined >= 100 ? 'text-emerald-700 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200/60' :
                                        pctCombined >= 75  ? 'text-indigo-700 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200/60'  :
                                        pctCombined >= 50  ? 'text-amber-700 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200/60' :
-                                                            'text-orange-700 bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200/60';
+                                                            'text-orange-700 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/60';
                     const barFill    = pctCombined >= 100 ? 'bg-gradient-to-r from-emerald-400 to-green-500' :
                                        pctCombined >= 75  ? 'bg-gradient-to-r from-blue-400 to-indigo-500'  :
-                                       pctCombined >= 50  ? 'bg-gradient-to-r from-amber-400 to-yellow-400' : 'bg-gradient-to-r from-orange-400 to-red-400';
+                                       pctCombined >= 50  ? 'bg-gradient-to-r from-amber-400 to-yellow-400' : 'bg-gradient-to-r from-orange-500 to-orange-400';
 
                     return (
                       <button
@@ -714,7 +841,7 @@ export default function Home() {
                               ? <span className="text-2xl">{MEDALS[index]}</span>
                               : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
                           </div>
-                          <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-amber-400' : ''}`}>
+                          <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-gold' : ''}`}>
                             {asesor.fotoBase64
                               ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
                               : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
@@ -727,6 +854,8 @@ export default function Home() {
                             {pctCombined.toFixed(0)}%
                           </span>
                         </div>
+
+                        {chipsDe(asesor.id, '-mt-1 mb-3')}
 
                         {/* Barra combinada */}
                         {available.length > 0 && (
@@ -799,11 +928,19 @@ export default function Home() {
                               {dinAsesor.map((din) => {
                                 const val = din.progreso?.[asesor.id] ?? 0;
                                 const pct = din.meta > 0 ? Math.min(100, (val / din.meta) * 100) : 0;
-                                const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-600';
+                                const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-orange-600';
                                 return (
                                   <div key={din.id} className="space-y-1">
                                     <div className="flex items-center justify-between gap-2">
                                       <span className="text-xs text-gray-500 truncate flex-1">{din.nombre}</span>
+                                      {din.horaLimite && (() => {
+                                        const min = minutosRestantes(din.fecha, din.horaLimite, ahora);
+                                        return (
+                                          <span className={`text-[10px] font-semibold flex-shrink-0 tabular-nums ${min > 0 ? 'text-amber-600' : 'text-gray-400'}`}>
+                                            <span aria-hidden="true">⚡</span> {formatoRestante(min)}
+                                          </span>
+                                        );
+                                      })()}
                                       <span className="text-xs text-gray-400 flex-shrink-0">{val}/{din.meta}</span>
                                       <span className={`text-xs font-semibold w-9 text-right flex-shrink-0 ${textC}`}>{pct.toFixed(0)}%</span>
                                     </div>
@@ -872,7 +1009,10 @@ export default function Home() {
 
                   const showIndicators = metaMensual > 0 || avt !== null || upt !== null || pctTxn !== null || pctUds !== null;
                   const isTop3 = index < 3;
-                  const { text: mot, color: motColor } = motivacion(progreso);
+                  const sc = scores[asesor.id];
+                  // El rescate (puntaje ≥ 100) solo desbloquea el escalón del 100%: badge y Pin. 110/120 siguen con venta real.
+                  const progresoBeneficio = sc?.meta100PorRescate ? Math.max(progreso, 100) : progreso;
+                  const { text: mot, color: motColor } = motivacion(progresoBeneficio);
 
                   const ventaHoy   = ventaHoyMap[asesor.id] ?? { monto: 0, unidades: 0, transacciones: 0 };
                   const uptHoy     = ventaHoy.transacciones > 0 ? ventaHoy.unidades / ventaHoy.transacciones : null;
@@ -894,7 +1034,7 @@ export default function Home() {
                             ? <span className="text-2xl">{MEDALS[index]}</span>
                             : <span className="text-sm font-semibold text-gray-400">#{index + 1}</span>}
                         </div>
-                        <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-amber-400' : ''}`}>
+                        <div className={`w-11 h-11 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden flex items-center justify-center ${index === 0 ? 'ring-2 ring-offset-2 ring-gold' : ''}`}>
                           {asesor.fotoBase64
                             ? <Image src={asesor.fotoBase64} alt={asesor.nombre} width={44} height={44} className="w-full h-full object-cover" />
                             : <span className="text-base font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido[0]}</span>}
@@ -908,16 +1048,23 @@ export default function Home() {
                         </span>
                       </div>
 
+                      {chipsDe(asesor.id, '-mt-1 mb-3')}
+
                       <AvisoMotivador
                         index={index}
                         vendido={totalVentas}
                         avt={avt}
                         metaMensual={metaMensual}
+                        score={sc?.score ?? null}
+                        pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta}
+                        rescate100={sc?.meta100PorRescate ?? false}
                         arriba={index > 0 ? (() => {
                           const a = ranking[index - 1];
-                          return { nombre: a.nombre, total: totalReal(ventasMap[a.id]) };
+                          return { nombre: a.nombre, total: totalReal(ventasMap[a.id]), score: scores[a.id]?.score ?? null };
                         })() : null}
                       />
+
+                      <PuntajeRanking s={sc} cfg={cfgRanking} />
 
                       <div className="flex items-center gap-2 mb-2">
                         <p className="text-xs font-medium text-gray-400 uppercase tracking-wide">Meta mensual</p>
@@ -965,12 +1112,12 @@ export default function Home() {
                             </span>
                           ))}
                         </div>
-                        {progreso >= 100 && (
+                        {progresoBeneficio >= 100 && (
                           <div className="mt-2">
                             <p className="text-xs text-gray-400 mb-1.5">Beneficios alcanzados</p>
                             <div className="flex flex-wrap gap-1.5">
                               <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">
-                                📌 Pin
+                                📌 Pin{sc?.meta100PorRescate ? ' · por rescate' : ''}
                               </span>
                               {progreso >= 110 && (
                                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-indigo-700 font-medium border border-indigo-200">
@@ -1029,7 +1176,7 @@ export default function Home() {
                         </div>
                         <div className={`border rounded-md px-3 py-2 ${progreso >= 100 ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-200'}`}>
                           <p className="text-[11px] text-gray-400">{progreso >= 100 ? 'Excedente' : 'Falta para meta'}</p>
-                          <p className={`text-sm font-semibold ${progreso >= 100 ? 'text-emerald-600' : 'text-red-500'}`}>
+                          <p className={`text-sm font-semibold ${progreso >= 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
                             {formatCurrency(progreso >= 100 ? totalVentas - metaMensual : faltaMes)}
                           </p>
                         </div>
@@ -1106,7 +1253,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} />
+                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} />
 
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (
@@ -1178,7 +1325,8 @@ export default function Home() {
         <HistorialVentasDiaModal
           asesor={ventasAsesor}
           dinamicas={dinamicas.filter((d) => d.asesoresIds.includes(ventasAsesor.id))}
-          rankingMes={asesores.map((a) => ({ id: a.id, nombre: a.nombre, total: totalReal(ventasMap[a.id]) }))}
+          rankingMes={asesores.map((a) => ({ id: a.id, nombre: a.nombre, total: totalReal(ventasMap[a.id]), score: scores[a.id]?.score ?? null }))}
+          contexto={contextoMotivacion(ventasAsesor.id)}
           onClose={() => setVentasAsesor(null)}
         />
       )}
@@ -1201,7 +1349,7 @@ export default function Home() {
       {celebracion && (
         <CelebracionVenta
           key={celebracion.id}
-          nombre={(() => { const a = asesores.find((x) => x.id === celebracion.asesorId); return a ? `${a.nombre} ${a.apellido ?? ''}`.trim() : ''; })()}
+          nombre={celebracion.nombre ?? (() => { const a = asesores.find((x) => x.id === celebracion.asesorId); return a ? `${a.nombre} ${a.apellido ?? ''}`.trim() : ''; })()}
           label={celebracion.label}
           onDone={() => setCelebracion(null)}
         />

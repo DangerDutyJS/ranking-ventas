@@ -23,6 +23,7 @@ interface Dinamica {
   activa: boolean;
   asesoresIds: string[];
   progreso: Record<string, number>;
+  horaLimite?: string;
 }
 
 function fechaHoy() {
@@ -37,6 +38,7 @@ export default function DinamicasTab() {
   const [nombre, setNombre] = useState('');
   const [meta, setMeta] = useState('');
   const [fecha, setFecha] = useState(fechaHoy());
+  const [horaLimite, setHoraLimite] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -59,7 +61,7 @@ export default function DinamicasTab() {
   }
 
   function resetForm() {
-    setNombre(''); setMeta(''); setFecha(fechaHoy()); setSelectedIds([]); setShowForm(false);
+    setNombre(''); setMeta(''); setFecha(fechaHoy()); setHoraLimite(''); setSelectedIds([]); setShowForm(false);
   }
 
   async function handleCreate() {
@@ -73,6 +75,7 @@ export default function DinamicasTab() {
         activa: true,
         asesoresIds: selectedIds,
         progreso: {},
+        ...(horaLimite ? { horaLimite } : {}),
         creadoEn: serverTimestamp(),
       });
       resetForm();
@@ -102,7 +105,7 @@ export default function DinamicasTab() {
         <div className="flex justify-end mb-6">
           <button
             onClick={() => setShowForm(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-white text-sm font-medium rounded-xl hover:bg-accent-hover transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-accent text-on-accent text-sm font-medium rounded-xl hover:bg-accent-hover transition-colors"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -123,7 +126,7 @@ export default function DinamicasTab() {
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
                 placeholder="Ej: Camisetas Colombia"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
                 autoComplete="off"
               />
             </div>
@@ -137,7 +140,7 @@ export default function DinamicasTab() {
                   value={meta}
                   onChange={(e) => setMeta(e.target.value)}
                   placeholder="5"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
               <div>
@@ -146,9 +149,23 @@ export default function DinamicasTab() {
                   type="date"
                   value={fecha}
                   onChange={(e) => setFecha(e.target.value)}
-                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900/20"
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
                 />
               </div>
+            </div>
+
+            <div>
+              <label htmlFor="din-hora" className="block text-sm text-gray-500 mb-1.5">
+                Hora límite <span className="text-gray-400">(opcional · reto relámpago ⚡)</span>
+              </label>
+              <input
+                id="din-hora"
+                type="time"
+                value={horaLimite}
+                onChange={(e) => setHoraLimite(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/20"
+              />
+              <p className="text-xs text-gray-400 mt-1.5">Si la pones, el dashboard muestra una cuenta regresiva y no se puede registrar después de esa hora.</p>
             </div>
 
             <div>
@@ -169,7 +186,7 @@ export default function DinamicasTab() {
                       type="checkbox"
                       checked={selectedIds.includes(a.id)}
                       onChange={() => toggleAsesor(a.id)}
-                      className="w-4 h-4 rounded border-gray-300 accent-gray-900"
+                      className="w-4 h-4 rounded border-gray-300 accent-[#003B6D]"
                     />
                     <span className="text-sm text-gray-700 flex-1">{a.nombre} {a.apellido}</span>
                     <span className="text-xs text-gray-400">{a.cargo}</span>
@@ -191,7 +208,7 @@ export default function DinamicasTab() {
               <button
                 onClick={handleCreate}
                 disabled={saving || !nombre.trim() || !meta || selectedIds.length === 0}
-                className="flex-1 px-4 py-3 bg-accent text-white rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-accent-hover transition-colors"
+                className="flex-1 px-4 py-3 bg-accent text-on-accent rounded-xl text-sm font-semibold disabled:opacity-50 hover:bg-accent-hover transition-colors"
               >
                 {saving ? 'Guardando...' : 'Crear dinámica'}
               </button>
@@ -257,8 +274,8 @@ function DinamicaCard({ dinamica, asesores, onToggle, onDelete }: {
     ? 'bg-gradient-to-r from-emerald-400 to-green-500'
     : pctGlobal >= 80
     ? 'bg-gradient-to-r from-amber-400 to-yellow-400'
-    : 'bg-gradient-to-r from-rose-400 to-red-400';
-  const pctText = pctGlobal >= 100 ? 'text-emerald-600' : pctGlobal >= 80 ? 'text-amber-600' : 'text-rose-600';
+    : 'bg-gradient-to-r from-orange-400 to-orange-500';
+  const pctText = pctGlobal >= 100 ? 'text-emerald-600' : pctGlobal >= 80 ? 'text-amber-600' : 'text-orange-600';
 
   return (
     <div className={`border rounded-2xl overflow-hidden transition-opacity ${
@@ -277,6 +294,7 @@ function DinamicaCard({ dinamica, asesores, onToggle, onDelete }: {
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
               Meta {dinamica.meta} c/u · {participantes.length} asesor{participantes.length !== 1 ? 'es' : ''} · {dinamica.fecha}
+              {dinamica.horaLimite && <span className="text-amber-600 font-medium"> · ⚡ hasta {dinamica.horaLimite}</span>}
             </p>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
@@ -340,8 +358,8 @@ function DinamicaCard({ dinamica, asesores, onToggle, onDelete }: {
           {participantes.map((a) => {
             const val = dinamica.progreso?.[a.id] ?? 0;
             const pct = dinamica.meta > 0 ? (val / dinamica.meta) * 100 : 0;
-            const fill  = pct >= 100 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-rose-400';
-            const color = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-600';
+            const fill  = pct >= 100 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-orange-400';
+            const color = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-orange-600';
             return (
               <div key={a.id} className="px-4 py-3">
                 <div className="flex items-center justify-between mb-1.5 gap-2">

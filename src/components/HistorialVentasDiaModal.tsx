@@ -6,6 +6,12 @@ import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 import { crearNotificacion } from '@/lib/notificaciones';
 import Image from 'next/image';
+import PlacaReconocimiento, { type DatosPlaca } from '@/components/PlacaReconocimiento';
+import {
+  mensajeRacha, mensajeRendimiento, ritmoSiguienteNivel, indicadorMasBajo, tipVentas, nombreMes,
+  minutosRestantes, NOMBRE_INDICADOR, type Racha, type IndicadorTip,
+} from '@/lib/motivacion';
+import { calcularScoreRanking, compararRanking, type ConfigRanking } from '@/lib/reglas';
 
 interface Asesor {
   id: string;
@@ -27,19 +33,148 @@ interface Dinamica {
   id: string;
   nombre: string;
   meta: number;
+  fecha?: string;
+  horaLimite?: string;
   progreso: Record<string, number>;
+}
+
+export interface ContextoMotivacion {
+  racha: Racha;
+  mejorMes: { total: number; mes: string } | null;
+  metaMensual: number;
+  diasRestantes: number;
+  avanceMes: number;
+  totales: { unidades: number; transacciones: number };
+  metas: { avt: number | null; upt: number | null; txn: number | null };
+  cfg: ConfigRanking;
+}
+
+interface Motivacion {
+  racha: { dias: number; diaNuevo: boolean };
+  pct: number | null;
+  recordNuevo: boolean;
+  nivelNuevo: 100 | 110 | 120 | null;
+  score: number | null;
+  rescate100Nuevo: boolean;
+  rendimiento: string | null;
+  record: string | null;
+  ritmo: { label: string; porDia: number; dias: number } | null;
+  tip: { indicador: IndicadorTip; texto: string } | null;
+}
+
+// Se calcula al instante con la venta recién sumada, igual que la posición: no espera al snapshot.
+function calcularMotivacion(ctx: ContextoMotivacion, totalAntes: number, venta: { monto: number; unidades: number; transacciones: number }, yaRegistroHoy: boolean): Motivacion {
+  const semilla = Date.now();
+  const diaNuevo = !ctx.racha.hoyRegistrado && !yaRegistroHoy;
+  const dias = diaNuevo ? ctx.racha.dias + 1 : Math.max(1, ctx.racha.dias);
+  const total = totalAntes + venta.monto;
+  const pct = ctx.metaMensual > 0 ? (total / ctx.metaMensual) * 100 : null;
+
+  let record: string | null = null;
+  if (ctx.mejorMes && total > ctx.mejorMes.total) {
+    record = totalAntes <= ctx.mejorMes.total
+      ? `¡Superaste tu mejor mes (${nombreMes(ctx.mejorMes.mes)})! Nuevo récord personal.`
+      : `Vas por encima de tu mejor mes (${nombreMes(ctx.mejorMes.mes)}). Cada venta agranda tu récord.`;
+  }
+
+  const uds = ctx.totales.unidades + venta.unidades;
+  const txn = ctx.totales.transacciones + venta.transacciones;
+  const upt = txn > 0 ? uds / txn : null;
+  const avt = txn > 0 ? total / txn : null;
+  // Transacciones se compara contra lo esperado a esta altura del mes, no contra la meta completa.
+  const txnEsperadas = ctx.metas.txn !== null ? ctx.metas.txn * Math.max(0.05, ctx.avanceMes) : null;
+  const indicador = indicadorMasBajo({
+    upt: upt !== null && ctx.metas.upt ? (upt / ctx.metas.upt) * 100 : null,
+    avt: avt !== null && ctx.metas.avt ? (avt / ctx.metas.avt) * 100 : null,
+    txn: txnEsperadas ? (txn / txnEsperadas) * 100 : null,
+  });
+
+  // Puntaje ponderado antes y después de la venta (mismas reglas que el orden del ranking mensual).
+  const datosScore = (venta: number, u: number, t: number) => calcularScoreRanking({
+    ventaReal: venta, metaVenta: ctx.metaMensual, unidades: u, transacciones: t, metaUPT: ctx.metas.upt, metaAVT: ctx.metas.avt,
+  }, ctx.cfg);
+  const scoreAntes = datosScore(totalAntes, ctx.totales.unidades, ctx.totales.transacciones);
+  const scoreDespues = datosScore(total, uds, txn);
+
+  const ritmo = ritmoSiguienteNivel(total, ctx.metaMensual, ctx.diasRestantes, scoreDespues.meta100PorRescate);
+  const pctAntes = ctx.metaMensual > 0 ? (totalAntes / ctx.metaMensual) * 100 : null;
+  // Solo LEE los topes de premios (100/110/120) para saber si esta venta cruzó uno; no los altera.
+  const nivelNuevo = pct !== null && pctAntes !== null
+    ? ([120, 110, 100] as const).find((n) => pctAntes < n && pct >= n) ?? null
+    : null;
+  return {
+    racha: { dias, diaNuevo },
+    pct,
+    recordNuevo: !!ctx.mejorMes && totalAntes <= ctx.mejorMes.total && total > ctx.mejorMes.total,
+    nivelNuevo,
+    score: scoreDespues.score,
+    rescate100Nuevo: scoreDespues.meta100PorRescate && !scoreAntes.meta100,
+    rendimiento: pct !== null ? mensajeRendimiento(pct, semilla) : null,
+    record,
+    ritmo: ritmo ? { label: ritmo.label, porDia: ritmo.porDia, dias: ritmo.dias } : null,
+    tip: indicador ? { indicador, texto: tipVentas(indicador, semilla) } : null,
+  };
+}
+
+const HITOS_RACHA_PLACA = [3, 5, 7, 10, 15, 20, 25, 30];
+const TITULOS_GENERALES = ['¡Vas muy bien!', '¡Excelente venta!', '¡Sigue así, vas con todo!'];
+
+// Elige el logro más importante de esta venta para el título de la placa (siempre en positivo).
+function armarPlaca(monto: number, r: Resultado | null, m: Motivacion | null): DatosPlaca {
+  const semilla = Date.now();
+  let titulo = TITULOS_GENERALES[semilla % TITULOS_GENERALES.length];
+  if (m?.recordNuevo) titulo = '¡Nuevo récord personal!';
+  else if (m?.nivelNuevo === 120) titulo = '¡Día libre desbloqueado! 🏖️';
+  else if (m?.nivelNuevo === 110) titulo = '¡Bono corral desbloqueado! 🎁';
+  else if (m?.nivelNuevo === 100) titulo = '¡Meta cumplida! 📌';
+  else if (m?.rescate100Nuevo) titulo = '¡Tu UPT y AVT te llevaron al 100%! 🛟';
+  else if (r?.subio && r.posicion === 1) titulo = '¡Llegaste al 1º lugar!';
+  else if (r?.subio) titulo = `¡Subiste al ${r.posicion}º lugar!`;
+  else if (m?.racha.diaNuevo && HITOS_RACHA_PLACA.includes(m.racha.dias)) titulo = `¡Racha de ${m.racha.dias} días!`;
+  else if (m?.racha.diaNuevo) titulo = '¡Arrancaste el día!';
+  return {
+    id: semilla,
+    monto,
+    titulo,
+    frase: m?.rendimiento ?? 'Cada venta construye tu mes. ¡La próxima puede ser la grande!',
+    racha: m?.racha.dias ?? 0,
+    pct: m?.pct ?? null,
+    posicion: r?.posicion ?? null,
+  };
+}
+
+function MotivacionPostVenta({ m }: { m: Motivacion }) {
+  return (
+    <ul className="mt-2.5 pt-2.5 border-t border-emerald-200 space-y-1.5 text-[12px] leading-snug text-emerald-950/80">
+      <li className="flex gap-2"><span aria-hidden="true">🔥</span><span>{mensajeRacha(m.racha.dias, m.racha.diaNuevo)}</span></li>
+      {m.record
+        ? <li className="flex gap-2"><span aria-hidden="true">📈</span><span className="font-medium text-emerald-700">{m.record}</span></li>
+        : m.rendimiento && <li className="flex gap-2"><span aria-hidden="true">⭐</span><span>{m.rendimiento}</span></li>}
+      {m.ritmo && (
+        <li className="flex gap-2"><span aria-hidden="true">⏱️</span><span>Para la comisión {m.ritmo.label}: <b className="text-heading tabular-nums">{formatCurrency(m.ritmo.porDia)}</b> por día · {m.ritmo.dias} {m.ritmo.dias === 1 ? 'día' : 'días'}</span></li>
+      )}
+      {m.tip && (
+        <li className="flex gap-2 rounded-lg bg-primary-light border border-primary/15 px-2.5 py-2 -mx-0.5">
+          <span aria-hidden="true">💡</span>
+          <span><span className="font-medium text-primary">Consejo para subir tu {NOMBRE_INDICADOR[m.tip.indicador]}:</span> {m.tip.texto}</span>
+        </li>
+      )}
+    </ul>
+  );
 }
 
 interface PosicionMes {
   id: string;
   nombre: string;
   total: number;
+  score: number | null;
 }
 
 interface Props {
   asesor: Asesor;
   dinamicas?: Dinamica[];
   rankingMes?: PosicionMes[];
+  contexto?: ContextoMotivacion;
   onClose: () => void;
 }
 
@@ -47,43 +182,63 @@ interface Resultado {
   posicion: number;
   subio: boolean;
   total: number;
-  arriba: { nombre: string; gap: number } | null;
-  abajo: { nombre: string; ventaja: number } | null;
+  arriba: { nombre: string; gap: number; unidad: 'pts' | '$' } | null;
+  abajo: { nombre: string; ventaja: number; unidad: 'pts' | '$' } | null;
 }
 
-// Posición = cuántos tienen más que yo + 1 (los empates comparten el puesto).
-function calcularResultado(ranking: PosicionMes[], asesorId: string, monto: number): Resultado {
-  const otros = ranking.filter((r) => r.id !== asesorId);
-  const antes = ranking.find((r) => r.id === asesorId)?.total ?? 0;
-  const despues = antes + monto;
-  const posAntes = otros.filter((r) => r.total > antes).length + 1;
-  const posicion = otros.filter((r) => r.total > despues).length + 1;
-  const encima = otros.filter((r) => r.total > despues).sort((a, b) => a.total - b.total)[0];
-  const debajo = otros.filter((r) => r.total <= despues).sort((a, b) => b.total - a.total)[0];
+// Distancia entre dos asesores en la misma unidad que decide el orden: puntos del ranking; si empatan en
+// puntos (o no hay meta), en dinero, que es el desempate.
+function distancia(alto: { score: number | null; ventaReal: number }, bajo: { score: number | null; ventaReal: number }) {
+  if (alto.score !== null && bajo.score !== null && alto.score - bajo.score > 0.05) {
+    return { valor: alto.score - bajo.score, unidad: 'pts' as const };
+  }
+  return { valor: alto.ventaReal - bajo.ventaReal, unidad: '$' as const };
+}
+
+function formatDistancia(valor: number, unidad: 'pts' | '$') {
+  return unidad === 'pts' ? `${valor.toFixed(1)} pts` : formatCurrency(valor);
+}
+
+// Posición con el mismo orden del ranking mensual (puntaje, desempate por dinero): cuántos van delante + 1.
+function calcularResultado(ranking: PosicionMes[], asesorId: string, monto: number, scoreNuevo: number | null): Resultado {
+  const otros = ranking.filter((r) => r.id !== asesorId).map((r) => ({ ...r, ventaReal: r.total }));
+  const yo = ranking.find((r) => r.id === asesorId);
+  const antes = { score: yo?.score ?? null, ventaReal: yo?.total ?? 0 };
+  const despues = { score: scoreNuevo, ventaReal: antes.ventaReal + monto };
+  const delanteAntes = otros.filter((o) => compararRanking(o, antes) < 0);
+  const delante = otros.filter((o) => compararRanking(o, despues) < 0).sort(compararRanking);
+  const detras = otros.filter((o) => compararRanking(o, despues) >= 0).sort(compararRanking);
+  const encima = delante[delante.length - 1];
+  const debajo = detras[0];
+  const dArriba = encima ? distancia(encima, despues) : null;
+  const dAbajo = debajo ? distancia(despues, debajo) : null;
   return {
-    posicion,
-    subio: posicion < posAntes,
-    total: despues,
-    arriba: encima ? { nombre: encima.nombre, gap: encima.total - despues } : null,
-    abajo: debajo ? { nombre: debajo.nombre, ventaja: despues - debajo.total } : null,
+    posicion: delante.length + 1,
+    subio: delante.length < delanteAntes.length,
+    total: despues.ventaReal,
+    arriba: encima && dArriba ? { nombre: encima.nombre, gap: dArriba.valor, unidad: dArriba.unidad } : null,
+    abajo: debajo && dAbajo ? { nombre: debajo.nombre, ventaja: dAbajo.valor, unidad: dAbajo.unidad } : null,
   };
 }
 
-function AvisoPostVenta({ r }: { r: Resultado }) {
+function AvisoPostVenta({ r, m }: { r: Resultado; m: Motivacion | null }) {
   let mensaje: React.ReactNode;
   if (r.posicion === 1) {
     mensaje = r.abajo && r.abajo.ventaja > 0
-      ? <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Sigues en el 1º lugar!'} Le llevas <b className="tabular-nums">{formatCurrency(r.abajo.ventaja)}</b> a {r.abajo.nombre}</>
+      ? <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Sigues en el 1º lugar!'} Le llevas <b className="tabular-nums">{formatDistancia(r.abajo.ventaja, r.abajo.unidad)}</b> a {r.abajo.nombre}</>
       : <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Vas en el 1º lugar!'}</>;
   } else if (r.posicion <= 4 && r.arriba) {
-    mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar!` : `Vas en el ${r.posicion}º lugar.`} Ahora estás a <b className="tabular-nums">{formatCurrency(r.arriba.gap)}</b> de {r.arriba.nombre}</>;
+    mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar!` : `Vas en el ${r.posicion}º lugar.`} Ahora estás a <b className="tabular-nums">{formatDistancia(r.arriba.gap, r.arriba.unidad)}</b> de {r.arriba.nombre}</>;
   } else {
     mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar! ` : ''}Llevas <b className="tabular-nums">{formatCurrency(r.total)}</b> este mes</>;
   }
   return (
-    <div role="status" className="animate-slide-up flex items-start gap-2.5 rounded-xl border border-emerald-200/60 bg-emerald-50 px-3.5 py-3 text-[12.5px] leading-snug text-gray-700 [text-wrap:pretty]">
+    <div role="status" className="animate-slide-up flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[12.5px] leading-snug text-emerald-950 [text-wrap:pretty]">
       <span aria-hidden="true" className="text-base leading-none">{r.subio || r.posicion === 1 ? '🏆' : '✅'}</span>
-      <p className="min-w-0"><span className="font-semibold text-emerald-700">Venta guardada.</span> {mensaje}</p>
+      <div className="min-w-0">
+        <p><span className="font-semibold text-emerald-700">Venta guardada.</span> {mensaje}</p>
+        {m && <MotivacionPostVenta m={m} />}
+      </div>
     </div>
   );
 }
@@ -111,7 +266,7 @@ function entryKey(r: Registro) {
   return r.id ?? r.creadoEn;
 }
 
-export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes, onClose }: Props) {
+export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes, contexto, onClose }: Props) {
   const storeId = useStoreId();
   const mes = mesActual();
   const hoy = fechaHoy();
@@ -128,6 +283,13 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [motivacion, setMotivacion] = useState<Motivacion | null>(null);
+  const [placa, setPlaca] = useState<DatosPlaca | null>(null);
+  const [ahora, setAhora] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setAhora(new Date()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   const [editEntry, setEditEntry] = useState<Registro | null>(null);
   const [editMonto, setEditMonto] = useState('');
@@ -188,7 +350,13 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
           registros: [registro],
         });
       }
-      if (rankingMes?.length) setResultado(calcularResultado(rankingMes, asesor.id, m));
+      const mot = contexto
+        ? calcularMotivacion(contexto, rankingMes?.find((r) => r.id === asesor.id)?.total ?? 0, { monto: m, unidades: u, transacciones: t }, registros.length > 0)
+        : null;
+      const res = rankingMes?.length ? calcularResultado(rankingMes, asesor.id, m, mot?.score ?? null) : null;
+      setResultado(res);
+      setMotivacion(mot);
+      setPlaca(armarPlaca(m, res, mot));
       setMonto(''); setUnidades(''); setTxn('');
       setShowForm(false);
       crearNotificacion(storeId, asesor.id, `${asesor.nombre} ${asesor.apellido}`,
@@ -329,7 +497,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                           <label className="block text-[10px] text-gray-400 mb-0.5">{label}</label>
                           <input type="number" value={val}
                             onChange={(e) => (set as (v: string) => void)(e.target.value)}
-                            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-gray-900 text-gray-900" min={1} />
+                            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900" min={1} />
                         </div>
                       ))}
                     </div>
@@ -339,7 +507,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                         Cancelar
                       </button>
                       <button onClick={handleGuardarEdit}
-                        className="flex-1 text-xs text-white bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
+                        className="flex-1 text-xs text-on-accent bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
                         Guardar
                       </button>
                     </div>
@@ -385,20 +553,20 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Monto vendido</label>
                 <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 text-gray-900"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                   placeholder="Ej. 2500000" min={1} autoFocus />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Unidades</label>
                   <input type="number" value={unidades} onChange={(e) => setUnidades(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 text-gray-900"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                     placeholder="Ej. 5" min={1} step={1} />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Transacciones</label>
                   <input type="number" value={txn} onChange={(e) => setTxn(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 text-gray-900"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                     placeholder="Ej. 2" min={1} step={1} />
                 </div>
               </div>
@@ -409,16 +577,16 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                   Cancelar
                 </button>
                 <button onClick={handleAgregar} disabled={saving}
-                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
+                  className="flex-1 px-3 py-2 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
                   {saving ? 'Guardando...' : 'Registrar'}
                 </button>
               </div>
             </div>
           ) : (
             <>
-            {resultado && <AvisoPostVenta r={resultado} />}
-            <button onClick={() => { setShowForm(true); setEditEntry(null); setResultado(null); }}
-              className="w-full px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
+            {resultado && <AvisoPostVenta r={resultado} m={motivacion} />}
+            <button onClick={() => { setShowForm(true); setEditEntry(null); setResultado(null); setMotivacion(null); }}
+              className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
               + Registrar venta
             </button>
             </>
@@ -434,11 +602,20 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                   const displayVal = inputVal !== '' ? Number(inputVal) : actual;
                   const pct = din.meta > 0 ? Math.min(100, (displayVal / din.meta) * 100) : 0;
                   const pctActual = din.meta > 0 ? Math.min(100, (actual / din.meta) * 100) : 0;
-                  const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-rose-500';
+                  const textC = pct >= 100 ? 'text-emerald-600' : pct >= 80 ? 'text-amber-600' : 'text-orange-600';
+                  const minRestantes = din.horaLimite && din.fecha ? minutosRestantes(din.fecha, din.horaLimite, ahora) : null;
+                  const terminado = minRestantes !== null && minRestantes <= 0;
                   return (
                     <div key={din.id} className="border border-gray-100 rounded-xl p-3 space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-gray-700 truncate">{din.nombre}</span>
+                        <span className="text-xs font-medium text-gray-700 truncate">
+                          {din.nombre}
+                          {din.horaLimite && (
+                            <span className={`ml-1.5 text-[10px] font-semibold ${terminado ? 'text-gray-400' : 'text-amber-600'}`}>
+                              <span aria-hidden="true">⚡</span> {terminado ? 'Terminó' : `hasta ${din.horaLimite}`}
+                            </span>
+                          )}
+                        </span>
                         <span className={`text-xs font-semibold tabular-nums flex-shrink-0 ${textC}`}>{pct.toFixed(0)}%</span>
                       </div>
                       <div className="relative w-full bg-gray-100 rounded-full h-1">
@@ -447,7 +624,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                           style={{ width: `${pctActual}%` }}
                         />
                         <div
-                          className={`h-1 rounded-full transition-all absolute left-0 ${pct >= 100 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-rose-400'}`}
+                          className={`h-1 rounded-full transition-all absolute left-0 ${pct >= 100 ? 'bg-emerald-400' : pct >= 80 ? 'bg-amber-400' : 'bg-orange-400'}`}
                           style={{ width: `${pct}%` }}
                         />
                       </div>
@@ -458,13 +635,13 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                           value={inputVal}
                           onChange={(e) => setDinValues((prev) => ({ ...prev, [din.id]: e.target.value }))}
                           placeholder={String(actual)}
-                          className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-gray-900 text-center tabular-nums"
+                          className="flex-1 px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-accent text-center tabular-nums"
                         />
                         <span className="text-xs text-gray-400 flex-shrink-0">/ {din.meta}</span>
                         <button
                           onClick={() => handleUpdateDinamica(din.id)}
-                          disabled={dinSaving[din.id] || inputVal === ''}
-                          className="px-3 py-1.5 text-xs font-medium bg-accent text-white rounded-lg disabled:opacity-40 whitespace-nowrap"
+                          disabled={dinSaving[din.id] || inputVal === '' || terminado}
+                          className="px-3 py-1.5 text-xs font-medium bg-accent text-on-accent rounded-lg disabled:opacity-40 whitespace-nowrap"
                         >
                           {dinSaving[din.id] ? '...' : 'Guardar'}
                         </button>
@@ -482,6 +659,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
           )}
         </div>
       </div>
+      {placa && <PlacaReconocimiento key={placa.id} datos={placa} asesor={asesor} onClose={() => setPlaca(null)} />}
     </div>
   );
 }

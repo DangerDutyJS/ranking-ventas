@@ -28,23 +28,23 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#080808]">
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-[#00284B]">
       {/* Ambient blobs */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-emerald-600/10 blur-3xl" />
-        <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-teal-600/10 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-amber-700/5 blur-3xl" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full bg-[#003B6D]/70 blur-3xl" />
+        <div className="absolute -bottom-40 -right-20 w-96 h-96 rounded-full bg-[#0A4F8C]/40 blur-3xl" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] rounded-full bg-[#E6EEF4]/5 blur-3xl" />
       </div>
       {/* Dot grid overlay */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.05) 1px, transparent 1px)',
           backgroundSize: '24px 24px',
         }}
       />
 
-      <div className="relative w-full max-w-sm mx-4 px-8 py-12 bg-white/[0.04] border border-white/[0.08] rounded-2xl backdrop-blur-xl animate-modal">
+      <div className="relative w-full max-w-sm mx-4 px-8 py-12 bg-white/[0.05] border border-[#C79F4B]/25 rounded-2xl backdrop-blur-xl animate-modal">
         <div className="mb-10 text-center">
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white mb-6 shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_8px_32px_rgba(0,0,0,0.5)]">
             <svg className="w-7 h-7 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -53,7 +53,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Ranking Ventas</h1>
-          <p className="mt-2 text-sm text-white/40">Inicia sesión para continuar</p>
+          <p className="mt-2 text-sm text-[#B9C9DA]">Inicia sesión para continuar</p>
         </div>
 
         {error && (

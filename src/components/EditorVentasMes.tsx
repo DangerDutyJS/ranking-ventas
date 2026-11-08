@@ -228,7 +228,7 @@ export default function EditorVentasMes() {
         <button
           onClick={handleSave}
           disabled={dirtyIds.length === 0 || saving}
-          className="inline-flex items-center gap-2 px-4 h-9 bg-accent text-white text-[13px] font-medium rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="inline-flex items-center gap-2 px-4 h-9 bg-accent text-on-accent text-[13px] font-medium rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {saving ? 'Guardando...' : `Guardar${dirtyIds.length > 0 ? ` (${dirtyIds.length})` : ''}`}
         </button>
@@ -291,7 +291,7 @@ export default function EditorVentasMes() {
                       type="number"
                       value={r[field]}
                       onChange={(e) => updateRow(asesor.id, field, e.target.value)}
-                      className={`w-full px-2.5 py-2 text-sm border rounded-lg outline-none focus:border-gray-900 text-gray-900 bg-surface transition-colors ${
+                      className={`w-full px-2.5 py-2 text-sm border rounded-lg outline-none focus:border-accent text-gray-900 bg-surface transition-colors ${
                         dirty ? 'border-indigo-200' : 'border-gray-200'
                       }`}
                       min={0}

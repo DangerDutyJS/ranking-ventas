@@ -1,25 +1,28 @@
 @import "tailwindcss";
 
 :root {
-  /* Vercel Geist light mode tokens */
-  --background: #0a0f0d;
-  --foreground: #eef4f0;
-  --ds-surface:  #fafafa;
-  --ds-border:   #eaeaea;
-  --ds-border-subtle: #f2f2f2;
-  --ds-gray-100: #f2f2f2;
-  --ds-gray-200: #ebebeb;
-  --ds-gray-400: #8f8f8f;
-  --ds-gray-900: #171717;
-  --ds-blue:     #0070f3;
-  /* Acento del tema "Motivación de ventas" (esmeralda + dorado). Cambiar aquí cambia botones y títulos. */
-  --accent:       #047857;
-  --accent-hover: #065f46;
-  --accent-text:  #34d399; /* acento usado como TEXTO sobre fondo oscuro; #047857 como texto no llega a 4.5 */
-  --gold:         #fbbf24; /* logro: trofeo, top 1, celebración */
-  --heading:      #e8efea; /* títulos: gris claro con tinte verde */
-  --accent-muted: #9fb7aa; /* subtítulos: verde salvia apagado */
-  --surface:      #121a17; /* tarjetas, modales, paneles */
+  /* Paleta principal (azul marino + dorado sobre hueso), integrada 2026-11-08.
+     Cambiar aquí cambia botones, títulos, logros y superficies de toda la app. */
+  --background:    #F2F1ED; /* --bg-main */
+  --foreground:    #2B2B2B; /* --text-main */
+  /* Decisión del usuario (2026-11-08): el DORADO es el primario de la interfaz (botones, pestaña activa,
+     foco). El azul marino chocaba con los azules semánticos de barras e indicadores; queda para el header,
+     estados informativos, login y modo TV. */
+  --accent:        #C79F4B; /* botones primarios, pestaña activa, foco */
+  --accent-hover:  #AD8736;
+  --on-accent:     #00203D; /* texto sobre botones dorados: 6.7:1 (4.9:1 en hover). NUNCA blanco (2.5:1) */
+  --accent-text:   #8A6A24; /* dorado usado como TEXTO (5:1 sobre blanco) */
+  --primary:       #003B6D; /* azul marino: header, info, login, TV */
+  --primary-hover: #00284B;
+  --primary-light: #E6EEF4; /* --color-primary-light: estados informativos, hover suave */
+  --gold:          #C79F4B; /* --color-accent: logro — rellenos, bordes, íconos (2.5:1 como texto: NO usar en texto) */
+  --gold-hover:    #AD8736; /* --color-accent-hover */
+  --gold-light:    #F9F4E8; /* --color-accent-light: fondo de chips de logro */
+  --gold-text:     #8A6A24; /* dorado oscuro para TEXTO (5:1 sobre blanco, 4.6:1 sobre --gold-light) */
+  --heading:       #2B2B2B; /* títulos h1–h3 (--text-main) */
+  --accent-muted:  #4A4A48; /* --text-muted: subtítulos */
+  --surface:       #FFFFFF; /* --bg-surface: tarjetas, modales, paneles, header */
+  --border:        #DFDDD6; /* --border-color */
 }
 
 @theme inline {
@@ -27,35 +30,70 @@
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-heading: var(--heading);
   --color-accent-muted: var(--accent-muted);
   --color-accent-text: var(--accent-text);
   --color-gold: var(--gold);
+  --color-gold-hover: var(--gold-hover);
+  --color-gold-light: var(--gold-light);
+  --color-gold-text: var(--gold-text);
+  --color-primary-light: var(--primary-light);
+  --color-border: var(--border);
   --color-surface: var(--surface);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* ── Tema oscuro (oscuro + acentos de color del tema) ─────────────────────────
-   Se aplica con la clase .theme-dark en el <main> del dashboard y del panel líder
-   (el login tiene su propio estilo oscuro). En vez de reescribir cientos de clases,
+/* ── Tema claro (dashboard y panel líder) ─────────────────────────────────────
+   Las clases del código ya están escritas en modo claro; aquí solo se reasignan los grises de
+   Tailwind (fríos) a una escala cálida derivada de la paleta. gray-400 queda en 4.6:1 sobre blanco
+   para que los textos secundarios sean legibles. */
+.theme-light {
+  color-scheme: light;
+  color: var(--foreground);
+  --color-gray-50:  #F8F7F4;
+  --color-gray-100: #F2F1ED;
+  --color-gray-200: #DFDDD6;
+  --color-gray-300: #C9C6BD;
+  --color-gray-400: #77756F;
+  --color-gray-500: #66645F;
+  --color-gray-600: #4A4A48;
+  --color-gray-700: #3A3A38;
+  --color-gray-800: #2F2F2E;
+  --color-gray-900: #2B2B2B;
+}
+
+/* ── Tema azul marino (modo TV) ───────────────────────────────────────────────
+   Se aplica con la clase .theme-dark en el <main> de /tv (el login tiene su propio estilo
+   azul marino). Redefine los tokens dentro del scope (superficie azul marino, dorado claro). En vez de reescribir cientos de clases,
    reasigna la paleta de Tailwind dentro del scope:
    - grises invertidos con tinte verde (text-gray-900 pasa a ser claro, bg-gray-50 oscuro…)
    - tonos pastel 50/100/200 de cada color → tintes oscuros; 600/700/800/900 → versiones claras
    Los 300/400/500 no cambian: las barras de progreso semánticas (400/500) quedan idénticas. */
 .theme-dark {
   color-scheme: dark;
+  --surface:       #00335F;
+  --foreground:    #F3F7FA;
+  --heading:       #FFFFFF;
+  --accent-muted:  #B9C9DA;
+  --accent-text:   #E3C27E;
+  --gold-text:     #E3C27E;
+  --gold-light:    color-mix(in oklab, #C79F4B 16%, #00335F);
+  --primary-light: color-mix(in oklab, #E6EEF4 12%, #00335F);
   color: var(--foreground);
-  --color-gray-50:  #18211d;
-  --color-gray-100: #1e2924;
-  --color-gray-200: #2b3832;
-  --color-gray-300: #43534b;
-  --color-gray-400: #8fa398;
-  --color-gray-500: #a5b7ad;
-  --color-gray-600: #bccbc2;
-  --color-gray-700: #d0dcd5;
-  --color-gray-800: #e2eae5;
-  --color-gray-900: #f1f6f3;
+  --color-gray-50:  #053B6B;
+  --color-gray-100: #0A4373;
+  --color-gray-200: #1D5285;
+  --color-gray-300: #3A6A97;
+  --color-gray-400: #9DB2C8;
+  --color-gray-500: #B0C2D4;
+  --color-gray-600: #C4D2E0;
+  --color-gray-700: #D5E0EA;
+  --color-gray-800: #E4ECF3;
+  --color-gray-900: #F3F7FA;
   --color-red-50: color-mix(in oklab, var(--color-red-500) 12%, var(--surface));
   --color-red-100: color-mix(in oklab, var(--color-red-500) 18%, var(--surface));
   --color-red-200: color-mix(in oklab, var(--color-red-500) 32%, var(--surface));
@@ -177,9 +215,14 @@ input, button, select, textarea {
 
 /* ── Utility backgrounds ─────────────────────────────────────── */
 .bg-dot-grid {
-  background-color: #0a0f0d;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
+  background-color: var(--background);
+  background-image: radial-gradient(circle, rgba(0, 59, 109, 0.07) 1px, transparent 1px);
   background-size: 24px 24px;
+}
+
+.theme-dark.bg-dot-grid {
+  background-color: #00284B;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
 }
 
 /* ── Animaciones ─────────────────────────────────────────────── */
@@ -215,7 +258,7 @@ input, button, select, textarea {
   animation: slideUpModal 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* ── Tema "Motivación de ventas" ─────────────────────────────── */
+/* ── Tema "Azul marino + dorado" ─────────────────────────────── */
 @keyframes topGlowPulse {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }
@@ -228,7 +271,7 @@ input, button, select, textarea {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  box-shadow: 0 10px 32px -10px rgba(251, 191, 36, 0.34), 0 6px 24px -12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 10px 32px -10px rgba(199, 159, 75, 0.45), 0 6px 24px -12px rgba(0, 59, 109, 0.18);
   animation: topGlowPulse 3.2s ease-in-out infinite;
 }
 
@@ -254,7 +297,7 @@ input, button, select, textarea {
   border-radius: inherit;
   pointer-events: none;
   background-repeat: no-repeat;
-  background-image: linear-gradient(90deg, #10b981, #2dd4bf 55%, #fbbf24), radial-gradient(120% 80% at 100% 0%, rgba(16, 185, 129, 0.08), transparent 60%);
+  background-image: linear-gradient(90deg, #003B6D, #003B6D 45%, #C79F4B), radial-gradient(120% 80% at 100% 0%, rgba(199, 159, 75, 0.08), transparent 60%);
   background-position: left top, right top;
   background-size: 100% 3px, 100% 100%;
 }
@@ -281,6 +324,48 @@ input, button, select, textarea {
   animation: celebracionPop 3.2s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* ── Placa de reconocimiento post-venta ─────────────────────────
+   Entrada con leve rebote (ease-out fuerte + 2% de sobrepaso), medalla con pop, confeti de <1s
+   y un brillo que cruza la banda una vez. Solo transform/opacity. */
+@keyframes placaIn {
+  0%   { opacity: 0; transform: translateY(24px) scale(0.92); }
+  60%  { opacity: 1; transform: translateY(-3px) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.placa-in { animation: placaIn 520ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+@keyframes medallaPop {
+  0%   { opacity: 0; transform: scale(0.4) rotate(-18deg); }
+  55%  { opacity: 1; transform: scale(1.12) rotate(5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.medalla-pop { animation: medallaPop 560ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both; }
+
+@keyframes confetiBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(0deg); }
+  12%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--cx)), calc(-50% + var(--cy) + 46px)) scale(1) rotate(var(--cr)); }
+}
+.confeti { opacity: 0; animation: confetiBurst 950ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@keyframes placaTexto {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.placa-texto { animation: placaTexto 360ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+
+@keyframes placaBrillo {
+  from { transform: translateX(0) skewX(-20deg); }
+  to   { transform: translateX(480%) skewX(-20deg); }
+}
+.placa-brillo { animation: placaBrillo 1100ms cubic-bezier(0.45, 0, 0.55, 1) 450ms both; }
+
+@keyframes placaTimer {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.placa-timer { animation-name: placaTimer; animation-timing-function: linear; animation-fill-mode: both; }
+
 @keyframes fadeHold {
   0%, 100% { opacity: 0; }
   10%, 86% { opacity: 1; }
@@ -297,10 +382,13 @@ input, button, select, textarea {
     animation: none;
     opacity: 0.8;
   }
+  .placa-in, .placa-texto { animation: fadeIn 0.2s ease-out both; }
+  .medalla-pop, .placa-brillo { animation: none; }
+  .confeti { display: none; }
 }
 
 /* ── Scrollbar sutil ─────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: #DFDDD6; border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }

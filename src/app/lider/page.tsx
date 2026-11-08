@@ -11,14 +11,16 @@ import MetasDiarias from '@/components/MetasDiarias';
 import DinamicasTab from '@/components/DinamicasTab';
 import EditorVentasMes from '@/components/EditorVentasMes';
 import HistorialTab from '@/components/HistorialTab';
+import ReconocimientosTab from '@/components/ReconocimientosTab';
 
-type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas' | 'ventas' | 'historial';
+type Tab = 'asesores' | 'meta' | 'diarias' | 'dinamicas' | 'reconocimientos' | 'ventas' | 'historial';
 
 const TAB_LABELS: Record<Tab, string> = {
   asesores:  'Asesores',
   meta:      'Meta del mes',
   diarias:   'Metas diarias',
   dinamicas: 'Dinámicas',
+  reconocimientos: 'Reconocimientos',
   ventas:    'Ventas del mes',
   historial: 'Historial',
 };
@@ -51,9 +53,9 @@ export default function LiderPage() {
 
   return (
     <StoreProvider storeId={user.uid}>
-    <main className="theme-dark min-h-screen bg-dot-grid">
+    <main className="theme-light min-h-screen bg-dot-grid">
       <header className="bg-surface border-b border-gray-200 px-6 py-4 flex items-center justify-between relative">
-        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-400" />
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#003B6D] via-[#003B6D] to-[#C79F4B]" />
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/')}
             className="text-gray-400 hover:text-gray-900 transition-colors p-1">
@@ -63,7 +65,17 @@ export default function LiderPage() {
           </button>
           <span className="font-semibold text-heading text-sm">Dashboard Líder</span>
         </div>
-        <span className="text-[11px] text-gray-400 bg-gray-100 px-2.5 py-1 rounded-md">Solo líder</span>
+        <div className="flex items-center gap-2">
+          <button onClick={() => router.push('/tv')}
+            className="inline-flex items-center gap-1.5 text-[12px] font-medium text-accent-text border border-accent/50 px-3 h-8 rounded-md hover:bg-gold-light hover:border-accent transition-colors">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="12" rx="2" strokeWidth={2} />
+              <path strokeLinecap="round" strokeWidth={2} d="M8 20h8M12 16v4" />
+            </svg>
+            Modo TV
+          </button>
+          <span className="text-[11px] text-gray-400 bg-gray-100 px-2.5 py-1 rounded-md">Solo líder</span>
+        </div>
       </header>
 
       {/* Tabs */}
@@ -75,7 +87,7 @@ export default function LiderPage() {
               onClick={() => { setTab(t); setShowForm(false); }}
               className={`py-3 px-4 text-[13px] font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t
-                  ? 'border-emerald-400 text-accent-text'
+                  ? 'border-accent text-accent-text'
                   : 'border-transparent text-gray-400 hover:text-gray-700'
               }`}
             >
@@ -97,7 +109,7 @@ export default function LiderPage() {
               </div>
               {!showForm && (
                 <button onClick={() => setShowForm(true)}
-                  className="inline-flex items-center gap-2 px-4 h-9 bg-accent text-white text-[13px] font-medium rounded-md hover:bg-accent-hover transition-colors">
+                  className="inline-flex items-center gap-2 px-4 h-9 bg-accent text-on-accent text-[13px] font-medium rounded-md hover:bg-accent-hover transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
@@ -156,6 +168,19 @@ export default function LiderPage() {
               </p>
             </div>
             <DinamicasTab />
+          </>
+        )}
+
+        {/* Tab Reconocimientos */}
+        {tab === 'reconocimientos' && (
+          <>
+            <div className="mb-6">
+              <h1 className="text-xl font-semibold text-heading">Reconocimientos</h1>
+              <p className="mt-0.5 text-[13px] text-accent-muted">
+                Felicita a tu equipo en público: el aplauso aparece en el dashboard y en el modo TV.
+              </p>
+            </div>
+            <ReconocimientosTab />
           </>
         )}
 

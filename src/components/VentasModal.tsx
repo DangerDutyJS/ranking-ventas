@@ -97,7 +97,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
           <p className="text-sm font-semibold text-gray-900">¡Venta registrada!</p>
           <p className="text-[12px] text-gray-400 mt-1 mb-6">Se guardó correctamente.</p>
           <button onClick={onClose}
-            className="w-full h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors">
+            className="w-full h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors">
             Cerrar
           </button>
         </div>
@@ -144,7 +144,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
               type="number"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+              className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
               placeholder="Ej. 2500000"
               min={1}
               autoFocus
@@ -158,7 +158,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
                 type="number"
                 value={unidades}
                 onChange={(e) => setUnidades(e.target.value)}
-                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                 placeholder="Ej. 12"
                 min={1}
                 step={1}
@@ -170,7 +170,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
                 type="number"
                 value={transacciones}
                 onChange={(e) => setTransacciones(e.target.value)}
-                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                 placeholder="Ej. 5"
                 min={1}
                 step={1}
@@ -186,7 +186,7 @@ export default function VentasModal({ asesor, metaMensual, totalVentas, onClose 
               Cancelar
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
+              className="flex-1 h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
               {loading ? 'Guardando...' : 'Registrar'}
             </button>
           </div>

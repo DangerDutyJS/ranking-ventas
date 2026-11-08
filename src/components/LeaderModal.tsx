@@ -114,20 +114,20 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
                 <input type="password" autoComplete="new-password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                   placeholder="Mínimo 4 caracteres" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
                 <input type="password" autoComplete="new-password" value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                   placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={onClose} className="flex-1 h-9 px-4 text-[13px] text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">{loading ? 'Guardando...' : 'Crear y entrar'}</button>
+                <button type="submit" disabled={loading} className="flex-1 h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">{loading ? 'Guardando...' : 'Crear y entrar'}</button>
               </div>
             </form>
           </>
@@ -144,13 +144,13 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña</label>
                 <input type="password" autoComplete="new-password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                   placeholder="••••••••" autoFocus />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <div className="flex gap-2 pt-2">
                 <button type="button" onClick={onClose} className="flex-1 h-9 px-4 text-[13px] text-gray-400 border border-gray-200 rounded-md hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button type="submit" disabled={loading} className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">{loading ? 'Verificando...' : 'Entrar'}</button>
+                <button type="submit" disabled={loading} className="flex-1 h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">{loading ? 'Verificando...' : 'Entrar'}</button>
               </div>
             </form>
             <button
@@ -207,19 +207,19 @@ export default function LeaderModal({ onClose }: LeaderModalProps) {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
                 <input type="password" autoComplete="new-password" value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                   placeholder="Mínimo 4 caracteres" autoFocus />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
                 <input type="password" autoComplete="new-password" value={newConfirm}
                   onChange={(e) => setNewConfirm(e.target.value)}
-                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+                  className="w-full px-3 h-9 text-[13px] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
                   placeholder="Repite la contraseña" />
               </div>
               {error && <p className="text-xs text-red-500">{error}</p>}
               <button type="submit" disabled={loading}
-                className="w-full h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
+                className="w-full h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
                 {loading ? 'Guardando...' : 'Guardar y entrar'}
               </button>
             </form>

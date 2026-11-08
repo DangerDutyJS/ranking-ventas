@@ -84,7 +84,7 @@ export default function AcumuladoMesModal({ asesor, acumuladoActual, onClose }: 
               type="number"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
               placeholder="Ej. 3500000"
               min={0}
               autoFocus
@@ -97,7 +97,7 @@ export default function AcumuladoMesModal({ asesor, acumuladoActual, onClose }: 
                 type="number"
                 value={transacciones}
                 onChange={(e) => setTransacciones(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
                 placeholder="Ej. 12"
                 min={0}
               />
@@ -108,7 +108,7 @@ export default function AcumuladoMesModal({ asesor, acumuladoActual, onClose }: 
                 type="number"
                 value={unidades}
                 onChange={(e) => setUnidades(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+                className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
                 placeholder="Ej. 25"
                 min={0}
               />
@@ -134,7 +134,7 @@ export default function AcumuladoMesModal({ asesor, acumuladoActual, onClose }: 
           <button
             onClick={handleGuardar}
             disabled={saving}
-            className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50"
           >
             {saving ? 'Guardando...' : 'Guardar'}
           </button>

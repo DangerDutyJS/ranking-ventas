@@ -82,7 +82,7 @@ function MockupAsesores() {
         <div className="py-2 text-[10px] text-gray-400">Meta del mes</div>
         <div className="ml-auto py-1.5">
           <div className="relative">
-            <div className="bg-accent text-white text-[9px] font-medium px-2 py-1 rounded-lg flex items-center gap-1 ring-2 ring-gray-900 ring-offset-1">
+            <div className="bg-accent text-on-accent text-[9px] font-medium px-2 py-1 rounded-lg flex items-center gap-1 ring-2 ring-gray-900 ring-offset-1">
               <span>+</span>
               <span>Nuevo asesor</span>
             </div>
@@ -370,7 +370,7 @@ export default function TutorialModal({ onClose }: Props) {
             )}
             <button
               onClick={esFinal ? handleClose : () => setPaso(paso + 1)}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
               {esFinal ? '¡Empezar!' : 'Siguiente'}
             </button>
           </div>

@@ -139,7 +139,7 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
               maxLength={4}
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              className="w-full px-3 py-3 text-center text-lg tracking-[0.5em] border border-gray-200 rounded-md outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400/20 transition-colors text-gray-900"
+              className="w-full px-3 py-3 text-center text-lg tracking-[0.5em] border border-gray-200 rounded-md outline-none focus:border-accent focus:ring-1 focus:ring-accent/20 transition-colors text-gray-900"
               placeholder="••••"
               autoFocus
             />
@@ -155,7 +155,7 @@ export default function PinModal({ asesor, onSuccess, onClose }: Props) {
                 Cancelar
               </button>
               <button type="submit" disabled={loading || pin.length < 4}
-                className="flex-1 h-9 px-4 text-[13px] font-medium text-white bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
+                className="flex-1 h-9 px-4 text-[13px] font-medium text-on-accent bg-accent rounded-md hover:bg-accent-hover transition-colors disabled:opacity-40">
                 {loading ? '...' : 'Entrar'}
               </button>
             </div>

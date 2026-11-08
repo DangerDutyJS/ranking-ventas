@@ -18,7 +18,8 @@ src/
 │   ├── layout.tsx          — AuthProvider global, fuente Geist
 │   ├── page.tsx            — Dashboard principal: ranking en tiempo real
 │   ├── login/page.tsx      — Login con Google
-│   └── lider/page.tsx      — Panel líder (protegido por sessionStorage)
+│   ├── lider/page.tsx      — Panel líder (protegido por sessionStorage)
+│   └── tv/page.tsx         — Modo TV: pantalla completa rotativa para la tienda (solo lectura)
 ├── components/
 │   ├── LeaderModal.tsx     — Modal crear/verificar contraseña de líder
 │   ├── AsesorForm.tsx      — Formulario registro de asesor con foto
@@ -34,7 +35,12 @@ src/
 │   ├── TutorialModal.tsx   — Tutorial de onboarding (primer ingreso)
 │   ├── EditorVentasMes.tsx — Editor masivo del ranking mensual (panel líder, tab "Ventas del mes")
 │   ├── HistorialTab.tsx    — Historial de todos los meses (panel líder, tab "Historial"): filtros + eliminar por rango de fechas
-│   └── CelebracionVenta.tsx — Aviso flotante con trofeo "label · asesor" al detectar una nueva entrada (tema Motivación de ventas)
+│   ├── CelebracionVenta.tsx — Aviso flotante con trofeo "label · asesor" al detectar una nueva entrada (tema Motivación de ventas)
+│   ├── ChipsMotivacion.tsx — Fila de chips de logros (🔥 racha, 📈 récord, 🚀 mayor progreso, insignias) — dashboard y modo TV
+│   ├── ReconocimientosTab.tsx — Tab "Reconocimientos" del panel líder: enviar/eliminar aplausos
+│   ├── PlacaReconocimiento.tsx — Placa animada post-venta (dorada + confeti)
+│   ├── PuntajeRanking.tsx  — Desglose del puntaje ponderado en tarjetas del ranking mensual
+│   └── ConfigRankingPanel.tsx — Parámetros del puntaje (topes y umbral) en "Meta del mes"
 ├── context/
 │   ├── AuthContext.tsx     — Estado Firebase Auth + cookie auth-session
 │   └── StoreContext.tsx    — Provee storeId (uid del líder) a componentes
@@ -42,7 +48,10 @@ src/
 │   ├── firebase.ts         — Init Firebase (auth, db, googleProvider)
 │   ├── leaderAuth.ts       — Crear/verificar contraseña de líder
 │   ├── hash.ts             — SHA-256 con Web Crypto API
-│   └── calcularMetas.ts    — calcularMetas() y distribuirIndicador() para distribución proporcional
+│   ├── calcularMetas.ts    — calcularMetas() y distribuirIndicador() para distribución proporcional
+│   ├── reglas.ts           — REGLAS CONGELADAS: totalReal, barColor, calcularComision, SIGUIENTE_NIVEL + puntaje ponderado (calcularScoreRanking, compararRanking, calcularComisionConRescate, ConfigRanking)
+│   ├── ranking.ts          — calcularScores, ordenarPorScore, useConfigRanking (config/ranking en Firestore)
+│   └── motivacion.ts       — Capa de motivación de solo lectura: rachas, récord, ritmo, consejos, insignias, mayor progreso, hitos, retos relámpago
 └── proxy.ts                — Protección de rutas (reemplaza middleware.ts en Next.js 16)
 ```
 
@@ -59,9 +68,11 @@ tiendas/{uid}/
 │                              actualizadoEn }
 │                              (upt/avt en metasPorDia son calculados: UPT=metaUnidades/metaTransacciones,
 │                               AVT=montoTotal/metaTransacciones — no se ingresan manualmente)
-└── ventasMes/{mes_uid}     — { mes, asesorId, totalVentas, totalUnidades, totalTransacciones,
+├── ventasMes/{mes_uid}     — { mes, asesorId, totalVentas, totalUnidades, totalTransacciones,
                                registros: [{ monto, unidades, transacciones, fecha, creadoEn }],
-                               acumuladoMes?: { monto, unidades, transacciones } }
+│                              acumuladoMes?: { monto, unidades, transacciones } }
+├── aplausos/{id}           — { asesorId, mensaje (≤120), fecha 'YYYY-MM-DD', creadoEn } — reconocimientos de la líder
+└── config/ranking          — { pesoVenta, pesoUPT, pesoAVT, topeUPT, topeAVT, umbralRescate, actualizadoEn } — parámetros del puntaje
 ```
 
 `StoreContext` provee `storeId` a todos los componentes:
@@ -103,7 +114,7 @@ service cloud.firestore {
 ## Funcionalidades implementadas
 
 ### Dashboard principal (`/`)
-- Ranking en tiempo real; **ranking mensual ordenado por `totalVentas + acumuladoMes.monto`** (el total real visible)
+- Ranking en tiempo real; **ranking mensual ordenado por PUNTAJE PONDERADO** (desde 2026-11-08, ver "Puntaje ponderado del ranking mensual"); desempate por dinero real `totalVentas + acumuladoMes.monto`
 - Medallas 🥇🥈🥉 para los primeros 3
 - Barra de progreso mensual con rango 0–120%, marcadores en 100%, 110%, 120% (puntos de color sobre la barra + etiquetas)
 - Colores de barra y marcadores: rojo → naranja → ámbar → teal → **verde (100%)** → **azul (110%)** → **celeste (120%)**
@@ -140,8 +151,38 @@ service cloud.firestore {
 - `pctCombinadoHoy(asesorId)`: función que calcula el promedio de los porcentajes disponibles (Txn, Uds, Monto) para ordenar el ranking de hoy. Es la misma lógica que el badge "General" en las tarjetas — garantiza que el orden visual coincida con los números mostrados. El mapa `ventaHoyMap` se calcula una vez fuera del render.
 - **Retención de datos: indefinida (desde 2026-08-31).** Se eliminó el borrado automático de `ventasMes`/`metas` de hace 2 meses que existía antes. Ahora todo el historial se conserva en Firestore sin límite de tiempo, para que el tab "Historial" del panel líder pueda mostrarlo. Decisión explícita del usuario tras evaluar el trade-off (más lecturas/almacenamiento con el tiempo, pero volumen bajo para este caso de uso — pocos asesores, un doc por mes).
 
-### Panel líder (`/lider`) — 6 tabs
+### Puntaje ponderado del ranking mensual (2026-11-08, autorizado por el usuario)
+Reemplaza el orden por dinero del ranking **mensual** (dashboard, modo TV, avisos de puesto, aviso/placa post-venta, `AvisoMotivador`, Historial). El **ranking de hoy NO cambia** (`pctCombinadoHoy`).
+- **Fórmula** (`calcularScoreRanking` en `src/lib/reglas.ts`): `score = %Venta·0.80 + %UPT·0.10 + %AVT·0.10`. %Venta = venta real (incl. acumulado) / meta mensual del asesor (`calcularMetas`); UPT = uds/txn y AVT = venta/txn del asesor vs meta de la tienda (`metasUptAvt`: manual `metaUPT/metaAVT` si existe, si no derivada).
+- **Rescate:** UPT/AVT > 100% suman extra solo si %Venta ≥ `umbralRescate` (85) y hasta `topeUPT/topeAVT` (130 → máx. 13 pts c/u). Bajo el umbral cuentan máx. 100%. Con los defaults el rescate a 100 pts es posible desde 92.5% de venta.
+- **Piso:** si %Venta ≥ 100, UPT/AVT cuentan mínimo 100% (no le quitan el 100% a quien trajo la plata). Bajo 100% de venta, un UPT/AVT bajo SÍ resta (premia calidad de venta).
+- Sin meta UPT/AVT → su peso pasa a la venta. Sin meta de venta → `score` null (va al final, ordenado por dinero). Sin transacciones → UPT/AVT aportan 0.
+- **Orden:** `compararRanking` (score desc → dinero desc → sin meta al final); `ordenarPorScore` + `calcularScores` en `src/lib/ranking.ts`.
+- **Premios/comisiones:** `meta100 = %Venta ≥ 100 || score ≥ 100`. El rescate desbloquea SOLO el escalón 100%: Pin ("📌 Pin · por rescate"), badge "¡Meta cumplida!" (`progresoBeneficio`) y comisión Verde 1.10% vía `calcularComisionConRescate` (pagada sobre la venta real; `calcularComision` no se modificó). 110% (Bono corral/Azul) y 120% (Día libre/Celeste) exigen % de venta real. La barra de progreso sigue mostrando el % de venta real.
+- **Config:** `tiendas/{uid}/config/ranking` `{ pesoVenta, pesoUPT, pesoAVT, topeUPT, topeAVT, umbralRescate }`, leída con `useConfigRanking` y validada con `normalizarConfigRanking` (fuera de rango → default; pesos que no suman 1 → 0.8/0.1/0.1). Se edita en `ConfigRankingPanel.tsx` (dentro de `MetaMes`, vista y formulario): topes 100–300, umbral 50–100; pesos solo lectura. Muestra desde qué % de venta es posible el rescate. El Historial aplica la config ACTUAL a todos los meses.
+- **UI:** `PuntajeRanking.tsx` en cada tarjeta mensual (score + Venta/UPT/AVT con % → pts y nota "llegó al tope" / "cuenta máx. 100%" / "protegido en 100%", chips dorados "🛟 Rescate +X pts" y "📌 100% alcanzado por rescate", aviso de umbral). `AvisoMotivador` 2º–4º: "Te faltan X pts para pasar a [nombre] · ≈ $Y en ventas" (Y = pts · metaMensual / (100·pesoVenta)). `AvisoPostVenta` usa pts (o $ si empatan en puntos). Placa: título "¡Tu UPT y AVT te llevaron al 100%! 🛟" (`rescate100Nuevo`). Ritmo post-venta y comisión del 5º+ saltan el Verde si ya está desbloqueado por rescate. TV: "N pts · 🛟 +X rescate". Historial: columna "Puntaje" y orden "Puntaje ranking".
+- `onSnapshot` de ventas (dashboard y TV) calcula posiciones por puntaje usando `scoreCtxRef` (asesores/meta/config actuales, sincronizado con `useEffect`).
+- `MetaMes`: vaciar la meta manual de UPT/AVT ahora borra el campo con `deleteField()` (antes `merge` conservaba el valor viejo).
+- **Pruebas:** `tests/reglas.test.ts` (17 casos: ejemplo 95/120/120 = 100, tope, umbral, piso, pesos sin meta, sin txn, orden, comisión con rescate, regla congelada `calcularComision`, config, metas UPT/AVT). Correr `npm test` (`node --test`, sin dependencias; Node ≥ 23.6 ejecuta TS). `tests/` está excluido del `tsconfig`.
+
+### Capa de motivación (agregada 2026-11-08) — NO altera ranking ni beneficios
+Pedido del usuario: premiar la **constancia** (que los asesores quieran registrar sus ventas) con mensajes emotivos según rendimiento y consejos de venta cuando hagan falta. **Regla dura del usuario: el orden del ranking y los topes que dan beneficios (comisiones 90/100/110/120% y premios 📌🎁🏖️) no pueden cambiar.**
+- **Garantía:** las reglas viven en `src/lib/reglas.ts` (movidas verbatim desde `page.tsx`, verificado con diff). Todo lo nuevo está en `src/lib/motivacion.ts` (funciones puras, sin escrituras) y solo importa de `reglas.ts` — nunca copiar umbrales. Lo que necesita guardar datos usa una colección nueva (`aplausos`), nunca `ventasMes`/`metas`.
+- **🔥 Racha** (`calcularRacha`): días seguidos registrando al menos una venta (opción "constancia" elegida por el usuario). Solo cuentan los días con actividad en la tienda (si nadie registró, no rompe); no rompe los días que la líder no le asignó al asesor en `metasPorDia[dow].asesoresIds` (solo mes actual); hoy no rompe mientras no termine. Cruza meses (usa todos los docs de `ventasMes`, que el listener del dashboard ya leía). Chip "🔥 N días · ¡registra hoy!" cuando aún no registró hoy.
+- **📈 Récord personal** (`mejorMesAnterior`): chip "+X%" cuando el total del mes supera su mejor mes anterior.
+- **🎖️ Insignias** (`calcularInsignias`, al vuelo): ☀️ Primera venta del día · 💎 Venta más alta del mes · 🛍️ Más unidades en una venta (≥2).
+- **🚀 Mayor progreso de la semana** (`mayorProgresoSemana`): últimos 7 días vs 7 anteriores en % relativo (gana quien más mejoró respecto a sí mismo, no quien más vende).
+- Chips (`ChipsMotivacion`) en tarjetas del ranking de hoy y mensual, debajo del encabezado. En tarjetas se limita a `max={3}` (los demás como chip "+N" con `title` y texto `sr-only`) para no saturar; en modo TV se muestran todos. Auditado con Impeccable (2026-11-08): sin hallazgos nuevos; aviso post-venta usa `text-[#d1fae5]` (no gris sobre verde).
+- **Mensaje post-venta** (`MotivacionPostVenta` dentro de `AvisoPostVenta`, `HistorialVentasDiaModal.tsx`): debajo del mensaje de posición: 🔥 mensaje de racha (`mensajeRacha`, hitos 3/5/7/10/15/20/25/30) · 📈 récord o ⭐ mensaje por rendimiento (`mensajeRendimiento`, tono siempre positivo) · ⏱️ ritmo por día hacia la siguiente comisión (`ritmoSiguienteNivel`, usa `SIGUIENTE_NIVEL`) · 💡 consejo de venta (ropa y tenis) para el indicador más rezagado <100% (`indicadorMasBajo` + `tipVentas`; Txn se compara contra lo esperado a esta altura del mes). Si todo está ≥100% no hay consejo. `page.tsx` pasa el prop `contexto` (`ContextoMotivacion`) con `contextoMotivacion(id)`.
+- **🏅 Placa de reconocimiento** (`PlacaReconocimiento.tsx`, agregada 2026-11-08, estilo elegido por el usuario: "placa dorada + confeti"): al guardar una venta en `HistorialVentasDiaModal` aparece encima (z-70) una placa con banda azul marino "RECONOCIMIENTO", foto del asesor en medalla dorada con 🏆, **título del logro más importante** (`armarPlaca`, prioridad: nuevo récord > día libre 120% > bono corral 110% > meta cumplida 100% > llegó al 1º > subió de puesto > hito de racha > primera venta del día > "¡Vas muy bien!"/variantes), monto con contador (ease-out 800ms, rAF), chips 🔥 racha · % de meta · puesto, frase de `mensajeRendimiento` y botón "¡A seguir vendiendo!". Se cierra sola a los 6s (barra dorada de tiempo), con Esc, clic fuera o el botón. Los topes 100/110/120 solo se LEEN (`nivelNuevo` en `calcularMotivacion`). Animaciones en `globals.css` (`placa-in`, `medalla-pop`, `confeti` ×24 deterministas, `placa-texto` en cascada, `placa-brillo`, `placa-timer`), solo transform/opacity; con reduced motion: fundido sin confeti. El aviso de texto (`AvisoPostVenta`) sigue debajo con ritmo y consejo.
+- **🎉 Hitos del equipo** (`hitoEquipoCruzado`): al cruzar 50/75/100% de `meta.montoTotal`, `CelebracionVenta` muestra "¡El equipo llegó al N%!" con nombre "Todo el equipo" (estado `celebracion.nombre` opcional). `metaTotalRef` evita closures viejas en el `onSnapshot`.
+- **👏 Reconocimientos**: sección en el dashboard bajo el hero (últimos 3 de 7 días, query `where('fecha','>=', hace6)`) + celebración en vivo al llegar uno nuevo.
+- **⚡ Retos relámpago**: `dinamicas.horaLimite?` "HH:MM" opcional (form en `DinamicasTab`). Cuenta regresiva en la tarjeta del ranking de hoy (`useAhora(30s)`), y en `HistorialVentasDiaModal` el botón Guardar se deshabilita al terminar.
+- **📺 Modo TV** (`/tv`, botón "Modo TV" en el header del panel líder): rota cada 15s entre Ranking mensual (top 8, mismo orden `totalReal`), Constancia y logros, Reconocimientos; columna fija con meta del equipo, retos relámpago activos y mayor progreso. Celebración grande al registrar venta, subir puesto, aplauso o hito. Pantalla completa + Wake Lock (mantiene la pantalla encendida). Tiene sus propios listeners (meta con `onSnapshot`, para reflejar cambios de la líder).
+
+### Panel líder (`/lider`) — 7 tabs
 - **Asesores**: registrar asesores (foto, nombre, cargo) y asignar PINs
+- **Reconocimientos** (`ReconocimientosTab.tsx`, entre Dinámicas y Ventas del mes): elegir asesor + mensaje (sugerencias o texto libre, máx. 120) → `aplausos`; lista de los 20 últimos con eliminar (confirmación Sí/No). El header del panel tiene el botón **Modo TV** → `/tv`.
 - **Meta del mes** (`MetaMes.tsx`): monto total + días laborados + **2 indicadores manuales**: Transacciones y Unidades. UPT y AVT **no tienen campo de entrada** — se derivan y muestran en tiempo real mientras se escribe (`AVT = montoTotal / metaTransacciones`, `UPT = metaUnidades / metaTransacciones`) en un bloque "Indicadores calculados" dentro del formulario. Vista guardada muestra por asesor: meta mensual proporcional + Txn/Uds distribuidas + UPT y AVT derivados. Historial de meses anteriores también muestra UPT/AVT derivados.
 - **Metas diarias** (`MetasDiarias.tsx`): muestra y edita **solo el día actual** (no tabla Lun–Dom completa). Secciones:
   - Tabla: Transacciones día + Unidades día con contador restante vs meta mensual
@@ -177,7 +218,8 @@ service cloud.firestore {
   - Cada dinámica: card con progreso global + filas por asesor (foto, nombre, cantidad/meta, %, barra)
   - Clic en fila de asesor → PIN → `DinamicaProgressModal` (modo **incremento**: input vacío, agrega cantidad al acumulado con `increment(v)` + `arrayUnion({cantidad, creadoEn})`; muestra historial del día ordenado más reciente primero + barra preview gris/color)
 - **`HistorialVentasDiaModal`** — sección "Dinámicas del día" al pie del modal: input arranca **vacío** (placeholder = valor actual acumulado), barra preview (gris = acumulado actual, color = preview con nuevo valor), "Acumulado: X / meta" como referencia debajo si ya hay progreso; botón "Guardar" deshabilitado hasta que se escriba algo; modo **set** (reemplaza `progreso[asesorId]` directamente)
-- **Firestore**: `tiendas/{uid}/dinamicas/{id}` — `{ nombre, meta, fecha, activa, asesoresIds[], progreso: { [asesorId]: number }, registros?: { [asesorId]: [{cantidad, creadoEn}][] }, creadoEn }`
+- **Firestore**: `tiendas/{uid}/dinamicas/{id}` — `{ nombre, meta, fecha, activa, asesoresIds[], progreso: { [asesorId]: number }, registros?: { [asesorId]: [{cantidad, creadoEn}][] }, horaLimite?: 'HH:MM', creadoEn }`
+- **Nota:** la sección "Dinámicas del día" independiente ya no existe en el dashboard; las dinámicas se ven dentro de cada tarjeta del ranking de hoy y se registran desde `HistorialVentasDiaModal`.
 - Query en dashboard: `where('fecha', '==', hoy)` + filtro `activa` client-side (evita índice compuesto)
 - `pinMode` extendido a `'diario' | 'acumulado' | 'dinamica'`; nuevo estado `pinDinamicaRef` + `dinamicaProgressData`
 
@@ -196,6 +238,7 @@ service cloud.firestore {
 - ID de documento ventasMes: `${mes}_${asesorId}` (ej. `2026-05_abc123`)
 - Sin comentarios salvo que el WHY no sea obvio
 - Sin Firebase Storage — imágenes comprimidas a base64 con Canvas API
+- **Reglas de negocio congeladas en `src/lib/reglas.ts`**: no modificarlas al agregar funciones; importarlas (nunca duplicar umbrales). Motivación nueva → `src/lib/motivacion.ts`, solo lectura.
 - Botones de solo ícono: siempre con `aria-label`; color en reposo mínimo `text-gray-500` (4.8:1 sobre blanco, `gray-400` no cumple el 3:1 de WCAG para controles). Eliminar: `hover:text-red-600 hover:bg-red-500/10` (no `hover:bg-red-50`: el detector de Impeccable lo empareja con el gris de reposo como falso positivo `gray-on-color`).
 
 ## Deploy
@@ -237,10 +280,28 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 - **Live dot "Ranking de hoy":** `h-2.5 w-2.5` con `shadow` glow esmeralda en lugar de ring
 - **Títulos de sección:** `text-2xl font-bold` (antes `text-xl`)
 - **PinModal:** `rounded-2xl` + sombra más profunda
-- **Colores de barras de progreso:** SIN CAMBIOS (requerimiento del cliente) — `barColor()`, `indicatorBarFill()`, `pctColor()`, `motivacion()` en `page.tsx` nunca se tocan, son semánticos (rojo→ámbar→verde→azul→celeste)
+- **Colores de barras de progreso:** protegidos (requerimiento del cliente) — `barColor()` (`lib/reglas.ts`), `indicatorBarFill()`, `pctColor()`, `motivacion()` (`page.tsx`) no se tocan sin autorización, son semánticos (naranja→ámbar→verde→azul→celeste).
+  - **Excepción autorizada por el usuario (2026-11-08), "paleta de motivación"**: se eliminó el rojo de alarma en rendimiento bajo. Base: Elliot et al. 2007 (el rojo en contextos de evaluación activa la evitación del fracaso). Cambios: `barColor` <25% → `from-orange-500 to-orange-400`; "¡Empieza hoy!" → naranja; `indicatorBarFill`/`pctColor`/texto de `IndicatorBar` <80% → naranja; barra/badge "General" del ranking de hoy <50% → naranja; progreso de dinámicas <80% → naranja (`DinamicasTab`, `DinamicaProgressModal`, `HistorialVentasDiaModal`); "Falta para meta" → `text-amber-600`. Umbrales y orden de colores intactos.
+  - **Todo logro = dorado** (señal de recompensa única, condicionamiento cue→reward): chips de `ChipsMotivacion` (racha, récord, progreso, insignias) en `bg-amber-50 text-[#fde68a] border-amber-400/40`; en modo TV la racha y "Mayor progreso" también dorados. **Consejo 💡** post-venta en azul suave (`bg-sky-50 border-sky-200/70`, título `text-sky-700`) = "ayuda", no corrección.
+  - El rojo queda solo para lo destructivo y los errores (botones eliminar, mensajes de error, zona de borrado del Historial).
 - **Logo:** SIN CAMBIOS (requerimiento del cliente) — el cuadrado negro con el ícono SVG en el header nunca se modifica
 
-### Tema "Motivación de ventas" (aplicado 2026-11-04 — reemplazó a "Halloween")
+### Paleta principal "Azul marino + dorado" (integrada 2026-11-08 — VIGENTE)
+Paleta entregada por el usuario como principal de la app. **Tema claro** en dashboard y panel líder; **azul marino** en login y modo TV (decisiones del usuario). Reemplaza al tema oscuro esmeralda; lo de "Motivación de ventas" y "Tema oscuro" de abajo queda como referencia histórica salvo lo que se indica.
+- **Primario = DORADO** (decisión del usuario 2026-11-08, tras ver el azul marino como primario: chocaba con los azules/índigo/violeta semánticos de barras e indicadores). `--accent #C79F4B` (botones `bg-accent text-on-accent`, pestaña activa, foco), `--accent-hover #AD8736`, `--on-accent #00203D` (texto sobre dorado 6.7:1; **nunca `text-white` sobre `bg-accent`**, 2.5:1), `--accent-text #8A6A24` (dorado como texto). Azul marino = `--primary #003B6D` / `--primary-hover #00284B` (`text-primary`, `bg-primary-light`): header, consejos/info, ícono de notificaciones vacío, login y TV. Títulos `--heading #2B2B2B`. Lo que sigue en esta lista sobre `--accent #003B6D`/`--heading #003B6D` quedó reemplazado por esto.
+- **Tokens** (`:root` de `globals.css`, expuestos en `@theme inline`): `--background #F2F1ED` · `--surface #FFFFFF` · `--foreground #2B2B2B` · `--accent #003B6D` / `--accent-hover #00284B` (botones `bg-accent`, foco `focus:border-accent focus:ring-accent/20`, pestaña activa `border-accent`) · `--accent-text #003B6D` · `--primary-light #E6EEF4` (`bg-primary-light`: info, consejos, hover) · `--gold #C79F4B` / `--gold-hover #AD8736` / `--gold-light #F9F4E8` · `--gold-text #8A6A24` · `--heading #003B6D` · `--accent-muted #4A4A48` · `--border #DFDDD6`.
+- **Regla de contraste:** `#C79F4B` da 2.5:1 sobre blanco → **nunca como texto**; solo rellenos/bordes/íconos (`bg-gold`, `border-gold/50`, `ring-gold`). Texto dorado = `text-gold-text` (#8A6A24, 5:1). Texto azul marino sobre dorado = 4.6:1.
+- **Logros = dorado** (`bg-gold-light text-gold-text border-gold/50`): chips de `ChipsMotivacion`, badge "Top ventas", anillo del avatar top 1, hero ("Vamos por la meta", tile del 🏆), reconocimientos, notificación nueva.
+- **`.theme-light`** (en `<main>` de `page.tsx` y `lider/page.tsx`): solo reasigna los grises de Tailwind a una escala cálida (`gray-50 #F8F7F4` … `gray-200 #DFDDD6` … `gray-400 #77756F` (4.6:1) … `gray-900 #2B2B2B`). El resto de colores de Tailwind se usan con sus valores normales de modo claro.
+- **`.theme-dark`** ahora solo en `/tv`: redefine tokens dentro del scope (`--surface #00335F`, fondo `#00284B` vía `.theme-dark.bg-dot-grid`, `--heading #FFF`, `--gold-text`/`--accent-text #E3C27E`, `--gold-light`/`--primary-light` como mezclas sobre azul marino) + grises azul marino; mantiene la reasignación de pastel/600-900 de cada color.
+- `RANK_COLORS`: 1º `border-gold/70 from-[#F9F4E8] via-white to-white ring-gold/40`; 2º plata `border-[#C3CAD3] from-[#F1F3F6]`; 3º bronce `border-[#D9B48C] from-[#FBF1E6]`.
+- Header y franja de modales/paneles (`.theme-modal/.theme-panel ::before`): degradado `#003B6D → #C79F4B`. Glow del top 1: sombra dorada + azul marino.
+- `CelebracionVenta`: tarjeta `bg-[#003B6D]`, ícono degradado dorado con trazo `#00284B`, label `#E3C27E`.
+- Aviso post-venta: `bg-emerald-50 border-emerald-200 text-emerald-950` (éxito, semántico); consejo 💡 en `bg-primary-light` con título `text-accent`.
+- Login: fondo `#00284B`, blobs azul marino, card `bg-white/5 border-[#C79F4B]/25`, subtítulo `#B9C9DA`. `themeColor` del layout `#003B6D`.
+- **Sin cambios (protegidos/semánticos):** barras de progreso y colores de nivel, verde de "meta cumplida", colores fijos por indicador (AVT índigo, Txn violeta, UPT teal, Uds naranja, Monto esmeralda), logo, punto "en vivo" esmeralda del ranking de hoy, rojo de borrado/errores.
+
+### Tema "Motivación de ventas" (aplicado 2026-11-04 — HISTÓRICO, reemplazado por la paleta azul marino + dorado)
 Reskin visual sobre el tema oscuro, sin tocar lógica ni elementos protegidos. Paleta: esmeralda (crecimiento) + dorado (logro) sobre negro con tinte verde.
 - **Header (dashboard y panel líder):** barra de acento superior `from-emerald-500 via-teal-400 to-amber-400`. "Ranking Ventas 🏆" en dashboard. Sin guirnalda.
 - **Hero banner** (solo dashboard, `<section aria-label="Motivación del equipo">`): etiqueta "Vamos por la meta" (`text-emerald-700`), título "Ranking de Ventas", subtítulo `fraseDelDia` (array `FRASES` de 7 frases, rota por día del mes), ilustración SVG de barras ascendentes + flecha dorada en la esquina superior derecha (opacidad baja), resplandor `bg-emerald-500/10`. **Avance del equipo** (solo si hay meta): `totalEquipo` = Σ(`totalVentas + acumuladoMes.monto`) de todos los asesores vs `meta.montoTotal`, barra con `barColor(pctEquipo)` (se usa, no se modifica), y línea "Faltan X · N días · Y por día" (`faltaEquipo / diasRestantes`); al cumplir muestra "¡Meta del equipo cumplida! Vamos por el 120%". Sin lecturas extra a Firestore.
@@ -264,7 +325,7 @@ Reskin visual sobre el tema oscuro, sin tocar lógica ni elementos protegidos. P
   - `--accent-muted: #9fb7aa` → `text-accent-muted`: subtítulos.
   - `--surface: #121a17` → `bg-surface`: tarjetas, modales, paneles, header. **Si cambia `--surface`, actualizar también los hex `via-[#121a17] to-[#121a17]` de `RANK_COLORS`.**
   - **Para el próximo tema basta con cambiar estos tokens** + los puntos de esta lista.
-- **Tema oscuro** (base desde 2026-10-03; se conservó al pasar a "Motivación de ventas" 2026-11-04, decisión del usuario):
+- **Tema oscuro** (HISTÓRICO: base 2026-10-03 → 2026-11-08; hoy `.theme-dark` solo se usa en `/tv` con azul marino, ver arriba):
   - Clase **`.theme-dark`** en el `<main>` de `page.tsx` y `lider/page.tsx` (el login ya era oscuro con estilo propio y NO la lleva). Todos los modales/paneles se renderizan dentro de esos `<main>` (no hay portals), así que heredan el tema.
   - En vez de reescribir cientos de clases, `.theme-dark` **reasigna variables de la paleta de Tailwind v4** dentro del scope: grises invertidos con tinte verde (`--color-gray-50: #18211d` … `--color-gray-900: #f1f6f3`) y, para cada color (red, rose, orange, amber, yellow, green, emerald, teal, cyan, sky, blue, indigo, violet, purple), los tonos **50/100/200 → tintes oscuros** (`color-mix` del 500 con `--surface`) y **600/700/800/900 → versiones claras** (400/300). Los **300/400/500 no cambian** → las barras semánticas (`barColor`, `indicatorBarFill`, gradientes 400/500) quedan idénticas, y las funciones protegidas (`barColor`, `indicatorBarFill`, `pctColor`, `motivacion`) **no se modificaron en el código**: solo se adapta cómo se pintan sus pastel/textos sobre oscuro, conservando el mismo orden de color.
   - Codemod aplicado (excepto login): `bg-white→bg-surface`, `border-[#eaeaea]→border-gray-200`, `border-[#f2f2f2]→border-gray-100`, `text-[#8f8f8f]→text-gray-400`, `bg-[#fafafa]→bg-gray-50`, `bg-[#f2f2f2]→bg-gray-100`, `focus:border-black→focus:border-emerald-400`, `focus:ring-black/10→focus:ring-emerald-400/20`.
@@ -272,7 +333,7 @@ Reskin visual sobre el tema oscuro, sin tocar lógica ni elementos protegidos. P
   - Tiles oscuros a propósito (`bg-[#14261e]`: ícono del hero, estado vacío de notificaciones) llevan `ring-1 ring-emerald-400/30` para separarse del fondo.
   - **Al escribir componentes nuevos dentro del tema:** usar `bg-surface`, la escala `gray-*` y tonos de color normales (se adaptan solos). **Ojo:** un texto que deba ser claro a propósito con tono 50/100/200 (p. ej. `text-amber-200`) se oscurecería por la reasignación → usar hex fijo (`text-[#fde68a]`, `text-[#d1fae5]`). Igual para fondos que deban quedar oscuros con 600–900: usar hex (ej. botones de borrado de `HistorialTab`: `bg-[#be123c] hover:bg-[#9f1239]`).
   - Logo (cuadrado negro, protegido) sin cambios: sobre el header oscuro se lee por su ícono blanco.
-- Los `rose-*` que quedan en el código son semánticos (barras <80%, "¡Empieza hoy!", zona de borrado en Historial, punto del tutorial) — no son del tema.
+- Los `rose-*`/`red-*` que quedan en el código son semánticos de error/destrucción (zona de borrado en Historial, eliminar, errores) y el punto del tutorial — no son de rendimiento ni del tema.
 - Para cambiar de tema: los puntos a tocar son exactamente los de esta lista (tokens `:root`, grises de `.theme-dark`, header accent ×2, hero, `.bg-dot-grid`, `RANK_COLORS`, `Top1Badge`, ring del avatar top 1, `.theme-modal/.theme-panel`, `CelebracionVenta`, focus de inputs, `NotificacionesPanel`, blobs del login, keyframes del tema). Flujo de trabajo de diseño: Taste (dirección) → Emil (animación) → Impeccable (auditoría), skills en `.claude/skills/`.
 
 ## Instrucción permanente — Registro de cambios

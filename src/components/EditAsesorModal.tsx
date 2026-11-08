@@ -115,7 +115,7 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
               type="text"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             />
           </div>
 
@@ -126,7 +126,7 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
               type="text"
               value={apellido}
               onChange={(e) => setApellido(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             />
           </div>
 
@@ -137,7 +137,7 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
               type="text"
               value={cargo}
               onChange={(e) => setCargo(e.target.value)}
-              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 transition-colors text-gray-900"
+              className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             />
           </div>
 
@@ -149,7 +149,7 @@ export default function EditAsesorModal({ asesor, onClose }: EditAsesorModalProp
               Cancelar
             </button>
             <button type="submit" disabled={loading}
-              className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
+              className="flex-1 px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors disabled:opacity-50">
               {loading ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>

@@ -371,7 +371,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                                         type="number"
                                         value={val}
                                         onChange={(e) => (set as (v: string) => void)(e.target.value)}
-                                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-gray-900 text-gray-900"
+                                        className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900"
                                         min={1}
                                       />
                                     </div>
@@ -383,7 +383,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                                     Cancelar
                                   </button>
                                   <button onClick={() => handleGuardarEditReg(r)}
-                                    className="flex-1 text-xs text-white bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
+                                    className="flex-1 text-xs text-on-accent bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
                                     Guardar
                                   </button>
                                 </div>
@@ -435,7 +435,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                           <div key={label}>
                             <label className="block text-[10px] text-gray-400 mb-0.5">{label}</label>
                             <input type="number" value={val} onChange={(e) => set(e.target.value)}
-                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-gray-900 text-gray-900" min={0} />
+                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900" min={0} />
                           </div>
                         ))}
                       </div>
@@ -445,7 +445,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                           Cancelar
                         </button>
                         <button onClick={() => handleGuardarEdit(entrada)}
-                          className="flex-1 text-xs text-white bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
+                          className="flex-1 text-xs text-on-accent bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
                           Guardar
                         </button>
                       </div>
@@ -487,20 +487,20 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">Monto</label>
                   <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 text-gray-900"
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                     placeholder="Ej. 500000" min={0} autoFocus />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Transacciones</label>
                     <input type="number" value={txn} onChange={(e) => setTxn(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 text-gray-900"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                       placeholder="0" min={0} />
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Unidades</label>
                     <input type="number" value={uds} onChange={(e) => setUds(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-gray-900 text-gray-900"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                       placeholder="0" min={0} />
                   </div>
                 </div>
@@ -511,14 +511,14 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                     Cancelar
                   </button>
                   <button onClick={handleAgregar} disabled={saving}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
+                    className="flex-1 px-3 py-2 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
                     {saving ? 'Guardando...' : 'Guardar'}
                   </button>
                 </div>
               </div>
             ) : (
               <button onClick={() => setShowForm(true)}
-                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-accent rounded-xl hover:bg-accent-hover transition-colors">
+                className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
                 + Agregar entrada
               </button>
             )}
