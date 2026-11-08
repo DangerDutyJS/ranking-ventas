@@ -7,11 +7,11 @@ import { useStoreId } from '@/context/StoreContext';
 import { crearNotificacion } from '@/lib/notificaciones';
 import Image from 'next/image';
 import PlacaReconocimiento, { type DatosPlaca } from '@/components/PlacaReconocimiento';
+import { minutosRestantes } from '@/lib/motivacion';
 import {
-  mensajeRacha, mensajeRendimiento, ritmoSiguienteNivel, indicadorMasBajo, tipVentas, nombreMes,
-  minutosRestantes, NOMBRE_INDICADOR, type Racha, type IndicadorTip,
-} from '@/lib/motivacion';
-import { calcularScoreRanking, compararRanking, type ConfigRanking } from '@/lib/reglas';
+  calcularMotivacion, calcularResultado, armarPlaca, textoPosicion,
+  type ContextoMotivacion, type PosicionMes, type Resultado,
+} from '@/lib/postVenta';
 
 interface Asesor {
   id: string;
@@ -38,137 +38,7 @@ interface Dinamica {
   progreso: Record<string, number>;
 }
 
-export interface ContextoMotivacion {
-  racha: Racha;
-  mejorMes: { total: number; mes: string } | null;
-  metaMensual: number;
-  diasRestantes: number;
-  avanceMes: number;
-  totales: { unidades: number; transacciones: number };
-  metas: { avt: number | null; upt: number | null; txn: number | null };
-  cfg: ConfigRanking;
-}
-
-interface Motivacion {
-  racha: { dias: number; diaNuevo: boolean };
-  pct: number | null;
-  recordNuevo: boolean;
-  nivelNuevo: 100 | 110 | 120 | null;
-  score: number | null;
-  rescate100Nuevo: boolean;
-  rendimiento: string | null;
-  record: string | null;
-  ritmo: { label: string; porDia: number; dias: number } | null;
-  tip: { indicador: IndicadorTip; texto: string } | null;
-}
-
-// Se calcula al instante con la venta recién sumada, igual que la posición: no espera al snapshot.
-function calcularMotivacion(ctx: ContextoMotivacion, totalAntes: number, venta: { monto: number; unidades: number; transacciones: number }, yaRegistroHoy: boolean): Motivacion {
-  const semilla = Date.now();
-  const diaNuevo = !ctx.racha.hoyRegistrado && !yaRegistroHoy;
-  const dias = diaNuevo ? ctx.racha.dias + 1 : Math.max(1, ctx.racha.dias);
-  const total = totalAntes + venta.monto;
-  const pct = ctx.metaMensual > 0 ? (total / ctx.metaMensual) * 100 : null;
-
-  let record: string | null = null;
-  if (ctx.mejorMes && total > ctx.mejorMes.total) {
-    record = totalAntes <= ctx.mejorMes.total
-      ? `¡Superaste tu mejor mes (${nombreMes(ctx.mejorMes.mes)})! Nuevo récord personal.`
-      : `Vas por encima de tu mejor mes (${nombreMes(ctx.mejorMes.mes)}). Cada venta agranda tu récord.`;
-  }
-
-  const uds = ctx.totales.unidades + venta.unidades;
-  const txn = ctx.totales.transacciones + venta.transacciones;
-  const upt = txn > 0 ? uds / txn : null;
-  const avt = txn > 0 ? total / txn : null;
-  // Transacciones se compara contra lo esperado a esta altura del mes, no contra la meta completa.
-  const txnEsperadas = ctx.metas.txn !== null ? ctx.metas.txn * Math.max(0.05, ctx.avanceMes) : null;
-  const indicador = indicadorMasBajo({
-    upt: upt !== null && ctx.metas.upt ? (upt / ctx.metas.upt) * 100 : null,
-    avt: avt !== null && ctx.metas.avt ? (avt / ctx.metas.avt) * 100 : null,
-    txn: txnEsperadas ? (txn / txnEsperadas) * 100 : null,
-  });
-
-  // Puntaje ponderado antes y después de la venta (mismas reglas que el orden del ranking mensual).
-  const datosScore = (venta: number, u: number, t: number) => calcularScoreRanking({
-    ventaReal: venta, metaVenta: ctx.metaMensual, unidades: u, transacciones: t, metaUPT: ctx.metas.upt, metaAVT: ctx.metas.avt,
-  }, ctx.cfg);
-  const scoreAntes = datosScore(totalAntes, ctx.totales.unidades, ctx.totales.transacciones);
-  const scoreDespues = datosScore(total, uds, txn);
-
-  const ritmo = ritmoSiguienteNivel(scoreDespues.score, ctx.metaMensual, scoreDespues.venta.peso, ctx.diasRestantes);
-  // Tramo nuevo según el cumplimiento total (puntaje), igual que comisiones y premios. Solo LEE los umbrales.
-  const cAntes = scoreAntes.score, cDespues = scoreDespues.score;
-  const nivelNuevo = cAntes !== null && cDespues !== null
-    ? ([120, 110, 100] as const).find((n) => cAntes < n && cDespues >= n) ?? null
-    : null;
-  return {
-    racha: { dias, diaNuevo },
-    pct,
-    recordNuevo: !!ctx.mejorMes && totalAntes <= ctx.mejorMes.total && total > ctx.mejorMes.total,
-    nivelNuevo,
-    score: scoreDespues.score,
-    rescate100Nuevo: scoreDespues.meta100PorRescate && !scoreAntes.meta100,
-    rendimiento: pct !== null ? mensajeRendimiento(pct, semilla) : null,
-    record,
-    ritmo: ritmo ? { label: ritmo.label, porDia: ritmo.porDia, dias: ritmo.dias } : null,
-    tip: indicador ? { indicador, texto: tipVentas(indicador, semilla) } : null,
-  };
-}
-
-const HITOS_RACHA_PLACA = [3, 5, 7, 10, 15, 20, 25, 30];
-const TITULOS_GENERALES = ['¡Vas muy bien!', '¡Excelente venta!', '¡Sigue así, vas con todo!'];
-
-// Elige el logro más importante de esta venta para el título de la placa (siempre en positivo).
-function armarPlaca(monto: number, r: Resultado | null, m: Motivacion | null): DatosPlaca {
-  const semilla = Date.now();
-  let titulo = TITULOS_GENERALES[semilla % TITULOS_GENERALES.length];
-  if (m?.recordNuevo) titulo = '¡Nuevo récord personal!';
-  else if (m?.nivelNuevo === 120) titulo = '¡Día libre desbloqueado! 🏖️';
-  else if (m?.nivelNuevo === 110) titulo = '¡Bono corral desbloqueado! 🎁';
-  else if (m?.rescate100Nuevo) titulo = '¡Tu UPT y AVT te llevaron al 100%! 🛟';
-  else if (m?.nivelNuevo === 100) titulo = '¡Meta cumplida! 📌';
-  else if (r?.subio && r.posicion === 1) titulo = '¡Llegaste al 1º lugar!';
-  else if (r?.subio) titulo = `¡Subiste al ${r.posicion}º lugar!`;
-  else if (m?.racha.diaNuevo && HITOS_RACHA_PLACA.includes(m.racha.dias)) titulo = `¡Racha de ${m.racha.dias} días!`;
-  else if (m?.racha.diaNuevo) titulo = '¡Arrancaste el día!';
-  return {
-    id: semilla,
-    monto,
-    titulo,
-    frase: m?.rendimiento ?? 'Cada venta construye tu mes. ¡La próxima puede ser la grande!',
-    racha: m?.racha.dias ?? 0,
-    pct: m?.pct ?? null,
-    posicion: r?.posicion ?? null,
-  };
-}
-
-function MotivacionPostVenta({ m }: { m: Motivacion }) {
-  return (
-    <ul className="mt-2.5 pt-2.5 border-t border-emerald-200 space-y-1.5 text-[12px] leading-snug text-emerald-950/80">
-      <li className="flex gap-2"><span aria-hidden="true">🔥</span><span>{mensajeRacha(m.racha.dias, m.racha.diaNuevo)}</span></li>
-      {m.record
-        ? <li className="flex gap-2"><span aria-hidden="true">📈</span><span className="font-medium text-emerald-700">{m.record}</span></li>
-        : m.rendimiento && <li className="flex gap-2"><span aria-hidden="true">⭐</span><span>{m.rendimiento}</span></li>}
-      {m.ritmo && (
-        <li className="flex gap-2"><span aria-hidden="true">⏱️</span><span>Para la comisión {m.ritmo.label}: <b className="text-heading tabular-nums">{formatCurrency(m.ritmo.porDia)}</b> por día · {m.ritmo.dias} {m.ritmo.dias === 1 ? 'día' : 'días'}</span></li>
-      )}
-      {m.tip && (
-        <li className="flex gap-2 rounded-lg bg-primary-light border border-primary/15 px-2.5 py-2 -mx-0.5">
-          <span aria-hidden="true">💡</span>
-          <span><span className="font-medium text-primary">Consejo para subir tu {NOMBRE_INDICADOR[m.tip.indicador]}:</span> {m.tip.texto}</span>
-        </li>
-      )}
-    </ul>
-  );
-}
-
-interface PosicionMes {
-  id: string;
-  nombre: string;
-  total: number;
-  score: number | null;
-}
+export type { ContextoMotivacion } from '@/lib/postVenta';
 
 interface Props {
   asesor: Asesor;
@@ -178,67 +48,12 @@ interface Props {
   onClose: () => void;
 }
 
-interface Resultado {
-  posicion: number;
-  subio: boolean;
-  total: number;
-  arriba: { nombre: string; gap: number; unidad: 'pts' | '$' } | null;
-  abajo: { nombre: string; ventaja: number; unidad: 'pts' | '$' } | null;
-}
-
-// Distancia entre dos asesores en la misma unidad que decide el orden: puntos del ranking; si empatan en
-// puntos (o no hay meta), en dinero, que es el desempate.
-function distancia(alto: { score: number | null; ventaReal: number }, bajo: { score: number | null; ventaReal: number }) {
-  if (alto.score !== null && bajo.score !== null && alto.score - bajo.score > 0.05) {
-    return { valor: alto.score - bajo.score, unidad: 'pts' as const };
-  }
-  return { valor: alto.ventaReal - bajo.ventaReal, unidad: '$' as const };
-}
-
-function formatDistancia(valor: number, unidad: 'pts' | '$') {
-  return unidad === 'pts' ? `${valor.toFixed(1)} pts` : formatCurrency(valor);
-}
-
-// Posición con el mismo orden del ranking mensual (puntaje, desempate por dinero): cuántos van delante + 1.
-function calcularResultado(ranking: PosicionMes[], asesorId: string, monto: number, scoreNuevo: number | null): Resultado {
-  const otros = ranking.filter((r) => r.id !== asesorId).map((r) => ({ ...r, ventaReal: r.total }));
-  const yo = ranking.find((r) => r.id === asesorId);
-  const antes = { score: yo?.score ?? null, ventaReal: yo?.total ?? 0 };
-  const despues = { score: scoreNuevo, ventaReal: antes.ventaReal + monto };
-  const delanteAntes = otros.filter((o) => compararRanking(o, antes) < 0);
-  const delante = otros.filter((o) => compararRanking(o, despues) < 0).sort(compararRanking);
-  const detras = otros.filter((o) => compararRanking(o, despues) >= 0).sort(compararRanking);
-  const encima = delante[delante.length - 1];
-  const debajo = detras[0];
-  const dArriba = encima ? distancia(encima, despues) : null;
-  const dAbajo = debajo ? distancia(despues, debajo) : null;
-  return {
-    posicion: delante.length + 1,
-    subio: delante.length < delanteAntes.length,
-    total: despues.ventaReal,
-    arriba: encima && dArriba ? { nombre: encima.nombre, gap: dArriba.valor, unidad: dArriba.unidad } : null,
-    abajo: debajo && dAbajo ? { nombre: debajo.nombre, ventaja: dAbajo.valor, unidad: dAbajo.unidad } : null,
-  };
-}
-
-function AvisoPostVenta({ r, m }: { r: Resultado; m: Motivacion | null }) {
-  let mensaje: React.ReactNode;
-  if (r.posicion === 1) {
-    mensaje = r.abajo && r.abajo.ventaja > 0
-      ? <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Sigues en el 1º lugar!'} Le llevas <b className="tabular-nums">{formatDistancia(r.abajo.ventaja, r.abajo.unidad)}</b> a {r.abajo.nombre}</>
-      : <>{r.subio ? '¡Llegaste al 1º lugar!' : '¡Vas en el 1º lugar!'}</>;
-  } else if (r.posicion <= 4 && r.arriba) {
-    mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar!` : `Vas en el ${r.posicion}º lugar.`} Ahora estás a <b className="tabular-nums">{formatDistancia(r.arriba.gap, r.arriba.unidad)}</b> de {r.arriba.nombre}</>;
-  } else {
-    mensaje = <>{r.subio ? `¡Subiste al ${r.posicion}º lugar! ` : ''}Llevas <b className="tabular-nums">{formatCurrency(r.total)}</b> este mes</>;
-  }
+// En línea queda solo la confirmación con la posición; los mensajes motivacionales van en la placa animada.
+function AvisoPostVenta({ r }: { r: Resultado }) {
   return (
     <div role="status" className="animate-slide-up flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[12.5px] leading-snug text-emerald-950 [text-wrap:pretty]">
       <span aria-hidden="true" className="text-base leading-none">{r.subio || r.posicion === 1 ? '🏆' : '✅'}</span>
-      <div className="min-w-0">
-        <p><span className="font-semibold text-emerald-700">Venta guardada.</span> {mensaje}</p>
-        {m && <MotivacionPostVenta m={m} />}
-      </div>
+      <p className="min-w-0"><span className="font-semibold text-emerald-700">Venta guardada.</span> {textoPosicion(r)}</p>
     </div>
   );
 }
@@ -292,7 +107,6 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [motivacion, setMotivacion] = useState<Motivacion | null>(null);
   const [placa, setPlaca] = useState<DatosPlaca | null>(null);
   const [ahora, setAhora] = useState(() => new Date());
   useEffect(() => {
@@ -364,7 +178,6 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
         : null;
       const res = rankingMes?.length ? calcularResultado(rankingMes, asesor.id, m, mot?.score ?? null) : null;
       setResultado(res);
-      setMotivacion(mot);
       setPlaca(armarPlaca(m, res, mot));
       setMonto(''); setUnidades(''); setTxn('');
       setShowForm(false);
@@ -606,7 +419,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
           </div>
             {registros.length > 0 && (
               <div className="px-6 pb-6 pt-3 shrink-0 border-t border-gray-100">
-                <button onClick={() => { cambiarVista('registrar'); setShowForm(true); setResultado(null); setMotivacion(null); }}
+                <button onClick={() => { cambiarVista('registrar'); setShowForm(true); setResultado(null); }}
                   className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
                   + Registrar venta
                 </button>
@@ -652,8 +465,8 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             </div>
           ) : (
             <>
-            {resultado && <AvisoPostVenta r={resultado} m={motivacion} />}
-            <button onClick={() => { setShowForm(true); setEditEntry(null); setResultado(null); setMotivacion(null); }}
+            {resultado && <AvisoPostVenta r={resultado} />}
+            <button onClick={() => { setShowForm(true); setEditEntry(null); setResultado(null); }}
               className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
               + Registrar venta
             </button>

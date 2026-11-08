@@ -4,6 +4,12 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
 
+export interface MensajePlaca {
+  icono: string;
+  texto: string;
+  tipo?: 'logro' | 'consejo';
+}
+
 export interface DatosPlaca {
   id: number;
   monto: number;
@@ -12,6 +18,8 @@ export interface DatosPlaca {
   racha: number;
   pct: number | null;
   posicion: number | null;
+  // Mensajes motivacionales (posición, racha, récord, ritmo, consejo) que se muestran dentro de la placa.
+  mensajes?: MensajePlaca[];
 }
 
 interface Props {
@@ -20,7 +28,7 @@ interface Props {
   onClose: () => void;
 }
 
-const DURACION_MS = 6000;
+const DURACION_MS = 10000;
 
 // Confeti determinista (sin Math.random en render): 24 piezas repartidas en abanico desde la medalla.
 const CONFETI = Array.from({ length: 24 }, (_, i) => {
@@ -72,7 +80,7 @@ export default function PlacaReconocimiento({ datos, asesor, onClose }: Props) {
 
   const stats = [
     datos.racha > 0 ? `🔥 ${datos.racha} ${datos.racha === 1 ? 'día' : 'días'}` : null,
-    datos.pct !== null ? `${Math.round(datos.pct)}% de tu meta` : null,
+    datos.pct !== null ? `${Math.round(datos.pct)}% cumplimiento` : null,
     datos.posicion !== null ? `${datos.posicion}º lugar` : null,
   ].filter((s): s is string => s !== null);
 
@@ -91,7 +99,7 @@ export default function PlacaReconocimiento({ datos, asesor, onClose }: Props) {
         aria-labelledby="placa-titulo"
         aria-describedby="placa-frase"
         onClick={(e) => e.stopPropagation()}
-        className="placa-in relative w-full max-w-[340px] rounded-3xl bg-surface border-2 border-gold shadow-[0_28px_70px_-18px_rgba(0,32,61,0.55)] overflow-hidden"
+        className="placa-in relative w-full max-w-[360px] max-h-[92vh] supports-[height:100dvh]:max-h-[92dvh] overflow-y-auto overscroll-contain rounded-3xl bg-surface border-2 border-gold shadow-[0_28px_70px_-18px_rgba(0,32,61,0.55)]"
       >
         <div className="relative h-24 bg-primary overflow-hidden">
           <div
@@ -154,6 +162,24 @@ export default function PlacaReconocimiento({ datos, asesor, onClose }: Props) {
             “{datos.frase}”
           </p>
 
+          {datos.mensajes && datos.mensajes.length > 0 && (
+            <ul className="placa-texto mt-4 space-y-2 text-left" style={{ animationDelay: '470ms' }}>
+              {datos.mensajes.map((m, i) => (
+                <li
+                  key={i}
+                  className={`flex gap-2.5 rounded-xl px-3 py-2 text-[12.5px] leading-snug [text-wrap:pretty] ${
+                    m.tipo === 'consejo' ? 'bg-primary-light text-primary'
+                      : m.tipo === 'logro' ? 'bg-gold-light text-gold-text font-medium'
+                        : 'bg-gray-50 text-gray-700'
+                  }`}
+                >
+                  <span aria-hidden="true" className="text-base leading-none">{m.icono}</span>
+                  <span className="min-w-0">{m.texto}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
           <button
             type="button"
             autoFocus
@@ -165,7 +191,7 @@ export default function PlacaReconocimiento({ datos, asesor, onClose }: Props) {
           </button>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 h-1 bg-gold-light" aria-hidden="true">
+        <div className="sticky bottom-0 h-1 bg-gold-light" aria-hidden="true">
           <div className="placa-timer h-full bg-gold origin-left" style={{ animationDuration: `${DURACION_MS}ms` }} />
         </div>
       </div>

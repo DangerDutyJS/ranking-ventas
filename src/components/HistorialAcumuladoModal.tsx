@@ -5,11 +5,13 @@ import { doc, getDoc, setDoc, updateDoc, onSnapshot, increment, arrayUnion } fro
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 import { crearNotificacion } from '@/lib/notificaciones';
+import Image from 'next/image';
 
 interface Asesor {
   id: string;
   nombre: string;
   apellido: string;
+  fotoBase64?: string;
 }
 
 interface Entrada {
@@ -65,6 +67,13 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
   const parentRef = doc(db, 'tiendas', storeId, 'ventasMes', parentId);
 
   const [tab, setTab] = useState<'diario' | 'acumulado'>('diario');
+  // Mismo diseño que el recuadro del día: vista principal para agregar y el historial detrás del ícono de reloj.
+  const [vista, setVista] = useState<'agregar' | 'historial'>('agregar');
+  const [guardado, setGuardado] = useState(false);
+  const claveVisto = `historial-mes-visto:${storeId}:${asesor.id}:${mes}`;
+  const [vistoHasta, setVistoHasta] = useState<string>(() => {
+    try { return localStorage.getItem(claveVisto) ?? ''; } catch { return ''; }
+  });
   const [loading, setLoading] = useState(true);
 
   // Acumulado state
@@ -195,6 +204,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
       }
       setMonto(''); setTxn(''); setUds('');
       setShowForm(false);
+      setGuardado(true);
       const partes = [
         m > 0 ? formatCurrency(m) : '',
         t > 0 ? `${t} txn` : '',
@@ -268,6 +278,29 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
     { monto: 0, transacciones: 0, unidades: 0 }
   );
 
+  const creados = [...registros.map((r) => r.creadoEn ?? ''), ...entradas.map((e) => e.creadoEn ?? '')];
+  const nuevas = creados.filter((c) => c > vistoHasta).length;
+  const marcarVisto = () => {
+    const ultimo = creados.reduce((m, c) => (c > m ? c : m), vistoHasta);
+    if (ultimo === vistoHasta) return;
+    setVistoHasta(ultimo);
+    try { localStorage.setItem(claveVisto, ultimo); } catch { /* sin almacenamiento local */ }
+  };
+  const cambiarVista = (v: 'agregar' | 'historial') => {
+    marcarVisto();
+    setVista(v);
+    setEditId(null);
+    setEditRegKey(null);
+  };
+  const cerrar = () => {
+    if (vista === 'historial') marcarVisto();
+    onClose();
+  };
+  const mesNombre = (() => {
+    const [y, m] = mes.split('-').map(Number);
+    return new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+  })();
+
   const EditIcon = () => (
     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -284,23 +317,112 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="theme-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
+      <div className="theme-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] supports-[height:100dvh]:max-h-[85dvh] animate-modal">
 
-        {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4">
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Historial mensual</p>
-            <p className="text-base font-semibold text-gray-900">{asesor.nombre} {asesor.apellido}</p>
+        {/* Header (igual al recuadro del día) */}
+        <div className="flex items-start justify-between p-6 pb-4 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+              {asesor.fotoBase64 ? (
+                <Image src={asesor.fotoBase64} alt={asesor.nombre} width={40} height={40} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-semibold text-gray-400">{asesor.nombre[0]}{asesor.apellido?.[0]}</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-gray-900 truncate">{asesor.nombre} {asesor.apellido}</p>
+              <p className="text-xs text-gray-400">{vista === 'historial' ? 'Historial del mes' : 'Acumulado del mes'} · {mesNombre}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1 -mr-1">
+            <button
+              type="button"
+              onClick={() => cambiarVista(vista === 'historial' ? 'agregar' : 'historial')}
+              aria-label={vista === 'historial'
+                ? 'Volver a agregar al acumulado'
+                : nuevas > 0 ? `Ver historial del mes (${nuevas} ${nuevas === 1 ? 'nueva' : 'nuevas'})` : 'Ver historial del mes'}
+              aria-pressed={vista === 'historial'}
+              title="Historial del mes"
+              className={`relative p-2 rounded-lg transition-colors ${vista === 'historial' ? 'bg-gold-light text-gold-text' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              {nuevas > 0 && vista !== 'historial' && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[1.05rem] h-[1.05rem] px-1 rounded-full bg-gold text-[#00203D] text-[10px] font-bold leading-[1.05rem] text-center tabular-nums" aria-hidden="true">
+                  {nuevas}
+                </span>
+              )}
+            </button>
+            <button onClick={cerrar} aria-label="Cerrar" className="p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
+        {vista === 'agregar' ? (
+          <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-6 pb-6 space-y-3">
+            {showForm ? (
+              <div className="border border-gray-100 rounded-xl p-3 space-y-3">
+                <p className="text-xs font-medium text-gray-600">Nuevo acumulado</p>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Monto vendido</label>
+                  <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
+                    placeholder="Ej. 2500000" min={0} autoFocus />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Unidades</label>
+                    <input type="number" value={uds} onChange={(e) => setUds(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
+                      placeholder="Ej. 5" min={0} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Transacciones</label>
+                    <input type="number" value={txn} onChange={(e) => setTxn(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
+                      placeholder="Ej. 2" min={0} />
+                  </div>
+                </div>
+                {error && <p className="text-xs text-red-500">{error}</p>}
+                <div className="flex gap-2">
+                  <button onClick={() => { setShowForm(false); setError(''); }}
+                    className="flex-1 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50">
+                    Cancelar
+                  </button>
+                  <button onClick={handleAgregar} disabled={saving}
+                    className="flex-1 px-3 py-2 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
+                    {saving ? 'Guardando...' : 'Guardar'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {guardado && (
+                  <div role="status" className="animate-slide-up flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3.5 py-3 text-[12.5px] leading-snug text-emerald-950">
+                    <span aria-hidden="true" className="text-base leading-none">✅</span>
+                    <p className="min-w-0"><span className="font-semibold text-emerald-700">Acumulado guardado.</span> Ya suma al total del mes.</p>
+                  </div>
+                )}
+                <button onClick={() => { setShowForm(true); setGuardado(false); }}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
+                  + Agregar al acumulado
+                </button>
+                <p className="text-[12px] text-gray-400 text-center [text-wrap:pretty]">
+                  Ventas del mes que no se registraron día a día. Para corregir ventas anteriores, abre el historial.
+                </p>
+              </>
+            )}
+          </div>
+        ) : (
+          <>
         {/* Tabs */}
-        <div className="flex mx-6 mb-3 bg-gray-100 rounded-xl p-1 gap-1">
+        <div className="flex mx-6 mb-3 bg-gray-100 rounded-xl p-1 gap-1 shrink-0">
           <button
             onClick={() => setTab('diario')}
             className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-colors ${tab === 'diario' ? 'bg-surface text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
@@ -317,7 +439,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
         {/* Total strip */}
         {!loading && tab === 'diario' && registros.length > 0 && (
-          <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between shrink-0">
             <span className="text-xs text-gray-500">Total registrado</span>
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
               <span>{formatCurrency(totalDiario.monto)}</span>
@@ -327,7 +449,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
           </div>
         )}
         {!loading && tab === 'acumulado' && entradas.length > 0 && (
-          <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between shrink-0">
             <span className="text-xs text-gray-500">Total acumulado</span>
             <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
               {totalAcumulado.monto > 0 && <span>{formatCurrency(totalAcumulado.monto)}</span>}
@@ -338,7 +460,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
         )}
 
         {/* List area */}
-        <div className="flex-1 overflow-y-auto px-6 space-y-2 min-h-0">
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-3 space-y-2 min-h-0">
           {loading ? (
             <div className="flex justify-center py-6">
               <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
@@ -478,51 +600,13 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
           )}
         </div>
 
-        {/* Footer: only for acumulado tab */}
-        {tab === 'acumulado' && (
-          <div className="p-6 pt-4 space-y-3">
-            {showForm ? (
-              <div className="border border-gray-100 rounded-xl p-3 space-y-3">
-                <p className="text-xs font-medium text-gray-600">Nueva entrada</p>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Monto</label>
-                  <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
-                    placeholder="Ej. 500000" min={0} autoFocus />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Transacciones</label>
-                    <input type="number" value={txn} onChange={(e) => setTxn(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
-                      placeholder="0" min={0} />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Unidades</label>
-                    <input type="number" value={uds} onChange={(e) => setUds(e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
-                      placeholder="0" min={0} />
-                  </div>
-                </div>
-                {error && <p className="text-xs text-red-500">{error}</p>}
-                <div className="flex gap-2">
-                  <button onClick={() => { setShowForm(false); setError(''); }}
-                    className="flex-1 px-3 py-2 text-sm text-gray-500 border border-gray-200 rounded-xl hover:bg-gray-50">
-                    Cancelar
-                  </button>
-                  <button onClick={handleAgregar} disabled={saving}
-                    className="flex-1 px-3 py-2 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover disabled:opacity-50">
-                    {saving ? 'Guardando...' : 'Guardar'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setShowForm(true)}
-                className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
-                + Agregar entrada
-              </button>
-            )}
-          </div>
+        <div className="px-6 pb-6 pt-3 shrink-0 border-t border-gray-100">
+          <button onClick={() => { cambiarVista('agregar'); setShowForm(true); setGuardado(false); }}
+            className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
+            + Agregar al acumulado
+          </button>
+        </div>
+          </>
         )}
       </div>
     </div>
