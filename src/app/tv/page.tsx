@@ -283,7 +283,7 @@ export default function TvPage() {
                   {ranking.slice(0, 8).map((a, i) => {
                     const total = totalReal(ventasMap[a.id]);
                     const metaA = metasMap[a.id]?.metaMensual ?? 0;
-                    const pct = metaA > 0 ? (total / metaA) * 100 : 0;
+                    const pct = scores[a.id]?.score ?? (metaA > 0 ? (total / metaA) * 100 : 0);
                     const l = logroDe(a.id);
                     return (
                       <li key={a.id} className={`flex items-center gap-4 rounded-xl border px-4 py-3 ${i === 0 ? 'border-gold/70 bg-gradient-to-r from-gold-light to-surface' : 'border-gray-100'}`}>

@@ -70,15 +70,18 @@ export const SIGUIENTE_NIVEL = [
 // ══ PUNTAJE PONDERADO DEL RANKING MENSUAL (agregado 2026-11-08, autorizado por el usuario) ══════════
 // Reemplaza el orden por dinero del ranking MENSUAL (el ranking de hoy sigue con pctCombinadoHoy).
 //   score = %Venta·0.80 + %UPT·0.10 + %AVT·0.10
-// - "Rescate": UPT/AVT sobre 100% suman puntos extra solo si %Venta ≥ umbralRescate (85 por defecto),
-//   y como máximo hasta topeUPT/topeAVT (130%). Si no se alcanza el umbral, UPT/AVT cuentan máx. 100%.
+// - ALINEADO CON LA HOJA DE LA EMPRESA (decisión del usuario 2026-11-08, verificado con datos reales):
+//   por defecto SIN tope y SIN umbral (topeUPT/topeAVT = 0 y umbralRescate = 0): UPT/AVT cuentan completos.
+//   Siguen disponibles como parámetros: tope > 0 limita el % que cuenta; umbral > 0 exige ese % de venta
+//   para que UPT/AVT pasen de 100%.
 // - Mínimo de transacciones: UPT/AVT no suman nada hasta que el asesor lleve minTxnIndicadores (10)
 //   transacciones en el mes; una venta suelta no puede regalar 20 puntos de "calidad".
 // - Piso de protección: si %Venta ≥ 100, UPT/AVT nunca cuentan menos de 100% (no le quitan el 100%
 //   a quien ya trajo toda la plata).
 // - Si la tienda no tiene meta de UPT/AVT, su peso pasa a la venta.
-// - Premios/comisiones: el score ≥ 100 desbloquea SOLO el escalón del 100% (Pin, comisión Verde);
-//   110%/120% y la base de pago siguen exigiendo el % de venta real (calcularComisionConRescate).
+// - Comisión (como la hoja): el TRAMO sale del PUNTAJE total (90/100/110/120) y se paga sobre la VENTA
+//   REAL completa (sin ×0,81): calcularComisionPorPuntaje. Premios Pin/Bono corral/Día libre usan el mismo
+//   cumplimiento total.
 
 export interface ConfigRanking {
   pesoVenta: number;
@@ -94,14 +97,19 @@ export const CONFIG_RANKING_DEFAULT: ConfigRanking = {
   pesoVenta: 0.8,
   pesoUPT: 0.1,
   pesoAVT: 0.1,
-  topeUPT: 130,
-  topeAVT: 130,
-  umbralRescate: 85,
+  topeUPT: 0,
+  topeAVT: 0,
+  umbralRescate: 0,
   minTxnIndicadores: 10,
 };
 
 function numeroValido(v: unknown, min: number, max: number): number | null {
   return typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : null;
+}
+
+// Tope: 0 = sin tope; si no, entre 100% y 1000%.
+function topeValido(v: unknown): number | null {
+  return v === 0 ? 0 : numeroValido(v, 100, 1000);
 }
 
 // Valida lo leído de Firestore; cualquier valor ausente o fuera de rango cae al valor por defecto.
@@ -112,8 +120,8 @@ export function normalizarConfigRanking(raw: Partial<Record<keyof ConfigRanking,
     pesoVenta: numeroValido(r.pesoVenta, 0, 1) ?? d.pesoVenta,
     pesoUPT: numeroValido(r.pesoUPT, 0, 1) ?? d.pesoUPT,
     pesoAVT: numeroValido(r.pesoAVT, 0, 1) ?? d.pesoAVT,
-    topeUPT: numeroValido(r.topeUPT, 100, 300) ?? d.topeUPT,
-    topeAVT: numeroValido(r.topeAVT, 100, 300) ?? d.topeAVT,
+    topeUPT: topeValido(r.topeUPT) ?? d.topeUPT,
+    topeAVT: topeValido(r.topeAVT) ?? d.topeAVT,
     umbralRescate: numeroValido(r.umbralRescate, 0, 100) ?? d.umbralRescate,
     minTxnIndicadores: numeroValido(r.minTxnIndicadores, 0, 500) ?? d.minTxnIndicadores,
   };
@@ -193,7 +201,7 @@ function aporteIndicador(
       ? { real, meta, peso, pct, pctAplicado: 100, puntos: 100 * peso, limitadoPor: 'piso' }
       : { real, meta, peso, pct, pctAplicado: 0, puntos: 0, limitadoPor: 'minimo' };
   }
-  const techo = rescateHabilitado ? tope : 100;
+  const techo = rescateHabilitado ? (tope > 0 ? tope : Infinity) : 100;
   let pctAplicado = Math.min(pct ?? 0, techo);
   let limitadoPor: LimiteKpi = pct !== null && pct > techo ? (rescateHabilitado ? 'tope' : 'umbral') : null;
   if (piso && pctAplicado < 100) {
@@ -254,14 +262,25 @@ export function compararRanking(
   return b.ventaReal - a.ventaReal;
 }
 
-// Comisión con rescate: el score ≥ 100 solo desbloquea el escalón Verde (100%). 110%/120% y la base
-// en dinero siguen dependiendo de la venta real (calcularComision no se modifica).
-export function calcularComisionConRescate(
-  metaAsignada: number, montoVendido: number, score: number | null,
-): ComisionResult & { porRescate: boolean } {
-  const base = calcularComision(metaAsignada, montoVendido);
-  if (score !== null && score >= 100 && base.pct < 100) {
-    return { ...base, talento: 'verde', comision: 1.10, falta90: 0, falta100: 0, porRescate: true };
-  }
-  return { ...base, porRescate: false };
+// Comisión como la hoja de la empresa: el tramo (Amarillo 90 / Verde 100 / Azul 110 / Celeste 120) se decide con
+// el PUNTAJE total y se paga sobre la VENTA REAL completa. Reutiliza los mismos umbrales y tasas de
+// calcularComision (que no se modifica) pasando el puntaje como % de cumplimiento. Los "falta" son el dinero
+// aproximado que falta vender para llegar a cada tramo (1 pt de venta = meta / (100 · pesoVenta)).
+export function calcularComisionPorPuntaje(
+  metaAsignada: number, montoVendido: number, score: number | null, pesoVenta: number,
+): ComisionResult & { pago: number } {
+  const s = score ?? 0;
+  const tramo = calcularComision(100, s);
+  const aDinero = (nivel: number) =>
+    metaAsignada > 0 && pesoVenta > 0 ? Math.max(0, ((nivel - s) * metaAsignada) / (100 * pesoVenta)) : 0;
+  return {
+    pct: s,
+    talento: tramo.talento,
+    comision: tramo.comision,
+    falta90: aDinero(90),
+    falta100: aDinero(100),
+    falta110: aDinero(110),
+    falta120: aDinero(120),
+    pago: tramo.comision !== null ? (montoVendido * tramo.comision) / 100 : 0,
+  };
 }

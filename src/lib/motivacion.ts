@@ -103,13 +103,13 @@ export function nombreMes(mes: string) {
 
 // ── Ritmo hacia la siguiente comisión ─────────────────────────────────────
 
-// rescate100: el puntaje ponderado ya desbloqueó el escalón del 100%; el siguiente objetivo es 110% (venta real).
-export function ritmoSiguienteNivel(vendido: number, metaMensual: number, diasRestantes: number, rescate100 = false) {
-  if (metaMensual <= 0) return null;
-  const pct = (vendido / metaMensual) * 100;
-  const nivel = SIGUIENTE_NIVEL.find((n) => pct < n.pct && !(rescate100 && n.pct <= 100));
+// Siguiente tramo de comisión según el PUNTAJE total (como la hoja). El dinero por día es aproximado:
+// cuenta solo el aporte de la venta (1 pt = meta / (100 · pesoVenta)).
+export function ritmoSiguienteNivel(score: number | null, metaMensual: number, pesoVenta: number, diasRestantes: number) {
+  if (score === null || metaMensual <= 0 || pesoVenta <= 0) return null;
+  const nivel = SIGUIENTE_NIVEL.find((n) => score < n.pct);
   if (!nivel) return null;
-  const falta = metaMensual * (nivel.pct / 100) - vendido;
+  const falta = ((nivel.pct - score) * metaMensual) / (100 * pesoVenta);
   const dias = Math.max(1, diasRestantes);
   return { label: nivel.label, tasa: nivel.tasa, falta, porDia: falta / dias, dias };
 }

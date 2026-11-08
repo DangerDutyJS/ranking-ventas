@@ -10,9 +10,9 @@ import { CONFIG_RANKING_DEFAULT, normalizarConfigRanking, type ConfigRanking } f
 type Campo = 'topeUPT' | 'topeAVT' | 'umbralRescate' | 'minTxnIndicadores';
 
 const CAMPOS: { k: Campo; label: string; ayuda: string; min: number; max: number; unidad: string }[] = [
-  { k: 'topeUPT', label: 'Tope UPT', ayuda: 'Máximo % de UPT que cuenta (130 = hasta 13 pts)', min: 100, max: 300, unidad: '%' },
-  { k: 'topeAVT', label: 'Tope AVT', ayuda: 'Máximo % de AVT que cuenta (130 = hasta 13 pts)', min: 100, max: 300, unidad: '%' },
-  { k: 'umbralRescate', label: 'Umbral de rescate', ayuda: '% de venta desde el que UPT/AVT suman extra', min: 50, max: 100, unidad: '%' },
+  { k: 'topeUPT', label: 'Tope UPT', ayuda: '0 = sin tope (como la hoja). 130 = máximo 13 pts', min: 0, max: 1000, unidad: '%' },
+  { k: 'topeAVT', label: 'Tope AVT', ayuda: '0 = sin tope (como la hoja). 130 = máximo 13 pts', min: 0, max: 1000, unidad: '%' },
+  { k: 'umbralRescate', label: 'Umbral de rescate', ayuda: '0 = siempre suman (como la hoja). % de venta para que UPT/AVT pasen de 100%', min: 0, max: 100, unidad: '%' },
   { k: 'minTxnIndicadores', label: 'Mínimo de ventas', ayuda: 'Transacciones en el mes para que UPT/AVT empiecen a sumar', min: 0, max: 500, unidad: 'txn' },
 ];
 
@@ -31,17 +31,22 @@ export default function ConfigRankingPanel() {
     ...cfg,
     ...Object.fromEntries(CAMPOS.map(({ k }) => [k, Number(valor(k))])),
   });
-  // Venta mínima con la que UPT y AVT al tope alcanzan a completar 100 puntos.
-  const ventaMinRescate = Math.max(
-    vista.umbralRescate,
-    (100 - vista.topeUPT * vista.pesoUPT - vista.topeAVT * vista.pesoAVT) / vista.pesoVenta,
-  );
+  // Venta mínima con la que UPT y AVT al tope alcanzan a completar 100 puntos (solo si hay tope en ambos).
+  const ventaMinRescate = vista.topeUPT > 0 && vista.topeAVT > 0
+    ? Math.max(vista.umbralRescate, (100 - vista.topeUPT * vista.pesoUPT - vista.topeAVT * vista.pesoAVT) / vista.pesoVenta)
+    : null;
+  const valida = (k: Campo, n: number, min: number, max: number) =>
+    Number.isFinite(n) && n >= min && n <= max && !((k === 'topeUPT' || k === 'topeAVT') && n > 0 && n < 100);
 
   async function guardar() {
     setError('');
     for (const { k, label, min, max } of CAMPOS) {
       const n = Number(valor(k));
-      if (!Number.isFinite(n) || n < min || n > max) return setError(`${label} debe estar entre ${min} y ${max}.`);
+      if (!valida(k, n, min, max)) {
+        return setError(k === 'topeUPT' || k === 'topeAVT'
+          ? `${label} debe ser 0 (sin tope) o estar entre 100 y ${max}.`
+          : `${label} debe estar entre ${min} y ${max}.`);
+      }
     }
     setSaving(true);
     try {
@@ -63,9 +68,9 @@ export default function ConfigRankingPanel() {
     <section className="theme-panel bg-surface border border-gray-200 rounded-2xl p-6 max-w-lg" aria-labelledby="cfg-ranking-titulo">
       <h3 id="cfg-ranking-titulo" className="text-base font-semibold text-heading">Puntaje del ranking</h3>
       <p className="mt-1 text-[13px] text-gray-500 [text-wrap:pretty]">
-        El ranking mensual se ordena por puntos: <b className="text-gray-700">Venta {Math.round(cfg.pesoVenta * 100)}%</b> ·{' '}
+        Cumplimiento total = <b className="text-gray-700">Venta {Math.round(cfg.pesoVenta * 100)}%</b> ·{' '}
         <b className="text-gray-700">UPT {Math.round(cfg.pesoUPT * 100)}%</b> · <b className="text-gray-700">AVT {Math.round(cfg.pesoAVT * 100)}%</b>.
-        Un buen UPT y AVT pueden &quot;rescatar&quot; a quien está cerca de su meta.
+        Ordena el ranking y decide el tramo de comisión y los premios (como la hoja de la empresa).
       </p>
 
       <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -92,8 +97,10 @@ export default function ConfigRankingPanel() {
       </div>
 
       <p className="mt-4 rounded-lg bg-primary-light border border-primary/15 px-3 py-2 text-[12px] text-primary [text-wrap:pretty]">
-        Con estos valores, un asesor puede llegar a 100 puntos con rescate desde el{' '}
-        <b className="tabular-nums">{ventaMinRescate.toFixed(1)}%</b> de su venta. Bono corral y Día libre siempre exigen venta real.
+        {ventaMinRescate !== null
+          ? <>Con estos topes, un asesor puede llegar a 100 puntos desde el <b className="tabular-nums">{ventaMinRescate.toFixed(1)}%</b> de su venta.</>
+          : <>Sin tope: un UPT y AVT altos suman completos al cumplimiento, como en la hoja de la empresa.</>}
+        {' '}La comisión se paga sobre la venta real según el tramo del cumplimiento total.
       </p>
 
       {error && <p className="mt-3 text-xs text-red-500">{error}</p>}

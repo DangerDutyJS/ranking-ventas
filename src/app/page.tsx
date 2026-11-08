@@ -16,7 +16,7 @@ import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
 import DinamicaProgressModal from '@/components/DinamicaProgressModal';
 import CelebracionVenta from '@/components/CelebracionVenta';
-import { totalReal, barColor, calcularComisionConRescate, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
+import { totalReal, barColor, calcularComisionPorPuntaje, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
 import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking } from '@/lib/ranking';
 import PuntajeRanking from '@/components/PuntajeRanking';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
@@ -182,14 +182,13 @@ function ordinal(n: number) {
 
 // Un solo mensaje por tarjeta: del 2º al 4º persiguen al de arriba en PUNTOS del ranking (con su
 // equivalente aproximado en dinero); del 5º en adelante, lo que ganan subiendo de comisión.
-function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, rescate100, arriba }: {
+function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, arriba }: {
   index: number;
   vendido: number;
   avt: number | null;
   metaMensual: number;
   score: number | null;
   pesoVenta: number;
-  rescate100: boolean;
   arriba: { nombre: string; total: number; score: number | null } | null;
 }) {
   if (index === 0) return null;
@@ -204,12 +203,12 @@ function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, re
     return { gapPts: null, gapDinero: arriba.total - vendido, nombre: arriba.nombre };
   })() : null;
 
-  const pct = metaMensual > 0 ? (vendido / metaMensual) * 100 : 0;
-  // Con rescate ya tiene el escalón del 100%: el siguiente objetivo es 110% (exige venta real).
-  const nivel = metaMensual > 0 ? SIGUIENTE_NIVEL.find((n) => pct < n.pct && !(rescate100 && n.pct <= 100)) : undefined;
+  // Siguiente tramo según el cumplimiento total (puntaje), como la hoja de la empresa.
+  const cumpl = score ?? (metaMensual > 0 ? (vendido / metaMensual) * 100 : 0);
+  const nivel = metaMensual > 0 && pesoVenta > 0 ? SIGUIENTE_NIVEL.find((n) => cumpl < n.pct) : undefined;
   const comision = nivel ? (() => {
-    const objetivo = metaMensual * (nivel.pct / 100);
-    return { falta: objetivo - vendido, label: nivel.label, tasa: nivel.tasa, gana: objetivo * (nivel.tasa / 100) };
+    const falta = ((nivel.pct - cumpl) * metaMensual) / (100 * pesoVenta);
+    return { falta, label: nivel.label, tasa: nivel.tasa, gana: (vendido + falta) * (nivel.tasa / 100) };
   })() : null;
 
   let contenido: React.ReactNode = null;
@@ -225,7 +224,7 @@ function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, re
     );
   } else if (comision) {
     contenido = (
-      <><span aria-hidden="true">💰</span> <span>Te faltan <b className="text-heading tabular-nums">{formatCurrency(comision.falta)}</b> para la comisión {comision.label} ({comision.tasa.toLocaleString('es-CO')}%) · tu comisión sería <b className="text-accent-text tabular-nums">{formatCurrency(comision.gana)}</b></span></>
+      <><span aria-hidden="true">💰</span> <span>Te faltan ≈ <b className="text-heading tabular-nums">{formatCurrency(comision.falta)}</b> en ventas para la comisión {comision.label} ({comision.tasa.toLocaleString('es-CO')}%) · tu comisión sería <b className="text-accent-text tabular-nums">{formatCurrency(comision.gana)}</b></span></>
     );
   }
   if (!contenido) return null;
@@ -244,9 +243,10 @@ const COMISION_ROWS: { talento: ComisionResult['talento']; label: string; rango:
   { talento: 'celeste',  label: 'Celeste',  rango: '≥ 120%',         pago: '1.30%', bg: 'bg-sky-50',     text: 'text-sky-800',    border: 'border-sky-300'    },
 ];
 
-function TablaComisionesAsesor({ meta, vendido, score }: { meta: number; vendido: number; score: number | null }) {
+// Tramo por cumplimiento total (puntaje) y pago sobre la venta real completa, como la hoja de la empresa.
+function TablaComisionesAsesor({ meta, vendido, score, pesoVenta }: { meta: number; vendido: number; score: number | null; pesoVenta: number }) {
   if (meta <= 0) return null;
-  const { talento, comision, falta90, falta100, falta110, falta120, porRescate } = calcularComisionConRescate(meta, vendido, score);
+  const { talento, comision, falta90, falta100, falta110, falta120, pago } = calcularComisionPorPuntaje(meta, vendido, score, pesoVenta);
   return (
     <div className="mt-3 rounded-md border border-gray-200 overflow-hidden">
       <div className="px-3 pt-2.5 pb-1.5 border-b border-gray-200 bg-gray-50">
@@ -256,7 +256,7 @@ function TablaComisionesAsesor({ meta, vendido, score }: { meta: number; vendido
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
             <th className="px-3 py-2 text-left font-medium text-gray-400">Talento</th>
-            <th className="px-3 py-2 text-center font-medium text-gray-400">Cumplimiento</th>
+            <th className="px-3 py-2 text-center font-medium text-gray-400">Cumplimiento total</th>
             <th className="px-3 py-2 text-right font-medium text-gray-400">Pago</th>
           </tr>
         </thead>
@@ -278,17 +278,12 @@ function TablaComisionesAsesor({ meta, vendido, score }: { meta: number; vendido
           })}
         </tbody>
       </table>
-      {porRescate && (
-        <div className="px-3 py-2 border-t border-gray-200 bg-gold-light">
-          <p className="text-[12px] text-gold-text">🛟 Verde alcanzado por rescate (puntaje ≥ 100). Bono corral y Día libre se ganan con venta real.</p>
-        </div>
-      )}
       {comision !== null && (
         <div className="px-3 py-2 bg-gray-50 border-t border-gray-200">
           <p className="text-[12px] text-gray-400">
             Comisión estimada:{' '}
-            <span className="font-semibold text-gray-800">{formatCurrency(vendido * 0.81 * comision / 100)}</span>
-            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(vendido * 0.81)} sin IVA)</span>
+            <span className="font-semibold text-gray-800">{formatCurrency(pago)}</span>
+            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(vendido)})</span>
           </p>
         </div>
       )}
@@ -296,25 +291,25 @@ function TablaComisionesAsesor({ meta, vendido, score }: { meta: number; vendido
         <div className="px-3 py-2.5 space-y-1.5 border-t border-gray-200">
           {falta90 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-gray-400">Para 90% <span className="text-yellow-600 font-medium">(Amarillo)</span></span>
+              <span className="text-[12px] text-gray-400">Para 90% <span className="text-yellow-600 font-medium">(Amarillo)</span> ≈</span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta90)}</span>
             </div>
           )}
           {falta100 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-gray-400">Para 100% <span className="text-green-600 font-medium">(Verde)</span></span>
+              <span className="text-[12px] text-gray-400">Para 100% <span className="text-green-600 font-medium">(Verde)</span> ≈</span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta100)}</span>
             </div>
           )}
           {falta110 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-gray-400">Para 110% <span className="text-blue-600 font-medium">(Azul)</span></span>
+              <span className="text-[12px] text-gray-400">Para 110% <span className="text-blue-600 font-medium">(Azul)</span> ≈</span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta110)}</span>
             </div>
           )}
           {falta120 > 0 && (
             <div className="flex justify-between items-center">
-              <span className="text-[12px] text-gray-400">Para 120% <span className="text-sky-600 font-medium">(Celeste)</span></span>
+              <span className="text-[12px] text-gray-400">Para 120% <span className="text-sky-600 font-medium">(Celeste)</span> ≈</span>
               <span className="text-[12px] font-semibold text-gray-700 tabular-nums">{formatCurrency(falta120)}</span>
             </div>
           )}
@@ -1023,8 +1018,9 @@ export default function Home() {
                   const isTop3 = index < 3;
                   const sc = scores[asesor.id];
                   // El rescate (puntaje ≥ 100) solo desbloquea el escalón del 100%: badge y Pin. 110/120 siguen con venta real.
-                  const progresoBeneficio = sc?.meta100PorRescate ? Math.max(progreso, 100) : progreso;
-                  const { text: mot, color: motColor } = motivacion(progresoBeneficio);
+                  // Cumplimiento total = puntaje (como la hoja). Decide barra, badge, premios y tramo de comisión.
+                  const cumplimiento = sc?.score ?? progreso;
+                  const { text: mot, color: motColor } = motivacion(cumplimiento);
 
                   const ventaHoy   = ventaHoyMap[asesor.id] ?? { monto: 0, unidades: 0, transacciones: 0 };
                   const uptHoy     = ventaHoy.transacciones > 0 ? ventaHoy.unidades / ventaHoy.transacciones : null;
@@ -1069,7 +1065,6 @@ export default function Home() {
                         metaMensual={metaMensual}
                         score={sc?.score ?? null}
                         pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta}
-                        rescate100={sc?.meta100PorRescate ?? false}
                         arriba={index > 0 ? (() => {
                           const a = ranking[index - 1];
                           return { nombre: a.nombre, total: totalReal(ventasMap[a.id]), score: scores[a.id]?.score ?? null };
@@ -1085,22 +1080,22 @@ export default function Home() {
 
                       <div className="mb-3">
                         <div className="flex justify-between text-xs mb-1.5">
-                          <span className="text-gray-500">Progreso mensual</span>
+                          <span className="text-gray-500">Cumplimiento total</span>
                           <span className={`font-semibold ${
-                            progreso >= 120 ? 'text-sky-600' :
-                            progreso >= 110 ? 'text-blue-700' :
-                            progreso >= 100 ? 'text-green-600' : 'text-gray-900'
-                          }`}>{progreso.toFixed(1)}%</span>
+                            cumplimiento >= 120 ? 'text-sky-600' :
+                            cumplimiento >= 110 ? 'text-blue-700' :
+                            cumplimiento >= 100 ? 'text-green-600' : 'text-gray-900'
+                          }`}>{cumplimiento.toFixed(1)}%</span>
                         </div>
                         <div className="relative w-full bg-gray-100 rounded-full h-2.5 overflow-visible">
                           <div
-                            className={`h-2.5 rounded-full transition-all duration-700 ease-out ${barColor(progreso)}`}
-                            style={{ width: `${Math.min(120, progreso) / 120 * 100}%` }}
+                            className={`h-2.5 rounded-full transition-all duration-700 ease-out ${barColor(cumplimiento)}`}
+                            style={{ width: `${Math.min(120, cumplimiento) / 120 * 100}%` }}
                           />
                           {([
-                            { pct: 100, achieved: progreso >= 100, dot: 'bg-emerald-500', glow: 'shadow-[0_0_8px_rgba(52,211,153,0.7)]' },
-                            { pct: 110, achieved: progreso >= 110, dot: 'bg-indigo-500',  glow: 'shadow-[0_0_8px_rgba(99,102,241,0.7)]' },
-                            { pct: 120, achieved: progreso >= 120, dot: 'bg-sky-400',     glow: 'shadow-[0_0_8px_rgba(56,189,248,0.7)]' },
+                            { pct: 100, achieved: cumplimiento >= 100, dot: 'bg-emerald-500', glow: 'shadow-[0_0_8px_rgba(52,211,153,0.7)]' },
+                            { pct: 110, achieved: cumplimiento >= 110, dot: 'bg-indigo-500',  glow: 'shadow-[0_0_8px_rgba(99,102,241,0.7)]' },
+                            { pct: 120, achieved: cumplimiento >= 120, dot: 'bg-sky-400',     glow: 'shadow-[0_0_8px_rgba(56,189,248,0.7)]' },
                           ] as const).map(({ pct, achieved, dot, glow }) => (
                             <span
                               key={pct}
@@ -1117,26 +1112,26 @@ export default function Home() {
                           ] as const).map(({ pct, label, color }) => (
                             <span
                               key={pct}
-                              className={`absolute text-[10px] font-medium leading-none ${progreso >= pct ? color : 'text-gray-400'}`}
+                              className={`absolute text-[10px] font-medium leading-none ${cumplimiento >= pct ? color : 'text-gray-400'}`}
                               style={{ left: `${(pct / 120) * 100}%`, transform: 'translateX(-50%)' }}
                             >
                               {label}
                             </span>
                           ))}
                         </div>
-                        {progresoBeneficio >= 100 && (
+                        {cumplimiento >= 100 && (
                           <div className="mt-2">
                             <p className="text-xs text-gray-400 mb-1.5">Beneficios alcanzados</p>
                             <div className="flex flex-wrap gap-1.5">
                               <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-medium border border-emerald-200">
-                                📌 Pin{sc?.meta100PorRescate ? ' · por rescate' : ''}
+                                📌 Pin
                               </span>
-                              {progreso >= 110 && (
+                              {cumplimiento >= 110 && (
                                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-blue-50 text-indigo-700 font-medium border border-indigo-200">
                                   🎁 Bono corral
                                 </span>
                               )}
-                              {progreso >= 120 && (
+                              {cumplimiento >= 120 && (
                                 <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 font-medium border border-sky-200">
                                   🏖️ Día libre
                                 </span>
@@ -1146,12 +1141,12 @@ export default function Home() {
                         )}
 
                         {/* Mini-barra hacia el siguiente nivel */}
-                        {progreso >= 100 && progreso < 120 && (() => {
-                          const isTo110  = progreso < 110;
+                        {cumplimiento >= 100 && cumplimiento < 120 && (() => {
+                          const isTo110  = cumplimiento < 110;
                           const from     = isTo110 ? 100 : 110;
                           const to       = isTo110 ? 110 : 120;
-                          const miniPct  = Math.min(100, ((progreso - from) / (to - from)) * 100);
-                          const falta    = (to - progreso).toFixed(1);
+                          const miniPct  = Math.min(100, ((cumplimiento - from) / (to - from)) * 100);
+                          const falta    = (to - cumplimiento).toFixed(1);
                           const label    = isTo110 ? '🎁 Bono corral' : '🏖️ Día libre';
                           const fill     = isTo110
                             ? 'bg-gradient-to-r from-indigo-400 to-blue-500'
@@ -1265,7 +1260,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} />
+                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} />
 
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (

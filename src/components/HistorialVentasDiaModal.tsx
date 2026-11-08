@@ -96,11 +96,11 @@ function calcularMotivacion(ctx: ContextoMotivacion, totalAntes: number, venta: 
   const scoreAntes = datosScore(totalAntes, ctx.totales.unidades, ctx.totales.transacciones);
   const scoreDespues = datosScore(total, uds, txn);
 
-  const ritmo = ritmoSiguienteNivel(total, ctx.metaMensual, ctx.diasRestantes, scoreDespues.meta100PorRescate);
-  const pctAntes = ctx.metaMensual > 0 ? (totalAntes / ctx.metaMensual) * 100 : null;
-  // Solo LEE los topes de premios (100/110/120) para saber si esta venta cruzó uno; no los altera.
-  const nivelNuevo = pct !== null && pctAntes !== null
-    ? ([120, 110, 100] as const).find((n) => pctAntes < n && pct >= n) ?? null
+  const ritmo = ritmoSiguienteNivel(scoreDespues.score, ctx.metaMensual, scoreDespues.venta.peso, ctx.diasRestantes);
+  // Tramo nuevo según el cumplimiento total (puntaje), igual que comisiones y premios. Solo LEE los umbrales.
+  const cAntes = scoreAntes.score, cDespues = scoreDespues.score;
+  const nivelNuevo = cAntes !== null && cDespues !== null
+    ? ([120, 110, 100] as const).find((n) => cAntes < n && cDespues >= n) ?? null
     : null;
   return {
     racha: { dias, diaNuevo },
@@ -126,8 +126,8 @@ function armarPlaca(monto: number, r: Resultado | null, m: Motivacion | null): D
   if (m?.recordNuevo) titulo = '¡Nuevo récord personal!';
   else if (m?.nivelNuevo === 120) titulo = '¡Día libre desbloqueado! 🏖️';
   else if (m?.nivelNuevo === 110) titulo = '¡Bono corral desbloqueado! 🎁';
-  else if (m?.nivelNuevo === 100) titulo = '¡Meta cumplida! 📌';
   else if (m?.rescate100Nuevo) titulo = '¡Tu UPT y AVT te llevaron al 100%! 🛟';
+  else if (m?.nivelNuevo === 100) titulo = '¡Meta cumplida! 📌';
   else if (r?.subio && r.posicion === 1) titulo = '¡Llegaste al 1º lugar!';
   else if (r?.subio) titulo = `¡Subiste al ${r.posicion}º lugar!`;
   else if (m?.racha.diaNuevo && HITOS_RACHA_PLACA.includes(m.racha.dias)) titulo = `¡Racha de ${m.racha.dias} días!`;
