@@ -279,6 +279,13 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
   const [showForm, setShowForm] = useState(false);
   // Registrar y historial van en vistas separadas: el formulario queda limpio y el historial se abre con su ícono.
   const [vista, setVista] = useState<'registrar' | 'historial'>('registrar');
+  // Ventas "nuevas" = registradas después de la última vez que se abrió el historial (por asesor y día, en este
+  // dispositivo). Se guarda el creadoEn más reciente visto; localStorage puede fallar (modo privado): sin él,
+  // todas cuentan como nuevas hasta abrir el historial.
+  const claveVisto = `historial-visto:${storeId}:${asesor.id}:${hoy}`;
+  const [vistoHasta, setVistoHasta] = useState<string>(() => {
+    try { return localStorage.getItem(claveVisto) ?? ''; } catch { return ''; }
+  });
   const [monto, setMonto] = useState('');
   const [unidades, setUnidades] = useState('');
   const [txn, setTxn] = useState('');
@@ -386,6 +393,26 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
     } catch { /* silent */ }
   };
 
+  const nuevas = registros.filter((r) => (r.creadoEn ?? '') > vistoHasta).length;
+
+  const marcarVisto = () => {
+    const ultimo = registros.reduce((m, r) => ((r.creadoEn ?? '') > m ? r.creadoEn : m), vistoHasta);
+    if (ultimo === vistoHasta) return;
+    setVistoHasta(ultimo);
+    try { localStorage.setItem(claveVisto, ultimo); } catch { /* sin almacenamiento local */ }
+  };
+
+  const cambiarVista = (v: 'registrar' | 'historial') => {
+    marcarVisto();
+    setVista(v);
+    setEditEntry(null);
+  };
+
+  const cerrar = () => {
+    if (vista === 'historial') marcarVisto();
+    onClose();
+  };
+
   const startEdit = (r: Registro) => {
     setEditEntry(r);
     setEditMonto(String(r.monto));
@@ -438,10 +465,10 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-4">
-      <div className="theme-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] animate-modal">
+      <div className="theme-modal bg-surface rounded-2xl w-full max-w-sm flex flex-col max-h-[85vh] supports-[height:100dvh]:max-h-[85dvh] animate-modal">
 
         {/* Header */}
-        <div className="flex items-start justify-between p-6 pb-4">
+        <div className="flex items-start justify-between p-6 pb-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
               {asesor.fotoBase64 ? (
@@ -458,8 +485,10 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
           <div className="flex items-center gap-1 -mr-1">
             <button
               type="button"
-              onClick={() => { setVista(vista === 'historial' ? 'registrar' : 'historial'); setEditEntry(null); }}
-              aria-label={vista === 'historial' ? 'Volver a registrar venta' : `Ver historial de hoy (${registros.length} ${registros.length === 1 ? 'venta' : 'ventas'})`}
+              onClick={() => cambiarVista(vista === 'historial' ? 'registrar' : 'historial')}
+              aria-label={vista === 'historial'
+                ? 'Volver a registrar venta'
+                : nuevas > 0 ? `Ver historial de hoy (${nuevas} ${nuevas === 1 ? 'venta nueva' : 'ventas nuevas'})` : 'Ver historial de hoy'}
               aria-pressed={vista === 'historial'}
               title="Historial de hoy"
               className={`relative p-2 rounded-lg transition-colors ${vista === 'historial' ? 'bg-gold-light text-gold-text' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
@@ -469,13 +498,13 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                 <path d="M3 3v5h5" />
                 <path d="M12 7v5l3 2" />
               </svg>
-              {registros.length > 0 && (
+              {nuevas > 0 && vista !== 'historial' && (
                 <span className="absolute -top-0.5 -right-0.5 min-w-[1.05rem] h-[1.05rem] px-1 rounded-full bg-gold text-[#00203D] text-[10px] font-bold leading-[1.05rem] text-center tabular-nums" aria-hidden="true">
-                  {registros.length}
+                  {nuevas}
                 </span>
               )}
             </button>
-            <button onClick={onClose} aria-label="Cerrar" className="p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors">
+            <button onClick={cerrar} aria-label="Cerrar" className="p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
@@ -487,7 +516,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
           <>
           {/* Total del día */}
           {registros.length > 0 && (
-            <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
+            <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between shrink-0">
               <span className="text-xs text-gray-500">Total hoy</span>
               <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
                 {total.monto > 0 && <span>{formatCurrency(total.monto)}</span>}
@@ -498,7 +527,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
           )}
 
           {/* Lista registros */}
-          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-2 min-h-0">
+          <div className="flex-1 overflow-y-auto overscroll-contain px-6 pb-3 space-y-2 min-h-0">
             {loading ? (
               <div className="flex justify-center py-6">
                 <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
@@ -506,7 +535,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             ) : registros.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-sm text-gray-400">Aún no hay ventas registradas hoy.</p>
-                <button onClick={() => { setVista('registrar'); setShowForm(true); }}
+                <button onClick={() => { cambiarVista('registrar'); setShowForm(true); }}
                   className="mt-3 text-sm font-medium text-accent-text hover:underline">
                   Registrar la primera venta
                 </button>
@@ -576,8 +605,8 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             })}
           </div>
             {registros.length > 0 && (
-              <div className="px-6 pb-6 pt-1">
-                <button onClick={() => { setVista('registrar'); setShowForm(true); setEditEntry(null); setResultado(null); setMotivacion(null); }}
+              <div className="px-6 pb-6 pt-3 shrink-0 border-t border-gray-100">
+                <button onClick={() => { cambiarVista('registrar'); setShowForm(true); setResultado(null); setMotivacion(null); }}
                   className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
                   + Registrar venta
                 </button>
@@ -585,16 +614,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             )}
           </>
         ) : (
-        <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-6 space-y-3">
-          {registros.length > 0 && (
-            <button type="button" onClick={() => { setVista('historial'); setEditEntry(null); }}
-              className="w-full flex items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-left hover:bg-gray-100 transition-colors">
-              <span className="text-xs text-gray-500">
-                Hoy llevas <b className="text-gray-900 tabular-nums">{formatCurrency(total.monto)}</b> · {registros.length} {registros.length === 1 ? 'venta' : 'ventas'}
-              </span>
-              <span className="text-xs font-medium text-accent-text whitespace-nowrap">Ver historial ›</span>
-            </button>
-          )}
+        <div className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-6 pb-6 space-y-3">
           {showForm ? (
             <div className="border border-gray-100 rounded-xl p-3 space-y-3">
               <p className="text-xs font-medium text-gray-600">Nueva venta</p>
