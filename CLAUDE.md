@@ -142,7 +142,7 @@ service cloud.firestore {
   - 5º+: "(¡Subiste al Nº lugar!) Llevas $X este mes" — sin distancia (regla de tono).
   - Posición = asesores con total estrictamente mayor + 1 (empates comparten puesto). Ícono 🏆 si subió o es 1º, ✅ si no. Se oculta al abrir de nuevo el formulario. `role="status"`.
 - `asesoresHoy`: array vacío si no hay `asesoresIds` configurados. `showDailySection = asesoresHoy.length > 0`.
-- Clic en tarjeta **ranking de hoy** → PIN → VentasModal (registra venta del día con `increment()` + `arrayUnion()`)
+- Clic en tarjeta **ranking de hoy** → PIN → `HistorialVentasDiaModal` (registra venta del día con `increment()` + `arrayUnion()`). **Dos vistas separadas** (pedido del usuario 2026-11-08, estado `vista`): **Registrar** (por defecto: línea "Hoy llevas $X · N ventas → Ver historial", formulario, aviso/placa post-venta, dinámicas) e **Historial** (ícono de reloj en el encabezado con contador dorado de ventas de hoy; total del día + lista con editar/eliminar + botón "+ Registrar venta" que vuelve al formulario). El ícono alterna entre vistas (`aria-pressed`).
 - Clic en tarjeta **ranking mensual** → PIN → `HistorialAcumuladoModal` con dos tabs:
   - **"Ventas diarias"** (tab activo por defecto): muestra todos los `registros[]` del mes actual agrupados por fecha, más reciente primero. Cada entrada tiene editar y eliminar; ajusta `totalVentas/totalUnidades/totalTransacciones` con `increment(delta)`. Resuelve la pérdida de acceso a los registros del día anterior tras cerrar el ranking de hoy.
   - **"Acumulado del mes"**: entradas manuales de `acumuladoMes` con agregar/editar/eliminar (comportamiento anterior).

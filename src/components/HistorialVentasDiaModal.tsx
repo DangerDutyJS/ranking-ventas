@@ -277,6 +277,8 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
   const [loading, setLoading] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
+  // Registrar y historial van en vistas separadas: el formulario queda limpio y el historial se abre con su ícono.
+  const [vista, setVista] = useState<'registrar' | 'historial'>('registrar');
   const [monto, setMonto] = useState('');
   const [unidades, setUnidades] = useState('');
   const [txn, setTxn] = useState('');
@@ -450,103 +452,149 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             </div>
             <div>
               <p className="text-base font-semibold text-gray-900">{asesor.nombre} {asesor.apellido}</p>
-              <p className="text-xs text-gray-400">Ventas del día · {hoy}</p>
+              <p className="text-xs text-gray-400">{vista === 'historial' ? 'Historial de hoy' : 'Registrar venta'} · {hoy}</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1 -mr-1">
+            <button
+              type="button"
+              onClick={() => { setVista(vista === 'historial' ? 'registrar' : 'historial'); setEditEntry(null); }}
+              aria-label={vista === 'historial' ? 'Volver a registrar venta' : `Ver historial de hoy (${registros.length} ${registros.length === 1 ? 'venta' : 'ventas'})`}
+              aria-pressed={vista === 'historial'}
+              title="Historial de hoy"
+              className={`relative p-2 rounded-lg transition-colors ${vista === 'historial' ? 'bg-gold-light text-gold-text' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100'}`}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M3 12a9 9 0 1 0 2.64-6.36L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              {registros.length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[1.05rem] h-[1.05rem] px-1 rounded-full bg-gold text-[#00203D] text-[10px] font-bold leading-[1.05rem] text-center tabular-nums" aria-hidden="true">
+                  {registros.length}
+                </span>
+              )}
+            </button>
+            <button onClick={onClose} aria-label="Cerrar" className="p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        {/* Total del día */}
-        {registros.length > 0 && (
-          <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
-            <span className="text-xs text-gray-500">Total hoy</span>
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
-              {total.monto > 0 && <span>{formatCurrency(total.monto)}</span>}
-              {total.transacciones > 0 && <span className="text-gray-500 font-normal">· {total.transacciones} txn</span>}
-              {total.unidades > 0 && <span className="text-gray-500 font-normal">· {total.unidades} uds</span>}
+        {vista === 'historial' ? (
+          <>
+          {/* Total del día */}
+          {registros.length > 0 && (
+            <div className="mx-6 mb-3 bg-gray-50 rounded-xl px-4 py-3 flex items-center justify-between">
+              <span className="text-xs text-gray-500">Total hoy</span>
+              <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
+                {total.monto > 0 && <span>{formatCurrency(total.monto)}</span>}
+                {total.transacciones > 0 && <span className="text-gray-500 font-normal">· {total.transacciones} txn</span>}
+                {total.unidades > 0 && <span className="text-gray-500 font-normal">· {total.unidades} uds</span>}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Lista registros */}
-        <div className="flex-1 overflow-y-auto px-6 space-y-2 min-h-0">
-          {loading ? (
-            <div className="flex justify-center py-6">
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-            </div>
-          ) : registros.length === 0 && !showForm ? (
-            <p className="text-sm text-gray-400 text-center py-6">Sin registros hoy.</p>
-          ) : registros.map((r) => {
-            const key = entryKey(r);
-            const isEditing = editEntry && entryKey(editEntry) === key;
-            return (
-              <div key={key} className="border border-gray-100 rounded-xl px-3 py-3">
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      {([
-                        { label: 'Monto', val: editMonto, set: setEditMonto },
-                        { label: 'Uds', val: editUds, set: setEditUds },
-                        { label: 'Txn', val: editTxn, set: setEditTxn },
-                      ] as const).map(({ label, val, set }) => (
-                        <div key={label}>
-                          <label className="block text-[10px] text-gray-400 mb-0.5">{label}</label>
-                          <input type="number" value={val}
-                            onChange={(e) => (set as (v: string) => void)(e.target.value)}
-                            className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900" min={1} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => setEditEntry(null)}
-                        className="flex-1 text-xs text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50">
-                        Cancelar
-                      </button>
-                      <button onClick={handleGuardarEdit}
-                        className="flex-1 text-xs text-on-accent bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
-                        Guardar
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-gray-400 mb-0.5">{formatHora(r.creadoEn)}</p>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm font-semibold text-gray-900">{formatCurrency(r.monto)}</span>
-                        <span className="text-xs text-gray-500">{r.transacciones} txn</span>
-                        <span className="text-xs text-gray-500">{r.unidades} uds</span>
+          {/* Lista registros */}
+          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-2 min-h-0">
+            {loading ? (
+              <div className="flex justify-center py-6">
+                <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+              </div>
+            ) : registros.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-gray-400">Aún no hay ventas registradas hoy.</p>
+                <button onClick={() => { setVista('registrar'); setShowForm(true); }}
+                  className="mt-3 text-sm font-medium text-accent-text hover:underline">
+                  Registrar la primera venta
+                </button>
+              </div>
+            ) : registros.map((r) => {
+              const key = entryKey(r);
+              const isEditing = editEntry && entryKey(editEntry) === key;
+              return (
+                <div key={key} className="border border-gray-100 rounded-xl px-3 py-3">
+                  {isEditing ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {([
+                          { label: 'Monto', val: editMonto, set: setEditMonto },
+                          { label: 'Uds', val: editUds, set: setEditUds },
+                          { label: 'Txn', val: editTxn, set: setEditTxn },
+                        ] as const).map(({ label, val, set }) => (
+                          <div key={label}>
+                            <label className="block text-[10px] text-gray-400 mb-0.5">{label}</label>
+                            <input type="number" value={val}
+                              onChange={(e) => (set as (v: string) => void)(e.target.value)}
+                              className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900" min={1} />
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditEntry(null)}
+                          className="flex-1 text-xs text-gray-500 border border-gray-200 rounded-lg py-1.5 hover:bg-gray-50">
+                          Cancelar
+                        </button>
+                        <button onClick={handleGuardarEdit}
+                          className="flex-1 text-xs text-on-accent bg-accent rounded-lg py-1.5 hover:bg-accent-hover">
+                          Guardar
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-0.5">
-                      <button onClick={() => startEdit(r)}
-                        aria-label="Editar" className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-50 transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button onClick={() => handleEliminar(r)}
-                        aria-label="Eliminar" className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-500/10 transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] text-gray-400 mb-0.5">{formatHora(r.creadoEn)}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-sm font-semibold text-gray-900">{formatCurrency(r.monto)}</span>
+                          <span className="text-xs text-gray-500">{r.transacciones} txn</span>
+                          <span className="text-xs text-gray-500">{r.unidades} uds</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5">
+                        <button onClick={() => startEdit(r)}
+                          aria-label="Editar" className="p-1.5 text-gray-500 hover:text-gray-800 rounded-lg hover:bg-gray-50 transition-colors">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button onClick={() => handleEliminar(r)}
+                          aria-label="Eliminar" className="p-1.5 text-gray-500 hover:text-red-600 rounded-lg hover:bg-red-500/10 transition-colors">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+              );
+            })}
+          </div>
+            {registros.length > 0 && (
+              <div className="px-6 pb-6 pt-1">
+                <button onClick={() => { setVista('registrar'); setShowForm(true); setEditEntry(null); setResultado(null); setMotivacion(null); }}
+                  className="w-full px-4 py-2.5 text-sm font-medium text-on-accent bg-accent rounded-xl hover:bg-accent-hover transition-colors">
+                  + Registrar venta
+                </button>
               </div>
-            );
-          })}
-        </div>
-
-        {/* Formulario / botón agregar */}
-        <div className="p-6 pt-4 space-y-3">
+            )}
+          </>
+        ) : (
+        <div className="flex-1 overflow-y-auto min-h-0 px-6 pb-6 space-y-3">
+          {registros.length > 0 && (
+            <button type="button" onClick={() => { setVista('historial'); setEditEntry(null); }}
+              className="w-full flex items-center justify-between gap-2 rounded-xl bg-gray-50 px-4 py-2.5 text-left hover:bg-gray-100 transition-colors">
+              <span className="text-xs text-gray-500">
+                Hoy llevas <b className="text-gray-900 tabular-nums">{formatCurrency(total.monto)}</b> · {registros.length} {registros.length === 1 ? 'venta' : 'ventas'}
+              </span>
+              <span className="text-xs font-medium text-accent-text whitespace-nowrap">Ver historial ›</span>
+            </button>
+          )}
           {showForm ? (
             <div className="border border-gray-100 rounded-xl p-3 space-y-3">
               <p className="text-xs font-medium text-gray-600">Nueva venta</p>
@@ -658,6 +706,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             </div>
           )}
         </div>
+        )}
       </div>
       {placa && <PlacaReconocimiento key={placa.id} datos={placa} asesor={asesor} onClose={() => setPlaca(null)} />}
     </div>
