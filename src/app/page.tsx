@@ -170,6 +170,12 @@ function indicatorBarFill(pct: number): string {
 }
 
 
+// La meta diaria por asesor puede no ser entera (75 uds / 6 = 12.5): se muestra el valor con el que
+// realmente se calcula el %, para que "15 / 12.5 → 120%" cuadre a la vista.
+function formatMetaDia(n: number) {
+  return Number.isInteger(n) ? String(n) : n.toLocaleString('es-CO', { maximumFractionDigits: 1 });
+}
+
 function ordinal(n: number) {
   return `${n}º`;
 }
@@ -884,14 +890,14 @@ export default function Home() {
                           <IndicatorBar
                             label="Txn"
                             value={String(vh.transacciones)}
-                            meta={txnMeta > 0 ? String(Math.round(txnMeta)) : null}
+                            meta={txnMeta > 0 ? formatMetaDia(txnMeta) : null}
                             pct={pctTxn}
                             barColor="bg-gradient-to-r from-violet-400 to-purple-500"
                           />
                           <IndicatorBar
                             label="Uds"
                             value={String(vh.unidades)}
-                            meta={udsMeta > 0 ? String(Math.round(udsMeta)) : null}
+                            meta={udsMeta > 0 ? formatMetaDia(udsMeta) : null}
                             pct={pctUds}
                             barColor="bg-gradient-to-r from-orange-400 to-amber-500"
                           />
