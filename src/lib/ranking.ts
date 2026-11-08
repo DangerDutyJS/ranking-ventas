@@ -56,6 +56,19 @@ export function ordenarPorScore(asesorIds: string[], scores: Record<string, Scor
   return [...asesorIds].sort((a, b) => compararRanking(scores[a], scores[b]));
 }
 
+// Índice (0 = primero) de cada asesor en el ranking mensual. Usado para detectar "¡Subió al Nº lugar!".
+export function posicionesPorScore(
+  asesorIds: string[],
+  ventas: Record<string, TotalesAsesor | undefined>,
+  meta: MetaRanking | null | undefined,
+  cfg: ConfigRanking,
+): Record<string, number> {
+  const ids = Array.from(new Set([...asesorIds, ...Object.keys(ventas)]));
+  const pos: Record<string, number> = {};
+  ordenarPorScore(ids, calcularScores(ids, ventas, meta, cfg)).forEach((id, i) => { pos[id] = i; });
+  return pos;
+}
+
 // Parámetros del algoritmo: tiendas/{uid}/config/ranking (si no existe, valores por defecto).
 export function useConfigRanking(storeId: string | null | undefined): ConfigRanking {
   const [cfg, setCfg] = useState<ConfigRanking>(CONFIG_RANKING_DEFAULT);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Image from 'next/image';
 
 export interface DatosPlaca {
@@ -75,7 +76,11 @@ export default function PlacaReconocimiento({ datos, asesor, onClose }: Props) {
     datos.posicion !== null ? `${datos.posicion}º lugar` : null,
   ].filter((s): s is string => s !== null);
 
-  return (
+  // Portal a <body>: el modal de ventas tiene transform (animación de entrada), que convierte a ese modal en
+  // el contenedor de los position:fixed hijos y encerraba la placa. .theme-light conserva la paleta.
+  if (typeof document === 'undefined') return null;
+  return createPortal(
+    <div className="theme-light">
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center p-5 bg-[#00203D]/55 animate-fade-in"
       onClick={onClose}
@@ -165,5 +170,7 @@ export default function PlacaReconocimiento({ datos, asesor, onClose }: Props) {
         </div>
       </div>
     </div>
+    </div>,
+    document.body,
   );
 }

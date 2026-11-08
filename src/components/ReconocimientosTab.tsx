@@ -112,7 +112,7 @@ export default function ReconocimientosTab() {
                     ? <Image src={a.fotoBase64} alt="" width={24} height={24} className="w-full h-full object-cover" />
                     : <span className="text-[10px] font-semibold text-gray-400">{a.nombre[0]}</span>}
                 </span>
-                {a.nombre}
+                {a.nombre} {a.apellido}
               </button>
             );
           })}

@@ -8,7 +8,7 @@ import { db } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { calcularMetas } from '@/lib/calcularMetas';
 import { totalReal, barColor, type ConfigRanking } from '@/lib/reglas';
-import { calcularScores, ordenarPorScore, useConfigRanking, type TotalesAsesor } from '@/lib/ranking';
+import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking, type TotalesAsesor } from '@/lib/ranking';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
 import {
   calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, hitoEquipoCruzado,
@@ -105,6 +105,12 @@ export default function TvPage() {
     scoreCtxRef.current = { ids: asesores.map((a) => a.id), meta, cfg: cfgRanking };
   }, [asesores, meta, cfgRanking]);
   const prevRef = useRef<{ registros: Record<string, number>; pos: Record<string, number>; pct: number | null } | null>(null);
+  const ultimoMapRef = useRef<Record<string, TotalesAsesor> | null>(null);
+  // Recalcula la línea base de posiciones si meta/config/asesores llegan después del primer snapshot de ventas.
+  useEffect(() => {
+    if (!prevRef.current || !ultimoMapRef.current) return;
+    prevRef.current = { ...prevRef.current, pos: posicionesPorScore(asesores.map((a) => a.id), ultimoMapRef.current, meta, cfgRanking) };
+  }, [asesores, meta, cfgRanking]);
   const prevAplausosRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
@@ -154,12 +160,11 @@ export default function TvPage() {
         const delMes = todos.filter((d) => d.mes === mes);
         const registros: Record<string, number> = {};
         delMes.forEach((d) => { registros[d.asesorId] = d.registros?.length ?? 0; });
-        const pos: Record<string, number> = {};
         const ctx = scoreCtxRef.current;
         const mapMes: Record<string, TotalesAsesor> = {};
         delMes.forEach((d) => { mapMes[d.asesorId] = d as TotalesAsesor; });
-        const idsPos = Array.from(new Set([...ctx.ids, ...Object.keys(mapMes)]));
-        ordenarPorScore(idsPos, calcularScores(idsPos, mapMes, ctx.meta, ctx.cfg)).forEach((id, i) => { pos[id] = i; });
+        const pos = posicionesPorScore(ctx.ids, mapMes, ctx.meta, ctx.cfg);
+        ultimoMapRef.current = mapMes;
         const metaTotal = metaTotalRef.current;
         const pct = metaTotal > 0 ? (delMes.reduce((s, d) => s + totalReal(d), 0) / metaTotal) * 100 : null;
 
@@ -254,7 +259,7 @@ export default function TvPage() {
       <header className="flex items-center justify-between gap-4 px-6 lg:px-10 pt-6 pb-4">
         <div className="min-w-0">
           <h1 className="text-2xl lg:text-4xl font-bold tracking-tight text-heading">Ranking de Ventas <span aria-hidden="true">🏆</span></h1>
-          <p className="text-sm lg:text-lg text-accent-muted capitalize mt-0.5">{mesNombre} · {frase}</p>
+          <p className="text-sm lg:text-lg text-accent-muted mt-0.5"><span className="capitalize">{mesNombre}</span> · {frase}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           <span className="hidden sm:block text-2xl lg:text-3xl font-semibold tabular-nums text-heading mr-2">

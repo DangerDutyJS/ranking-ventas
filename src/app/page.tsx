@@ -17,7 +17,7 @@ import TutorialModal from '@/components/TutorialModal';
 import DinamicaProgressModal from '@/components/DinamicaProgressModal';
 import CelebracionVenta from '@/components/CelebracionVenta';
 import { totalReal, barColor, calcularComisionConRescate, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
-import { calcularScores, ordenarPorScore, useConfigRanking } from '@/lib/ranking';
+import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking } from '@/lib/ranking';
 import PuntajeRanking from '@/components/PuntajeRanking';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
 import {
@@ -393,6 +393,14 @@ export default function Home() {
   // Conteos del snapshot anterior: el primer snapshot solo fija la línea base (no dispara la celebración al cargar).
   const prevVentasRef = useRef<Record<string, { registros: number; acumulados: number }> | null>(null);
   const prevPosicionesRef = useRef<Record<string, number> | null>(null);
+  const ultimoMapRef = useRef<Record<string, VentaMes> | null>(null);
+  // Si la meta, la config o los asesores llegan/cambian DESPUÉS del primer snapshot de ventas, la línea base
+  // de posiciones quedó calculada con otros datos (p. ej. por dinero, sin meta). Se recalcula aquí para que
+  // la próxima venta no dispare un "¡Subió al Nº lugar!" falso.
+  useEffect(() => {
+    if (!prevPosicionesRef.current || !ultimoMapRef.current) return;
+    prevPosicionesRef.current = posicionesPorScore(asesores.map((a) => a.id), ultimoMapRef.current, meta, cfgRanking);
+  }, [asesores, meta, cfgRanking]);
   const prevDinamicasRef = useRef<Record<string, Record<string, number>> | null>(null);
   const [dinamicas, setDinamicas] = useState<Dinamica[]>([]);
 
@@ -452,11 +460,9 @@ export default function Home() {
         for (const [id, v] of Object.entries(map)) {
           conteos[id] = { registros: v.registros?.length ?? 0, acumulados: v.acumulados?.length ?? 0 };
         }
-        const posiciones: Record<string, number> = {};
         const ctx = scoreCtxRef.current;
-        const idsPos = Array.from(new Set([...ctx.ids, ...Object.keys(map)]));
-        const scoresPos = calcularScores(idsPos, map, ctx.meta, ctx.cfg);
-        ordenarPorScore(idsPos, scoresPos).forEach((id, i) => { posiciones[id] = i; });
+        const posiciones = posicionesPorScore(ctx.ids, map, ctx.meta, ctx.cfg);
+        ultimoMapRef.current = map;
 
         const prev = prevVentasRef.current;
         const prevPos = prevPosicionesRef.current;
@@ -756,7 +762,7 @@ export default function Home() {
                         : <span className="text-[11px] font-semibold text-gray-400">{a.nombre[0]}{a.apellido?.[0]}</span>}
                     </div>
                     <p className="min-w-0 text-[13px] leading-snug text-gray-600 [text-wrap:pretty]">
-                      <b className="text-heading">{a.nombre}</b> · {ap.mensaje}
+                      <b className="text-heading">{a.nombre} {a.apellido}</b> · {ap.mensaje}
                       <span className="block text-[11px] text-gray-400 mt-0.5">{cuando}</span>
                     </p>
                   </li>
