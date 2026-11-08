@@ -411,6 +411,7 @@ export default function MetaMes() {
             className="w-full px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900"
             placeholder="Dejar vacío = auto"
             min={0}
+            step="any"
           />
         </div>
       </div>
