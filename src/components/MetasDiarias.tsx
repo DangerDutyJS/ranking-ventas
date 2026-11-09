@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
-import { registraSinIva } from '@/lib/iva';
+import { useMesSinIva } from '@/lib/useMesSinIva';
 
 interface Asesor {
   id: string;
@@ -71,6 +71,7 @@ const emptyMetasPorDia = (): MetasPorDiaInput => ({
 export default function MetasDiarias() {
   const storeId = useStoreId();
   const mes = mesActual();
+  const sinIvaMes = useMesSinIva(storeId, mes);
 
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [metasPorDia, setMetasPorDia] = useState<MetasPorDiaInput>(emptyMetasPorDia());
@@ -521,7 +522,7 @@ export default function MetasDiarias() {
       {/* Presupuesto diario + selección de asesores */}
       <div className="bg-surface border border-gray-100 rounded-xl p-4 space-y-4">
         <div>
-          <p className="text-xs font-medium text-gray-600 mb-1.5">Presupuesto del día{registraSinIva(mes) ? ' (sin IVA)' : ''}</p>
+          <p className="text-xs font-medium text-gray-600 mb-1.5">Presupuesto del día{sinIvaMes ? ' (sin IVA)' : ''}</p>
           <input
             type="number"
             value={todayInput?.monto ?? ''}

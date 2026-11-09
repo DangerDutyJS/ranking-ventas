@@ -5,7 +5,7 @@ import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, updateDoc 
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 import Image from 'next/image';
-import { registraSinIva } from '@/lib/iva';
+import { useMesSinIva } from '@/lib/useMesSinIva';
 
 interface Asesor {
   id: string;
@@ -58,6 +58,7 @@ function grandTotals(vm: VentaMes | undefined) {
 export default function EditorVentasMes() {
   const storeId = useStoreId();
   const mes = mesActual();
+  const sinIvaMes = useMesSinIva(storeId, mes);
 
   const [asesores, setAsesores]         = useState<Asesor[]>([]);
   const [ventasMap, setVentasMap]       = useState<Record<string, VentaMes>>({});
@@ -286,7 +287,7 @@ export default function EditorVentasMes() {
                 {FIELDS.map(({ field, label, step }) => (
                   <div key={field}>
                     <label className="block text-[10px] text-gray-400 mb-1.5 font-medium uppercase tracking-wide">
-                      {label}{field === 'monto' && registraSinIva(mes) ? ' sin IVA' : ''}
+                      {label}{field === 'monto' && sinIvaMes ? ' sin IVA' : ''}
                     </label>
                     <input
                       type="number"

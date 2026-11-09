@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { collection, doc, getDocs, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp, deleteDoc, deleteField } from 'firebase/firestore';
 import ConfigRankingPanel from '@/components/ConfigRankingPanel';
+import ConvertirMesSinIvaPanel from '@/components/ConvertirMesSinIvaPanel';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
@@ -30,6 +31,8 @@ interface Meta {
   metaAVT?: number;
   // % de IVA del mes (19 por defecto). Desde diciembre 2026 se descuenta al registrar cada venta.
   ivaVentas?: number;
+  // true = el mes se registró con IVA pero la líder lo pasó a sin IVA (conversión única).
+  ventasSinIva?: boolean;
 }
 
 function mesActual() {
@@ -59,15 +62,17 @@ export default function MetaMes() {
   const [metaUPT, setMetaUPT] = useState('');
   const [metaAVT, setMetaAVT] = useState('');
   const [ivaMes, setIvaMes] = useState(String(CONFIG_RANKING_DEFAULT.ivaVentas));
-  const sinIvaMes = registraSinIva(mes);
-  const etiquetaIva = sinIvaMes ? ' (sin IVA)' : ' (con IVA)';
   const [metaGuardada, setMetaGuardada] = useState<Meta | null>(null);
+  const sinIvaMes = registraSinIva(mes, metaGuardada);
+  const etiquetaIva = sinIvaMes ? ' (sin IVA)' : ' (con IVA)';
   const [historial, setHistorial] = useState<Array<{ mes: string; data: Meta }>>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [editando, setEditando] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [recarga, setRecarga] = useState(0);
+  const recargarMeta = () => setRecarga((n) => n + 1);
 
   useEffect(() => {
     if (!storeId) return;
@@ -103,7 +108,7 @@ export default function MetaMes() {
         .sort((a, b) => b.mes.localeCompare(a.mes));
       setHistorial(all);
     });
-  }, [storeId, mes]);
+  }, [storeId, mes, recarga]);
 
   const handleGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -128,6 +133,7 @@ export default function MetaMes() {
       ...(Number(metaUPT) > 0 && { metaUPT: Number(metaUPT) }),
       ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
       ivaVentas: iva,
+      ...(metaGuardada?.ventasSinIva && { ventasSinIva: true }),
     };
     try {
       await setDoc(
@@ -298,6 +304,17 @@ export default function MetaMes() {
             );
           })}
         </div>
+
+        {!sinIvaMes && (
+          <ConvertirMesSinIvaPanel
+            storeId={storeId}
+            mes={mes}
+            mesNombre={mesNombre}
+            montoMeta={metaGuardada.montoTotal}
+            iva={metaGuardada.ivaVentas ?? CONFIG_RANKING_DEFAULT.ivaVentas}
+            onConvertido={recargarMeta}
+          />
+        )}
 
         <ConfigRankingPanel />
 

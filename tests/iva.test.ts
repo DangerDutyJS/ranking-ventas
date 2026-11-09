@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { calcularComisionPorPuntaje, CONFIG_RANKING_DEFAULT } from '../src/lib/reglas.ts';
 import {
   registraSinIva, ivaDelMes, ivaAlRegistrar, ivaAlPagar, montoARegistrar, montoFactura,
+  convertirVentasSinIva, convertirMetaSinIva,
 } from '../src/lib/iva.ts';
 
 const cfg = CONFIG_RANKING_DEFAULT;
@@ -46,4 +47,34 @@ test('misma comisión de Tamayo por los dos caminos (sin doble descuento)', () =
   assert.ok(Math.abs(nov.pago - 1426700.46) < 0.01, `nov ${nov.pago}`);
   assert.ok(Math.abs(dic.pago - nov.pago) < 0.01, `dic ${dic.pago} vs nov ${nov.pago}`);
   assert.equal(dic.talento, nov.talento);
+});
+
+test('un mes viejo convertido por la líder pasa a sin IVA (y no se descuenta otra vez al pagar)', () => {
+  const conv = { ventasSinIva: true, ivaVentas: 19 };
+  assert.equal(registraSinIva('2026-11', conv), true);
+  assert.deepEqual([ivaAlRegistrar('2026-11', conv, cfg), ivaAlPagar('2026-11', conv, cfg)], [19, 0]);
+});
+
+test('conversión de noviembre: ventas, registros, acumulados y metas ÷ 1,19; txn/uds intactos', () => {
+  const v = convertirVentasSinIva({
+    totalVentas: 154343050, totalTransacciones: 261, totalUnidades: 579,
+    registros: [{ monto: 119000, unidades: 2, transacciones: 1 }],
+    acumulados: [{ monto: 238000, unidades: 1, transacciones: 1 }],
+    acumuladoMes: { monto: 238000, unidades: 1, transacciones: 1 },
+  }, 19);
+  assert.equal(v.totalVentas, 129700042.02);
+  assert.equal(v.registros?.[0].monto, 100000);
+  assert.equal(v.registros?.[0].unidades, 2);
+  assert.equal(v.acumulados?.[0].monto, 200000);
+  assert.equal(v.acumuladoMes?.monto, 200000);
+  assert.equal('totalTransacciones' in v, false);
+  const m = convertirMetaSinIva({ montoTotal: 161840000, metaAVT: 435475.69, metasPorDia: { '1': { monto: 1190000, avt: 119000 } } }, 19);
+  assert.equal(m.montoTotal, 136000000);
+  assert.equal(m.metaAVT, 365945.96); // = Meta AVT de la hoja de la empresa
+  assert.deepEqual(m.metasPorDia?.['1'], { monto: 1000000, avt: 100000 });
+  assert.equal(m.ventasSinIva, true);
+  // Comisión de Tamayo igual antes y después de convertir.
+  const antes = calcularComisionPorPuntaje(161840000, 154343050, 102.75, 0.8, ivaAlPagar('2026-11', null, cfg));
+  const despues = calcularComisionPorPuntaje(m.montoTotal!, v.totalVentas!, 102.75, 0.8, ivaAlPagar('2026-11', m, cfg));
+  assert.ok(Math.abs(antes.pago - despues.pago) < 0.01, `${antes.pago} vs ${despues.pago}`);
 });

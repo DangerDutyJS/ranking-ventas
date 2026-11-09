@@ -27,6 +27,7 @@ export interface VentaReporte {
 export interface MetaReporte extends MetaIndicadores {
   asesores?: Record<string, { diasLaborados: number }>;
   ivaVentas?: number;
+  ventasSinIva?: boolean;
 }
 
 export interface FilaReporte {
@@ -134,7 +135,7 @@ export function construirReporte(
     mes,
     titulo: `Ranking de ventas · ${nombreMesLargo(mes)}`,
     ivaVentas: iva,
-    sinIvaAlRegistrar: registraSinIva(mes),
+    sinIvaAlRegistrar: registraSinIva(mes, meta),
     filas: lista,
     totales: {
       horas: lista.reduce((p, f) => p + (f.horas ?? 0), 0),

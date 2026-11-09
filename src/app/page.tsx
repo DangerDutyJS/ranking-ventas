@@ -73,6 +73,7 @@ interface Meta {
   metaAVT?: number;
   metasPorDia?: Record<string, MetaDia>;
   ivaVentas?: number;
+  ventasSinIva?: boolean;
 }
 
 interface RegistroDinamica {
@@ -1074,7 +1075,7 @@ export default function Home() {
               </div>
               {resumenMes.meta > 0 && (
                 <section aria-label="Resumen del mes" className="mb-6 rounded-xl border border-gray-200 bg-surface overflow-hidden">
-                  <p className="px-4 pt-3 text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Acumulado del mes · todos los asesores{registraSinIva(mes) ? ' · valores sin IVA' : ''}</p>
+                  <p className="px-4 pt-3 text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Acumulado del mes · todos los asesores{registraSinIva(mes, meta) ? ' · valores sin IVA' : ''}</p>
                   <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-100 mt-2">
                     {[
                       { t: 'Meta total', v: formatCurrency(resumenMes.meta), cls: 'text-heading' },
@@ -1376,7 +1377,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} iva={ivaPago} sinIvaYa={registraSinIva(mes)} />
+                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} iva={ivaPago} sinIvaYa={registraSinIva(mes, meta)} />
 
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (
