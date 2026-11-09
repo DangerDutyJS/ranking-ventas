@@ -19,6 +19,7 @@ import CelebracionVenta from '@/components/CelebracionVenta';
 import { totalReal, barColor, calcularComisionPorPuntaje, sinIva, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
 import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking } from '@/lib/ranking';
 import PuntajeRanking from '@/components/PuntajeRanking';
+import { ivaAlPagar, ivaAlRegistrar, registraSinIva } from '@/lib/iva';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
 import {
   calcularRacha, calcularInsignias, mayorProgresoSemana, mejorMesAnterior, minimoRecord, hitoEquipoCruzado,
@@ -71,6 +72,7 @@ interface Meta {
   metaUPT?: number;
   metaAVT?: number;
   metasPorDia?: Record<string, MetaDia>;
+  ivaVentas?: number;
 }
 
 interface RegistroDinamica {
@@ -245,7 +247,7 @@ const COMISION_ROWS: { talento: ComisionResult['talento']; label: string; rango:
 ];
 
 // Tramo por cumplimiento total (puntaje) y pago sobre la venta real completa, como la hoja de la empresa.
-function TablaComisionesAsesor({ meta, vendido, score, pesoVenta, iva }: { meta: number; vendido: number; score: number | null; pesoVenta: number; iva: number }) {
+function TablaComisionesAsesor({ meta, vendido, score, pesoVenta, iva, sinIvaYa = false }: { meta: number; vendido: number; score: number | null; pesoVenta: number; iva: number; sinIvaYa?: boolean }) {
   if (meta <= 0) return null;
   const { talento, comision, falta90, falta100, falta110, falta120, pago, baseSinIva } = calcularComisionPorPuntaje(meta, vendido, score, pesoVenta, iva);
   return (
@@ -284,7 +286,7 @@ function TablaComisionesAsesor({ meta, vendido, score, pesoVenta, iva }: { meta:
           <p className="text-[12px] text-gray-400">
             Comisión estimada:{' '}
             <span className="font-semibold text-gray-800">{formatCurrency(pago)}</span>
-            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(baseSinIva)}{iva > 0 ? ' sin IVA' : ''})</span>
+            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(baseSinIva)}{iva > 0 || sinIvaYa ? ' sin IVA' : ''})</span>
           </p>
         </div>
       )}
@@ -611,11 +613,15 @@ export default function Home() {
   const scores = calcularScores(asesorIds, ventasMap, meta, cfgRanking);
   const ranking = ordenarPorScore(asesorIds, scores).map((id) => asesores.find((a) => a.id === id)!);
 
+  // IVA del mes: desde diciembre 2026 se descuenta al registrar (ivaRegistro) y ya no al pagar (ivaPago = 0).
+  const ivaRegistro = ivaAlRegistrar(mes, meta, cfgRanking);
+  const ivaPago = ivaAlPagar(mes, meta, cfgRanking);
+
   // Resumen del mes = fila TOTAL de la hoja de la empresa (mismas reglas que las tarjetas).
   const resumenMes = asesorIds.reduce((acc, id) => {
     const sc = scores[id];
     if (!sc) return acc;
-    const c = calcularComisionPorPuntaje(sc.metaVenta, sc.ventaReal, sc.score, sc.venta.peso, cfgRanking.ivaVentas);
+    const c = calcularComisionPorPuntaje(sc.metaVenta, sc.ventaReal, sc.score, sc.venta.peso, ivaPago);
     return {
       meta: acc.meta + sc.metaVenta,
       venta: acc.venta + sc.ventaReal,
@@ -1068,7 +1074,7 @@ export default function Home() {
               </div>
               {resumenMes.meta > 0 && (
                 <section aria-label="Resumen del mes" className="mb-6 rounded-xl border border-gray-200 bg-surface overflow-hidden">
-                  <p className="px-4 pt-3 text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Acumulado del mes · todos los asesores</p>
+                  <p className="px-4 pt-3 text-[11px] font-medium text-gray-400 uppercase tracking-[0.06em]">Acumulado del mes · todos los asesores{registraSinIva(mes) ? ' · valores sin IVA' : ''}</p>
                   <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-100 mt-2">
                     {[
                       { t: 'Meta total', v: formatCurrency(resumenMes.meta), cls: 'text-heading' },
@@ -1174,7 +1180,7 @@ export default function Home() {
                         metaMensual={metaMensual}
                         score={sc?.score ?? null}
                         pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta}
-                        iva={cfgRanking.ivaVentas}
+                        iva={ivaPago}
                         arriba={index > 0 ? (() => {
                           const a = ranking[index - 1];
                           return { nombre: a.nombre, total: totalReal(ventasMap[a.id]), score: scores[a.id]?.score ?? null };
@@ -1370,7 +1376,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} iva={cfgRanking.ivaVentas} />
+                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} iva={ivaPago} sinIvaYa={registraSinIva(mes)} />
 
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (
@@ -1444,6 +1450,7 @@ export default function Home() {
           dinamicas={dinamicas.filter((d) => d.asesoresIds.includes(ventasAsesor.id))}
           rankingMes={asesores.map((a) => ({ id: a.id, nombre: a.nombre, total: totalReal(ventasMap[a.id]), score: scores[a.id]?.score ?? null }))}
           contexto={contextoMotivacion(ventasAsesor.id)}
+          ivaRegistro={ivaRegistro}
           onClose={() => setVentasAsesor(null)}
         />
       )}
@@ -1451,6 +1458,7 @@ export default function Home() {
       {acumuladoAsesor && (
         <HistorialAcumuladoModal
           asesor={acumuladoAsesor}
+          ivaRegistro={ivaRegistro}
           onClose={() => setAcumuladoAsesor(null)}
         />
       )}

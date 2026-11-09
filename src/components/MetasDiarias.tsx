@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, serverTimestamp, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
+import { registraSinIva } from '@/lib/iva';
 
 interface Asesor {
   id: string;
@@ -520,7 +521,7 @@ export default function MetasDiarias() {
       {/* Presupuesto diario + selección de asesores */}
       <div className="bg-surface border border-gray-100 rounded-xl p-4 space-y-4">
         <div>
-          <p className="text-xs font-medium text-gray-600 mb-1.5">Presupuesto del día</p>
+          <p className="text-xs font-medium text-gray-600 mb-1.5">Presupuesto del día{registraSinIva(mes) ? ' (sin IVA)' : ''}</p>
           <input
             type="number"
             value={todayInput?.monto ?? ''}

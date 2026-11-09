@@ -6,6 +6,8 @@ import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 import { crearNotificacion } from '@/lib/notificaciones';
 import Image from 'next/image';
+import { montoARegistrar, montoFactura } from '@/lib/iva';
+import PreviewSinIva from '@/components/PreviewSinIva';
 
 interface Asesor {
   id: string;
@@ -34,6 +36,8 @@ interface Registro {
 
 interface Props {
   asesor: Asesor;
+  // IVA (%) que se descuenta al registrar (montos de factura -> se guardan sin IVA). 0 = se guardan tal cual.
+  ivaRegistro?: number;
   onClose: () => void;
 }
 
@@ -60,7 +64,7 @@ function regKey(r: Registro) {
   return r.id ?? r.creadoEn;
 }
 
-export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
+export default function HistorialAcumuladoModal({ asesor, ivaRegistro = 0, onClose }: Props) {
   const storeId = useStoreId();
   const mes = mesActual();
   const parentId = `${mes}_${asesor.id}`;
@@ -144,13 +148,15 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
   const startEditReg = (r: Registro) => {
     setEditRegKey(regKey(r));
-    setEditRegMonto(String(r.monto));
+    setEditRegMonto(String(montoFactura(r.monto, ivaRegistro)));
     setEditRegUds(String(r.unidades));
     setEditRegTxn(String(r.transacciones));
   };
 
   const handleGuardarEditReg = async (reg: Registro) => {
-    const m = parseFloat(editRegMonto) || 0;
+    const m = editRegMonto === String(montoFactura(reg.monto, ivaRegistro))
+      ? reg.monto
+      : montoARegistrar(parseFloat(editRegMonto) || 0, ivaRegistro);
     const u = parseInt(editRegUds) || 0;
     const t = parseInt(editRegTxn) || 0;
     try {
@@ -175,7 +181,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
   // Acumulado: add / edit / delete
   const handleAgregar = async () => {
-    const m = parseFloat(monto) || 0;
+    const m = montoARegistrar(parseFloat(monto) || 0, ivaRegistro);
     const t = parseInt(txn) || 0;
     const u = parseInt(uds) || 0;
     if (m <= 0 && t <= 0 && u <= 0) { setError('Ingresa al menos un valor.'); return; }
@@ -242,13 +248,15 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
 
   const startEdit = (entrada: Entrada) => {
     setEditId(entrada.id);
-    setEditMonto(String(entrada.monto || ''));
+    setEditMonto(entrada.monto ? String(montoFactura(entrada.monto, ivaRegistro)) : '');
     setEditTxn(String(entrada.transacciones || ''));
     setEditUds(String(entrada.unidades || ''));
   };
 
   const handleGuardarEdit = async (entrada: Entrada) => {
-    const m = parseFloat(editMonto) || 0;
+    const m = editMonto === (entrada.monto ? String(montoFactura(entrada.monto, ivaRegistro)) : '')
+      ? entrada.monto
+      : montoARegistrar(parseFloat(editMonto) || 0, ivaRegistro);
     const t = parseInt(editTxn) || 0;
     const u = parseInt(editUds) || 0;
     try {
@@ -370,10 +378,11 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
               <div className="border border-gray-100 rounded-xl p-3 space-y-3">
                 <p className="text-xs font-medium text-gray-600">Nuevo acumulado</p>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">Monto vendido</label>
+                  <label className="block text-xs text-gray-500 mb-1">{ivaRegistro > 0 ? 'Valor de las facturas (con IVA)' : 'Monto vendido'}</label>
                   <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
                     className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                     placeholder="Ej. 2500000" min={0} autoFocus />
+                  <PreviewSinIva valor={monto} iva={ivaRegistro} />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -483,7 +492,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                               <div className="space-y-2">
                                 <div className="grid grid-cols-3 gap-2">
                                   {([
-                                    { label: 'Monto', val: editRegMonto, set: setEditRegMonto },
+                                    { label: ivaRegistro > 0 ? 'Factura' : 'Monto', val: editRegMonto, set: setEditRegMonto },
                                     { label: 'Uds', val: editRegUds, set: setEditRegUds },
                                     { label: 'Txn', val: editRegTxn, set: setEditRegTxn },
                                   ] as const).map(({ label, val, set }) => (
@@ -496,6 +505,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                                         className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900"
                                         min={1}
                                       />
+                                      {set === setEditRegMonto && <PreviewSinIva valor={val} iva={ivaRegistro} compacto />}
                                     </div>
                                   ))}
                                 </div>
@@ -550,7 +560,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                     <div className="space-y-2">
                       <div className="grid grid-cols-3 gap-2">
                         {[
-                          { label: 'Monto', val: editMonto, set: setEditMonto },
+                          { label: ivaRegistro > 0 ? 'Factura' : 'Monto', val: editMonto, set: setEditMonto },
                           { label: 'Txn', val: editTxn, set: setEditTxn },
                           { label: 'Uds', val: editUds, set: setEditUds },
                         ].map(({ label, val, set }) => (
@@ -558,6 +568,7 @@ export default function HistorialAcumuladoModal({ asesor, onClose }: Props) {
                             <label className="block text-[10px] text-gray-400 mb-0.5">{label}</label>
                             <input type="number" value={val} onChange={(e) => set(e.target.value)}
                               className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900" min={0} />
+                            {set === setEditMonto && <PreviewSinIva valor={val} iva={ivaRegistro} compacto />}
                           </div>
                         ))}
                       </div>

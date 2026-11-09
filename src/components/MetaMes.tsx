@@ -6,6 +6,8 @@ import ConfigRankingPanel from '@/components/ConfigRankingPanel';
 import { calcularMetas, distribuirIndicador } from '@/lib/calcularMetas';
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
+import { registraSinIva } from '@/lib/iva';
+import { CONFIG_RANKING_DEFAULT } from '@/lib/reglas';
 
 interface Asesor {
   id: string;
@@ -26,6 +28,8 @@ interface Meta {
   metaUnidades?: number;
   metaUPT?: number;
   metaAVT?: number;
+  // % de IVA del mes (19 por defecto). Desde diciembre 2026 se descuenta al registrar cada venta.
+  ivaVentas?: number;
 }
 
 function mesActual() {
@@ -54,6 +58,9 @@ export default function MetaMes() {
   const [metaUnidades, setMetaUnidades] = useState('');
   const [metaUPT, setMetaUPT] = useState('');
   const [metaAVT, setMetaAVT] = useState('');
+  const [ivaMes, setIvaMes] = useState(String(CONFIG_RANKING_DEFAULT.ivaVentas));
+  const sinIvaMes = registraSinIva(mes);
+  const etiquetaIva = sinIvaMes ? ' (sin IVA)' : ' (con IVA)';
   const [metaGuardada, setMetaGuardada] = useState<Meta | null>(null);
   const [historial, setHistorial] = useState<Array<{ mes: string; data: Meta }>>([]);
   const [loading, setLoading] = useState(true);
@@ -86,6 +93,7 @@ export default function MetaMes() {
         setMetaUnidades(data.metaUnidades ? String(data.metaUnidades) : '');
         setMetaUPT(data.metaUPT ? String(data.metaUPT) : '');
         setMetaAVT(data.metaAVT ? String(data.metaAVT) : '');
+        if (typeof data.ivaVentas === 'number') setIvaMes(String(data.ivaVentas));
       }
       setLoading(false);
     });
@@ -102,6 +110,8 @@ export default function MetaMes() {
     setError('');
     const monto = Number(montoTotal.replace(/\D/g, ''));
     if (!monto || monto <= 0) return setError('Ingresa un monto válido.');
+    const iva = Number(ivaMes);
+    if (ivaMes.trim() === '' || !Number.isFinite(iva) || iva < 0 || iva > 50) return setError('El IVA del mes debe estar entre 0 y 50%.');
     for (const a of asesores) {
       if (!dias[a.id] || Number(dias[a.id]) <= 0) return setError(`Ingresa los días laborados de ${a.nombre}.`);
     }
@@ -117,6 +127,7 @@ export default function MetaMes() {
       ...(Number(metaUnidades) > 0 && { metaUnidades: Number(metaUnidades) }),
       ...(Number(metaUPT) > 0 && { metaUPT: Number(metaUPT) }),
       ...(Number(metaAVT) > 0 && { metaAVT: Number(metaAVT) }),
+      ivaVentas: iva,
     };
     try {
       await setDoc(
@@ -202,6 +213,7 @@ export default function MetaMes() {
               {metaGuardada.metaUnidades && (
                 <span className="text-xs text-gray-500">{metaGuardada.metaUnidades} uds</span>
               )}
+              <span className="text-xs text-gray-500">IVA {metaGuardada.ivaVentas ?? CONFIG_RANKING_DEFAULT.ivaVentas}%{sinIvaMes ? ' · valores sin IVA' : ' · registrado con IVA'}</span>
               {displayUPT !== null && (
                 <span className="text-xs text-gray-500">UPT {displayUPT.toFixed(2)}{uptEsManual ? '' : ' *'}</span>
               )}
@@ -341,7 +353,7 @@ export default function MetaMes() {
 
       {/* Monto total */}
       <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Monto total del mes</label>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Monto total del mes{etiquetaIva}</label>
         <input
           type="number"
           value={montoTotal}
@@ -350,6 +362,30 @@ export default function MetaMes() {
           placeholder="Ej. 50000000"
           min={1}
         />
+      </div>
+
+      {/* IVA del mes */}
+      <div>
+        <label htmlFor="iva-mes" className="block text-xs font-medium text-gray-600 mb-1">IVA del mes</label>
+        <div className="flex items-center gap-2">
+          <input
+            id="iva-mes"
+            type="number"
+            value={ivaMes}
+            onChange={(e) => setIvaMes(e.target.value)}
+            className="w-24 px-3 py-2.5 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent transition-colors text-gray-900 tabular-nums"
+            min={0}
+            max={50}
+            step="any"
+            aria-describedby="iva-mes-ayuda"
+          />
+          <span className="text-sm text-gray-500">%</span>
+        </div>
+        <p id="iva-mes-ayuda" className="text-[11.5px] text-gray-400 mt-1 [text-wrap:pretty]">
+          {sinIvaMes
+            ? 'Los asesores escriben el valor de la factura y la app le quita este IVA al registrar. Las metas de este mes van sin IVA, como la hoja de la empresa. 0 = no se descuenta.'
+            : 'Este mes las ventas se registraron con IVA: la comisión y el reporte lo descuentan al final. Las metas de este mes van con IVA.'}
+        </p>
       </div>
 
       {/* Indicadores del mes */}
@@ -397,7 +433,7 @@ export default function MetaMes() {
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">
-            Meta AVT
+            Meta AVT{etiquetaIva}
             {Number(metaTransacciones) > 0 && Number(montoTotal) > 0 && !Number(metaAVT) && (
               <span className="ml-1.5 text-gray-400 font-normal">
                 (auto: {formatCurrency(Number(montoTotal) / Number(metaTransacciones))})

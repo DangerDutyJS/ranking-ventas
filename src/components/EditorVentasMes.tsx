@@ -5,6 +5,7 @@ import { collection, doc, getDoc, onSnapshot, orderBy, query, setDoc, updateDoc 
 import { db } from '@/lib/firebase';
 import { useStoreId } from '@/context/StoreContext';
 import Image from 'next/image';
+import { registraSinIva } from '@/lib/iva';
 
 interface Asesor {
   id: string;
@@ -285,7 +286,7 @@ export default function EditorVentasMes() {
                 {FIELDS.map(({ field, label, step }) => (
                   <div key={field}>
                     <label className="block text-[10px] text-gray-400 mb-1.5 font-medium uppercase tracking-wide">
-                      {label}
+                      {label}{field === 'monto' && registraSinIva(mes) ? ' sin IVA' : ''}
                     </label>
                     <input
                       type="number"

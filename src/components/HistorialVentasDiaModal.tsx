@@ -8,6 +8,8 @@ import { crearNotificacion } from '@/lib/notificaciones';
 import Image from 'next/image';
 import PlacaReconocimiento, { type DatosPlaca } from '@/components/PlacaReconocimiento';
 import { minutosRestantes } from '@/lib/motivacion';
+import { montoARegistrar, montoFactura } from '@/lib/iva';
+import PreviewSinIva from '@/components/PreviewSinIva';
 import {
   calcularMotivacion, calcularResultado, armarPlaca, textoPosicion,
   type ContextoMotivacion, type PosicionMes, type Resultado,
@@ -45,6 +47,8 @@ interface Props {
   dinamicas?: Dinamica[];
   rankingMes?: PosicionMes[];
   contexto?: ContextoMotivacion;
+  // IVA (%) que se descuenta al registrar: el asesor escribe la factura y se guarda sin IVA. 0 = se guarda tal cual.
+  ivaRegistro?: number;
   onClose: () => void;
 }
 
@@ -81,7 +85,7 @@ function entryKey(r: Registro) {
   return r.id ?? r.creadoEn;
 }
 
-export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes, contexto, onClose }: Props) {
+export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes, contexto, ivaRegistro = 0, onClose }: Props) {
   const storeId = useStoreId();
   const mes = mesActual();
   const hoy = fechaHoy();
@@ -144,10 +148,11 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
   }, [storeId, docId]);
 
   const handleAgregar = async () => {
-    const m = Number(monto.replace(/\D/g, ''));
+    const factura = Number(monto.replace(/\D/g, ''));
+    const m = montoARegistrar(factura, ivaRegistro);
     const u = parseInt(unidades);
     const t = parseInt(txn);
-    if (!m || m <= 0) { setError('Ingresa un monto válido.'); return; }
+    if (!factura || factura <= 0) { setError('Ingresa un monto válido.'); return; }
     if (!u || u <= 0) { setError('Ingresa las unidades (entero).'); return; }
     if (!t || t <= 0) { setError('Ingresa las transacciones (entero).'); return; }
     setSaving(true);
@@ -228,7 +233,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
 
   const startEdit = (r: Registro) => {
     setEditEntry(r);
-    setEditMonto(String(r.monto));
+    setEditMonto(String(montoFactura(r.monto, ivaRegistro)));
     setEditUds(String(r.unidades));
     setEditTxn(String(r.transacciones));
     setShowForm(false);
@@ -236,7 +241,10 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
 
   const handleGuardarEdit = async () => {
     if (!editEntry) return;
-    const m = parseFloat(editMonto) || 0;
+    // Si no tocó el monto se conserva el guardado (evita cambios de centavos por ida y vuelta del IVA).
+    const m = editMonto === String(montoFactura(editEntry.monto, ivaRegistro))
+      ? editEntry.monto
+      : montoARegistrar(parseFloat(editMonto) || 0, ivaRegistro);
     const u = parseInt(editUds) || 0;
     const t = parseInt(editTxn) || 0;
     try {
@@ -362,7 +370,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                     <div className="space-y-2">
                       <div className="grid grid-cols-3 gap-2">
                         {([
-                          { label: 'Monto', val: editMonto, set: setEditMonto },
+                          { label: ivaRegistro > 0 ? 'Factura' : 'Monto', val: editMonto, set: setEditMonto },
                           { label: 'Uds', val: editUds, set: setEditUds },
                           { label: 'Txn', val: editTxn, set: setEditTxn },
                         ] as const).map(({ label, val, set }) => (
@@ -371,6 +379,7 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
                             <input type="number" value={val}
                               onChange={(e) => (set as (v: string) => void)(e.target.value)}
                               className="w-full px-2 py-1.5 text-xs border border-gray-200 rounded-lg outline-none focus:border-accent text-gray-900" min={1} />
+                            {set === setEditMonto && <PreviewSinIva valor={val} iva={ivaRegistro} compacto />}
                           </div>
                         ))}
                       </div>
@@ -432,10 +441,11 @@ export default function HistorialVentasDiaModal({ asesor, dinamicas, rankingMes,
             <div className="border border-gray-100 rounded-xl p-3 space-y-3">
               <p className="text-xs font-medium text-gray-600">Nueva venta</p>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Monto vendido</label>
+                <label className="block text-xs text-gray-500 mb-1">{ivaRegistro > 0 ? 'Valor de la factura (con IVA)' : 'Monto vendido'}</label>
                 <input type="number" value={monto} onChange={(e) => setMonto(e.target.value)}
                   className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl outline-none focus:border-accent text-gray-900"
                   placeholder="Ej. 2500000" min={1} autoFocus />
+                <PreviewSinIva valor={monto} iva={ivaRegistro} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>

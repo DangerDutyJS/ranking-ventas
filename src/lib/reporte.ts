@@ -5,6 +5,7 @@ import {
   calcularScoreRanking, calcularComisionPorPuntaje, compararRanking, metasUptAvt, totalReal, sinIva,
   type ConfigRanking, type MetaIndicadores,
 } from '@/lib/reglas';
+import { ivaAlPagar, registraSinIva } from '@/lib/iva';
 
 export interface AsesorReporte {
   id: string;
@@ -25,6 +26,7 @@ export interface VentaReporte {
 
 export interface MetaReporte extends MetaIndicadores {
   asesores?: Record<string, { diasLaborados: number }>;
+  ivaVentas?: number;
 }
 
 export interface FilaReporte {
@@ -53,7 +55,9 @@ export interface FilaReporte {
 export interface Reporte {
   mes: string;
   titulo: string;
+  // IVA que se le quitó al armar el reporte (0 si las ventas del mes ya se registraron sin IVA).
   ivaVentas: number;
+  sinIvaAlRegistrar: boolean;
   filas: FilaReporte[];
   totales: {
     horas: number;
@@ -80,6 +84,8 @@ export function construirReporte(
   const ids = asesores.map((a) => a.id);
   const metasMap = meta && ids.length > 0 ? calcularMetas(meta.montoTotal, ids, meta.asesores ?? {}) : {};
   const { upt: metaUPT, avt: metaAVT } = metasUptAvt(meta);
+  // Meses viejos: registros con IVA, se quita aquí. Desde diciembre 2026 ya vienen sin IVA (iva = 0, nunca dos veces).
+  const iva = ivaAlPagar(mes, meta, cfg);
   const ventaDe = new Map(ventasDelMes.map((v) => [v.asesorId, v]));
 
   const filas = asesores.map((a) => {
@@ -89,9 +95,9 @@ export function construirReporte(
     const transacciones = (v?.totalTransacciones ?? 0) + (v?.acumuladoMes?.transacciones ?? 0);
     const metaVenta = metasMap[a.id]?.metaMensual ?? 0;
     const s = calcularScoreRanking({ ventaReal: realVenta, metaVenta, unidades, transacciones, metaUPT, metaAVT }, cfg);
-    const c = calcularComisionPorPuntaje(metaVenta, realVenta, s.score, s.venta.peso, cfg.ivaVentas);
+    const c = calcularComisionPorPuntaje(metaVenta, realVenta, s.score, s.venta.peso, iva);
     // La empresa reporta en pesos SIN IVA; la tienda registra con IVA. Los % y puntos no cambian.
-    const neto = (v: number | null) => (v === null ? null : sinIva(v, cfg.ivaVentas));
+    const neto = (v: number | null) => (v === null ? null : sinIva(v, iva));
     const fila: FilaReporte = {
       sap: a.codigoSap ?? '',
       colaborador: `${a.nombre} ${a.apellido}`.trim().toUpperCase(),
@@ -106,8 +112,8 @@ export function construirReporte(
       realAVT: neto(s.avt.real),
       pctAVT: s.avt.pct,
       ptsAVT: s.avt.peso > 0 ? s.avt.puntos : null,
-      metaVenta: sinIva(metaVenta, cfg.ivaVentas),
-      realVenta: sinIva(realVenta, cfg.ivaVentas),
+      metaVenta: sinIva(metaVenta, iva),
+      realVenta: sinIva(realVenta, iva),
       pctVenta: s.pctVenta,
       ptsVenta: s.score !== null ? s.venta.puntos : null,
       cumplimiento: s.score,
@@ -127,7 +133,8 @@ export function construirReporte(
   return {
     mes,
     titulo: `Ranking de ventas · ${nombreMesLargo(mes)}`,
-    ivaVentas: cfg.ivaVentas,
+    ivaVentas: iva,
+    sinIvaAlRegistrar: registraSinIva(mes),
     filas: lista,
     totales: {
       horas: lista.reduce((p, f) => p + (f.horas ?? 0), 0),

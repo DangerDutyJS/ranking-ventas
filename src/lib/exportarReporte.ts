@@ -184,7 +184,7 @@ export async function exportarExcel(reporte: Reporte) {
   r.height = 20;
 
   ws.getCell(5 + reporte.filas.length, 1).value =
-    `Cumplimiento final = Venta 80% + UPT 10% + Ticket promedio (ACC/DPT) 10%. Promedios de ACC/DPT en la fila TOTAL.${reporte.ivaVentas > 0 ? ` Valores en pesos SIN IVA (registros con IVA ÷ ${(1 + reporte.ivaVentas / 100).toLocaleString('es-CO')}).` : ''}`;
+    `Cumplimiento final = Venta 80% + UPT 10% + Ticket promedio (ACC/DPT) 10%. Promedios de ACC/DPT en la fila TOTAL.${reporte.ivaVentas > 0 ? ` Valores en pesos SIN IVA (registros con IVA ÷ ${(1 + reporte.ivaVentas / 100).toLocaleString('es-CO')}).` : reporte.sinIvaAlRegistrar ? ' Valores en pesos SIN IVA (descontado al registrar cada venta).' : ''}`;
   ws.getCell(5 + reporte.filas.length, 1).font = { italic: true, size: 8, color: { argb: 'FF666666' } };
 
   const buffer = await wb.xlsx.writeBuffer();
@@ -206,7 +206,7 @@ export async function exportarPDF(reporte: Reporte) {
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8);
   pdf.setTextColor(102, 102, 102);
-  pdf.text(`Generado el ${new Date().toLocaleString('es-CO')} · Cumplimiento final = Venta 80% + UPT 10% + Ticket promedio (ACC/DPT) 10%${reporte.ivaVentas > 0 ? ' · Valores en pesos SIN IVA' : ''}`, 24, 44);
+  pdf.text(`Generado el ${new Date().toLocaleString('es-CO')} · Cumplimiento final = Venta 80% + UPT 10% + Ticket promedio (ACC/DPT) 10%${reporte.ivaVentas > 0 || reporte.sinIvaAlRegistrar ? ' · Valores en pesos SIN IVA' : ''}`, 24, 44);
 
   const tot = reporte.totales;
   const pie: Partial<Record<keyof FilaReporte, string>> = {
