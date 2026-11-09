@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   calcularScoreRanking, compararRanking, calcularComisionPorPuntaje, calcularComision,
-  normalizarConfigRanking, metasUptAvt, CONFIG_RANKING_DEFAULT, type DatosScore, type ConfigRanking,
+  normalizarConfigRanking, metasUptAvt, sinIva, CONFIG_RANKING_DEFAULT, type DatosScore, type ConfigRanking,
 } from '../src/lib/reglas.ts';
 
 const cerca = (a: number | null, b: number, eps = 0.01) => {
@@ -183,4 +183,39 @@ test('normalizarConfigRanking: defaults, tope 0 o 100–1000, umbral 0–100', (
 test('metasUptAvt: manual tiene prioridad sobre la derivada', () => {
   assert.deepEqual(metasUptAvt({ montoTotal: 100, metaTransacciones: 10, metaUnidades: 30 }), { upt: 3, avt: 10 });
   assert.deepEqual(metasUptAvt({ montoTotal: 100, metaTransacciones: 10, metaUnidades: 30, metaUPT: 2.5, metaAVT: 12 }), { upt: 2.5, avt: 12 });
+});
+
+// ── IVA: la tienda registra CON IVA, la empresa paga SIN IVA ──────────────────
+test('sinIva: 154.343.050 con IVA 19% = 129.700.042 (la venta de Tamayo en la hoja)', () => {
+  cerca(sinIva(154_343_050, 19), 129_700_042, 0.5);
+  assert.equal(sinIva(100, 0), 100);
+});
+
+test('captura del gerente: venta con IVA $154.343.050, meta con IVA $161.840.000 → Verde y $1.426.700,46 como la hoja', () => {
+  const IVA = 1.19;
+  const venta = 154_343_050, meta = META_V * IVA, avtMeta = META_AVT * IVA;
+  const txn = 262;
+  const d: DatosScore = { ventaReal: venta, metaVenta: meta, transacciones: txn, unidades: META_UPT * 1.29 * txn, metaUPT: META_UPT, metaAVT: avtMeta };
+  const s = calcularScoreRanking(d);
+  cerca(s.pctVenta, 95.37, 0.01);
+  assert.ok((s.score ?? 0) >= 100);
+  const c = calcularComisionPorPuntaje(meta, venta, s.score, s.venta.peso, 19);
+  assert.equal(c.talento, 'verde');
+  cerca(c.baseSinIva, 129_700_042, 0.5);
+  cerca(c.pago, 1_426_700.46, 0.01);
+});
+
+test('el IVA no cambia los porcentajes ni el cumplimiento (se cancela)', () => {
+  const sinI = calcularScoreRanking(filaHoja(118_542_912, 116, 448_177));
+  const d = filaHoja(118_542_912 * 1.19, 116, 448_177 * 1.19);
+  const conI = calcularScoreRanking({ ...d, metaVenta: META_V * 1.19, metaAVT: META_AVT * 1.19 });
+  cerca(conI.score, sinI.score ?? 0, 0.0001);
+  const c = calcularComisionPorPuntaje(META_V * 1.19, 118_542_912 * 1.19, conI.score, conI.venta.peso, 19);
+  cerca(c.pago, 770_528.93, 0.01);
+});
+
+test('normalizarConfigRanking: IVA por defecto 19 y validado 0–50', () => {
+  assert.equal(normalizarConfigRanking(undefined).ivaVentas, 19);
+  assert.equal(normalizarConfigRanking({ ivaVentas: 0 }).ivaVentas, 0);
+  assert.equal(normalizarConfigRanking({ ivaVentas: 80 }).ivaVentas, 19);
 });

@@ -16,7 +16,7 @@ import HistorialAcumuladoModal from '@/components/HistorialAcumuladoModal';
 import TutorialModal from '@/components/TutorialModal';
 import DinamicaProgressModal from '@/components/DinamicaProgressModal';
 import CelebracionVenta from '@/components/CelebracionVenta';
-import { totalReal, barColor, calcularComisionPorPuntaje, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
+import { totalReal, barColor, calcularComisionPorPuntaje, sinIva, SIGUIENTE_NIVEL, type ComisionResult, type ConfigRanking } from '@/lib/reglas';
 import { calcularScores, ordenarPorScore, posicionesPorScore, useConfigRanking } from '@/lib/ranking';
 import PuntajeRanking from '@/components/PuntajeRanking';
 import ChipsMotivacion from '@/components/ChipsMotivacion';
@@ -182,13 +182,14 @@ function ordinal(n: number) {
 
 // Un solo mensaje por tarjeta: del 2º al 4º persiguen al de arriba en PUNTOS del ranking (con su
 // equivalente aproximado en dinero); del 5º en adelante, lo que ganan subiendo de comisión.
-function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, arriba }: {
+function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, iva, arriba }: {
   index: number;
   vendido: number;
   avt: number | null;
   metaMensual: number;
   score: number | null;
   pesoVenta: number;
+  iva: number;
   arriba: { nombre: string; total: number; score: number | null } | null;
 }) {
   if (index === 0) return null;
@@ -208,7 +209,7 @@ function AvisoMotivador({ index, vendido, avt, metaMensual, score, pesoVenta, ar
   const nivel = metaMensual > 0 && pesoVenta > 0 ? SIGUIENTE_NIVEL.find((n) => cumpl < n.pct) : undefined;
   const comision = nivel ? (() => {
     const falta = ((nivel.pct - cumpl) * metaMensual) / (100 * pesoVenta);
-    return { falta, label: nivel.label, tasa: nivel.tasa, gana: (vendido + falta) * (nivel.tasa / 100) };
+    return { falta, label: nivel.label, tasa: nivel.tasa, gana: sinIva(vendido + falta, iva) * (nivel.tasa / 100) };
   })() : null;
 
   let contenido: React.ReactNode = null;
@@ -244,9 +245,9 @@ const COMISION_ROWS: { talento: ComisionResult['talento']; label: string; rango:
 ];
 
 // Tramo por cumplimiento total (puntaje) y pago sobre la venta real completa, como la hoja de la empresa.
-function TablaComisionesAsesor({ meta, vendido, score, pesoVenta }: { meta: number; vendido: number; score: number | null; pesoVenta: number }) {
+function TablaComisionesAsesor({ meta, vendido, score, pesoVenta, iva }: { meta: number; vendido: number; score: number | null; pesoVenta: number; iva: number }) {
   if (meta <= 0) return null;
-  const { talento, comision, falta90, falta100, falta110, falta120, pago } = calcularComisionPorPuntaje(meta, vendido, score, pesoVenta);
+  const { talento, comision, falta90, falta100, falta110, falta120, pago, baseSinIva } = calcularComisionPorPuntaje(meta, vendido, score, pesoVenta, iva);
   return (
     <div className="mt-3 rounded-md border border-gray-200 overflow-hidden">
       <div className="px-3 pt-2.5 pb-1.5 border-b border-gray-200 bg-gray-50">
@@ -283,7 +284,7 @@ function TablaComisionesAsesor({ meta, vendido, score, pesoVenta }: { meta: numb
           <p className="text-[12px] text-gray-400">
             Comisión estimada:{' '}
             <span className="font-semibold text-gray-800">{formatCurrency(pago)}</span>
-            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(vendido)})</span>
+            <span className="text-gray-400"> ({comision}% sobre {formatCurrency(baseSinIva)}{iva > 0 ? ' sin IVA' : ''})</span>
           </p>
         </div>
       )}
@@ -614,7 +615,7 @@ export default function Home() {
   const resumenMes = asesorIds.reduce((acc, id) => {
     const sc = scores[id];
     if (!sc) return acc;
-    const c = calcularComisionPorPuntaje(sc.metaVenta, sc.ventaReal, sc.score, sc.venta.peso);
+    const c = calcularComisionPorPuntaje(sc.metaVenta, sc.ventaReal, sc.score, sc.venta.peso, cfgRanking.ivaVentas);
     return {
       meta: acc.meta + sc.metaVenta,
       venta: acc.venta + sc.ventaReal,
@@ -1173,6 +1174,7 @@ export default function Home() {
                         metaMensual={metaMensual}
                         score={sc?.score ?? null}
                         pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta}
+                        iva={cfgRanking.ivaVentas}
                         arriba={index > 0 ? (() => {
                           const a = ranking[index - 1];
                           return { nombre: a.nombre, total: totalReal(ventasMap[a.id]), score: scores[a.id]?.score ?? null };
@@ -1368,7 +1370,7 @@ export default function Home() {
                         </div>
                       )}
 
-                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} />
+                      <TablaComisionesAsesor meta={metaMensual} vendido={totalVentas} score={sc?.score ?? null} pesoVenta={sc?.venta.peso ?? cfgRanking.pesoVenta} iva={cfgRanking.ivaVentas} />
 
                       {/* Sección Hoy: solo cuando no hay ranking de hoy separado */}
                       {!showDailySection && hasHoyData && (

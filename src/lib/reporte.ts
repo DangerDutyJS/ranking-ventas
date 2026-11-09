@@ -2,7 +2,7 @@
 // Solo lee datos y reutiliza las reglas de reglas.ts: los números son los mismos que muestra el dashboard.
 import { calcularMetas } from '@/lib/calcularMetas';
 import {
-  calcularScoreRanking, calcularComisionPorPuntaje, compararRanking, metasUptAvt, totalReal,
+  calcularScoreRanking, calcularComisionPorPuntaje, compararRanking, metasUptAvt, totalReal, sinIva,
   type ConfigRanking, type MetaIndicadores,
 } from '@/lib/reglas';
 
@@ -53,6 +53,7 @@ export interface FilaReporte {
 export interface Reporte {
   mes: string;
   titulo: string;
+  ivaVentas: number;
   filas: FilaReporte[];
   totales: {
     horas: number;
@@ -88,7 +89,9 @@ export function construirReporte(
     const transacciones = (v?.totalTransacciones ?? 0) + (v?.acumuladoMes?.transacciones ?? 0);
     const metaVenta = metasMap[a.id]?.metaMensual ?? 0;
     const s = calcularScoreRanking({ ventaReal: realVenta, metaVenta, unidades, transacciones, metaUPT, metaAVT }, cfg);
-    const c = calcularComisionPorPuntaje(metaVenta, realVenta, s.score, s.venta.peso);
+    const c = calcularComisionPorPuntaje(metaVenta, realVenta, s.score, s.venta.peso, cfg.ivaVentas);
+    // La empresa reporta en pesos SIN IVA; la tienda registra con IVA. Los % y puntos no cambian.
+    const neto = (v: number | null) => (v === null ? null : sinIva(v, cfg.ivaVentas));
     const fila: FilaReporte = {
       sap: a.codigoSap ?? '',
       colaborador: `${a.nombre} ${a.apellido}`.trim().toUpperCase(),
@@ -99,12 +102,12 @@ export function construirReporte(
       realUPT: s.upt.real,
       pctUPT: s.upt.pct,
       ptsUPT: s.upt.peso > 0 ? s.upt.puntos : null,
-      metaAVT,
-      realAVT: s.avt.real,
+      metaAVT: neto(metaAVT),
+      realAVT: neto(s.avt.real),
       pctAVT: s.avt.pct,
       ptsAVT: s.avt.peso > 0 ? s.avt.puntos : null,
-      metaVenta,
-      realVenta,
+      metaVenta: sinIva(metaVenta, cfg.ivaVentas),
+      realVenta: sinIva(realVenta, cfg.ivaVentas),
       pctVenta: s.pctVenta,
       ptsVenta: s.score !== null ? s.venta.puntos : null,
       cumplimiento: s.score,
@@ -124,6 +127,7 @@ export function construirReporte(
   return {
     mes,
     titulo: `Ranking de ventas · ${nombreMesLargo(mes)}`,
+    ivaVentas: cfg.ivaVentas,
     filas: lista,
     totales: {
       horas: lista.reduce((p, f) => p + (f.horas ?? 0), 0),

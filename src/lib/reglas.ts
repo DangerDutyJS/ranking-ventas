@@ -80,7 +80,8 @@ export const SIGUIENTE_NIVEL = [
 //   a quien ya trajo toda la plata).
 // - Si la tienda no tiene meta de UPT/AVT, su peso pasa a la venta.
 // - Comisión (como la hoja): el TRAMO sale del PUNTAJE total (90/100/110/120) y se paga sobre la VENTA
-//   REAL completa (sin ×0,81): calcularComisionPorPuntaje. Premios Pin/Bono corral/Día libre usan el mismo
+//   REAL SIN IVA (la tienda registra con IVA; la empresa paga sin IVA: venta ÷ (1 + iva)), calcularComisionPorPuntaje.
+//   Antes se multiplicaba por 0,81, que NO quita bien el IVA (lo correcto es ÷ 1,19). Premios Pin/Bono corral/Día libre usan el mismo
 //   cumplimiento total.
 
 export interface ConfigRanking {
@@ -91,6 +92,8 @@ export interface ConfigRanking {
   topeAVT: number;
   umbralRescate: number;
   minTxnIndicadores: number;
+  // % de IVA incluido en las ventas registradas (19 en Colombia). 0 = las ventas se registran sin IVA.
+  ivaVentas: number;
 }
 
 export const CONFIG_RANKING_DEFAULT: ConfigRanking = {
@@ -101,6 +104,7 @@ export const CONFIG_RANKING_DEFAULT: ConfigRanking = {
   topeAVT: 0,
   umbralRescate: 0,
   minTxnIndicadores: 10,
+  ivaVentas: 19,
 };
 
 function numeroValido(v: unknown, min: number, max: number): number | null {
@@ -124,6 +128,7 @@ export function normalizarConfigRanking(raw: Partial<Record<keyof ConfigRanking,
     topeAVT: topeValido(r.topeAVT) ?? d.topeAVT,
     umbralRescate: numeroValido(r.umbralRescate, 0, 100) ?? d.umbralRescate,
     minTxnIndicadores: numeroValido(r.minTxnIndicadores, 0, 500) ?? d.minTxnIndicadores,
+    ivaVentas: numeroValido(r.ivaVentas, 0, 50) ?? d.ivaVentas,
   };
   const suma = cfg.pesoVenta + cfg.pesoUPT + cfg.pesoAVT;
   if (Math.abs(suma - 1) > 0.001) {
@@ -266,9 +271,14 @@ export function compararRanking(
 // el PUNTAJE total y se paga sobre la VENTA REAL completa. Reutiliza los mismos umbrales y tasas de
 // calcularComision (que no se modifica) pasando el puntaje como % de cumplimiento. Los "falta" son el dinero
 // aproximado que falta vender para llegar a cada tramo (1 pt de venta = meta / (100 · pesoVenta)).
+// Quita el IVA a un valor registrado con IVA: valor ÷ (1 + iva). Ej.: 154.343.050 ÷ 1,19 = 129.700.042.
+export function sinIva(valor: number, ivaPct: number): number {
+  return ivaPct > 0 ? valor / (1 + ivaPct / 100) : valor;
+}
+
 export function calcularComisionPorPuntaje(
-  metaAsignada: number, montoVendido: number, score: number | null, pesoVenta: number,
-): ComisionResult & { pago: number } {
+  metaAsignada: number, montoVendido: number, score: number | null, pesoVenta: number, ivaPct = 0,
+): ComisionResult & { pago: number; baseSinIva: number } {
   const s = score ?? 0;
   const tramo = calcularComision(100, s);
   const aDinero = (nivel: number) =>
@@ -281,6 +291,7 @@ export function calcularComisionPorPuntaje(
     falta100: aDinero(100),
     falta110: aDinero(110),
     falta120: aDinero(120),
-    pago: tramo.comision !== null ? (montoVendido * tramo.comision) / 100 : 0,
+    baseSinIva: sinIva(montoVendido, ivaPct),
+    pago: tramo.comision !== null ? (sinIva(montoVendido, ivaPct) * tramo.comision) / 100 : 0,
   };
 }

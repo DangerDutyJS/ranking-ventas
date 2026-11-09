@@ -7,13 +7,14 @@ import { useStoreId } from '@/context/StoreContext';
 import { useConfigRanking } from '@/lib/ranking';
 import { CONFIG_RANKING_DEFAULT, normalizarConfigRanking, type ConfigRanking } from '@/lib/reglas';
 
-type Campo = 'topeUPT' | 'topeAVT' | 'umbralRescate' | 'minTxnIndicadores';
+type Campo = 'topeUPT' | 'topeAVT' | 'umbralRescate' | 'minTxnIndicadores' | 'ivaVentas';
 
 const CAMPOS: { k: Campo; label: string; ayuda: string; min: number; max: number; unidad: string }[] = [
   { k: 'topeUPT', label: 'Tope UPT', ayuda: '0 = sin tope (como la hoja). 130 = máximo 13 pts', min: 0, max: 1000, unidad: '%' },
   { k: 'topeAVT', label: 'Tope AVT', ayuda: '0 = sin tope (como la hoja). 130 = máximo 13 pts', min: 0, max: 1000, unidad: '%' },
   { k: 'umbralRescate', label: 'Umbral de rescate', ayuda: '0 = siempre suman (como la hoja). % de venta para que UPT/AVT pasen de 100%', min: 0, max: 100, unidad: '%' },
   { k: 'minTxnIndicadores', label: 'Mínimo de ventas', ayuda: 'Transacciones en el mes para que UPT/AVT empiecen a sumar', min: 0, max: 500, unidad: 'txn' },
+  { k: 'ivaVentas', label: 'IVA incluido en las ventas', ayuda: 'La comisión se paga sobre la venta sin IVA (venta ÷ 1,19). 0 = se registra sin IVA', min: 0, max: 50, unidad: '%' },
 ];
 
 export default function ConfigRankingPanel() {
